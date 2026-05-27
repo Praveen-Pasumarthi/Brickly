@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gridly - Block Puzzle Game</title>
+    <!-- Google Fonts for premium game UI styling -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- MAIN MENU SCREEN OVERLAY -->
+    <div id="main-menu-overlay" class="menu-overlay-screen">
+        <div class="menu-content">
+            <div class="medal-badge">
+                <span class="medal-star">🏆</span> Medal
+            </div>
+            
+            <div class="logo-container" style="margin-bottom: 5px;">
+                <img src="logo.png" alt="Gridly Logo" class="menu-logo-img">
+            </div>
+            
+            <h1 class="menu-logo">Gridly</h1>
+            <p class="menu-subtitle">THE ULTIMATE GRID PUZZLE</p>
+            
+            <!-- Consecutive Daily Victories Widget -->
+            <div class="menu-streak-card">
+                <p class="streak-title">Consecutive Daily Victories</p>
+                <div class="streak-body">
+                    <span class="streak-crown">👑</span>
+                    <span class="streak-mult">× <strong id="menu-streak-val">0</strong></span>
+                    <span class="streak-check">✓</span>
+                </div>
+            </div>
+
+            <!-- Launcher Mode Buttons -->
+            <div class="menu-buttons-list">
+                <button id="btn-play-adventure" class="menu-btn-raised orange-btn">
+                    <span class="btn-icon">📍</span> Adventure
+                </button>
+                <button id="btn-play-classic" class="menu-btn-raised green-btn">
+                    <span class="btn-icon">♾️</span> Classic (8x8)
+                </button>
+                <button id="btn-play-classic-10" class="menu-btn-raised cyan-btn">
+                    <span class="btn-icon">⏹️</span> Classic 10x10
+                </button>
+                <button id="btn-play-blast" class="menu-btn-raised blue-btn">
+                    <span class="btn-icon">💣</span> Blast Mode
+                </button>
+                <button id="btn-play-daily" class="menu-btn-raised purple-btn">
+                    <span class="btn-icon">📅</span> Daily Challenge
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GAME WRAPPER -->
+    <div id="app-container">
+        <!-- HEADER HUD -->
+        <header id="game-header">
+            <div class="header-top">
+                <!-- Crown High Score Display (Left) -->
+                <div class="hud-high-score">
+                    <span class="crown-icon">👑</span>
+                    <span id="best-score-top-val" class="high-score-num">0</span>
+                </div>
+                
+                <!-- Center Diamond Score Container -->
+                <div id="score-wrapper">
+                    <div id="diamond-score-badge">
+                        <span id="score-val">0</span>
+                    </div>
+                    <!-- Combo Countdown Ring Widget -->
+                    <div id="combo-widget" class="hidden">
+                        <div id="combo-ring-wrap">
+                            <svg id="combo-ring-svg" viewBox="0 0 44 44">
+                                <circle id="combo-ring-bg" cx="22" cy="22" r="18"/>
+                                <circle id="combo-ring-fill" cx="22" cy="22" r="18"/>
+                            </svg>
+                            <div id="combo-ring-inner">
+                                <span id="combo-timer-val">10</span>
+                                <span id="combo-count">x1</span>
+                            </div>
+                        </div>
+                        <span id="combo-label">COMBO</span>
+                    </div>
+                </div>
+
+                <!-- Controls Buttons (Right) -->
+                <div class="control-buttons">
+                    <button id="btn-home" class="icon-btn" aria-label="Return to Main Menu">
+                        <svg viewBox="0 0 24 24" width="22" height="22">
+                            <path fill="currentColor" d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/>
+                        </svg>
+                    </button>
+                    <button id="btn-settings" class="icon-btn" aria-label="Settings">
+                        <svg viewBox="0 0 24 24" width="22" height="22">
+                            <path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- STATS & GOALS HUD -->
+        <section id="stats-hud" class="glass-panel">
+            <div class="hud-item sub-score-item">
+                <span class="hud-label">MODE</span>
+                <span id="active-mode-label" class="hud-val-text">Classic</span>
+            </div>
+            <div class="hud-item sub-score-item">
+                <span class="hud-label">BEST SCORE</span>
+                <span id="best-score-val" class="hud-val-text">0</span>
+            </div>
+            
+            <!-- Dynamic Mode Info Wrapper -->
+            <div id="mode-specific-hud" class="hud-fullwidth hidden">
+                <div class="divider"></div>
+                <div class="mode-info-row">
+                    <div id="objective-container">
+                        <span class="hud-label">GOAL</span>
+                        <span id="objective-text" class="objective-desc">Clear Gold Blocks</span>
+                    </div>
+                    <div id="moves-container">
+                        <span class="hud-label">MOVES</span>
+                        <span id="moves-val" class="hud-val highlight">15</span>
+                    </div>
+                </div>
+                <!-- Adventure level progression bar -->
+                <div id="progress-bar-container" class="hidden">
+                    <div id="progress-bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- Daily Victory Streak Info -->
+            <div id="daily-streak-hud" class="hud-fullwidth hidden">
+                <div class="divider"></div>
+                <div class="daily-info-row">
+                    <div class="daily-streak-badge">
+                        <span>👑 Calendar Streak:</span>
+                        <strong id="daily-streak-val">0</strong> days
+                    </div>
+                    <div id="daily-completed-badge" class="hidden">
+                        <span>Challenge Cleared!</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- BOMB DANGER ALERT INDICATOR -->
+        <div id="danger-bar" class="hidden">
+            <span>⚠️ WARNING: BOMB DETONATING IN <strong id="danger-count">3</strong> MOVES!</span>
+        </div>
+
+        <!-- MAIN GAMEPLAY CANVAS -->
+        <main id="gameplay-area">
+            <div id="canvas-container">
+                <canvas id="game-canvas"></canvas>
+            </div>
+        </main>
+
+        <!-- SPAWNER TRAY -->
+        <footer id="tray-area">
+            <div class="tray-slot" data-slot="0">
+                <canvas id="tray-canvas-0" class="tray-canvas"></canvas>
+            </div>
+            <div class="tray-slot" data-slot="1">
+                <canvas id="tray-canvas-1" class="tray-canvas"></canvas>
+            </div>
+            <div class="tray-slot" data-slot="2">
+                <canvas id="tray-canvas-2" class="tray-canvas"></canvas>
+            </div>
+        </footer>
+    </div>
+
+
+    <!-- SETTINGS MODAL OVERLAY -->
+    <div id="settings-overlay" class="modal-overlay hidden">
+        <div class="settings-card">
+            <div class="settings-header">
+                <h2 class="settings-title">Settings</h2>
+                <button id="btn-settings-close" class="settings-close-btn" aria-label="Close Settings">✕</button>
+            </div>
+
+            <!-- Sound / BGM / Vibration Toggles -->
+            <div class="settings-toggles-row">
+                <div class="settings-toggle-item" id="toggle-sound">
+                    <div class="settings-toggle-icon" id="settings-sound-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M3,9V15H7L12,20V4L7,9H3M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12Z"/></svg>
+                    </div>
+                    <span class="settings-toggle-label">Sound</span>
+                </div>
+                <div class="settings-toggle-item" id="toggle-bgm">
+                    <div class="settings-toggle-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z"/></svg>
+                    </div>
+                    <span class="settings-toggle-label">BGM</span>
+                </div>
+                <div class="settings-toggle-item" id="toggle-vibration">
+                    <div class="settings-toggle-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M0,15H2V9H0V15M3,17H5V7H3V17M22,9V15H24V9H22M19,17H21V7H19V17M15,5H9A1,1 0 0,0 8,6V18A1,1 0 0,0 9,19H15A1,1 0 0,0 16,18V6A1,1 0 0,0 15,5Z"/></svg>
+                    </div>
+                    <span class="settings-toggle-label">Vibration</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="settings-actions">
+                <button id="btn-settings-home" class="settings-action-btn settings-btn-green">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg>
+                    Home
+                </button>
+                <button id="btn-settings-restart" class="settings-action-btn settings-btn-green">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
+                    Restart
+                </button>
+                <button id="btn-settings-theme" class="settings-action-btn settings-btn-cyan">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M14.5,8A1.5,1.5 0 0,1 13,6.5A1.5,1.5 0 0,1 14.5,5A1.5,1.5 0 0,1 16,6.5A1.5,1.5 0 0,1 14.5,8M9.5,8A1.5,1.5 0 0,1 8,6.5A1.5,1.5 0 0,1 9.5,5A1.5,1.5 0 0,1 11,6.5A1.5,1.5 0 0,1 9.5,8M6.5,12A1.5,1.5 0 0,1 5,10.5A1.5,1.5 0 0,1 6.5,9A1.5,1.5 0 0,1 8,10.5A1.5,1.5 0 0,1 6.5,12M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A1.5,1.5 0 0,0 13.5,19.5C13.5,19.11 13.35,18.76 13.11,18.5C12.88,18.23 12.73,17.88 12.73,17.5A1.5,1.5 0 0,1 14.23,16H16A5,5 0 0,0 21,11C21,6.58 16.97,3 12,3Z"/></svg>
+                    Change Skin
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameover-overlay" class="modal-overlay hidden">
+        <div class="modal-card gameover-card glass-panel">
+            <h2 class="title-failed">GAME OVER</h2>
+            <p id="gameover-reason">No more moves left!</p>
+            <div class="modal-score-summary">
+                <div class="summary-item">
+                    <span class="label">FINAL SCORE</span>
+                    <span id="final-score-val" class="value">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">HIGH SCORE</span>
+                    <span id="high-score-val" class="value">0</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-restart" class="primary-btn pulse-glow">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEVEL SUCCESS / CAMPAIGN UNLOCK MODAL -->
+    <div id="success-overlay" class="modal-overlay hidden">
+        <div class="modal-card success-card glass-panel">
+            <h2 class="title-success">LEVEL COMPLETE!</h2>
+            <p id="success-message">Great job! Goal reached.</p>
+            
+            <div class="modal-score-summary">
+                <div class="summary-item">
+                    <span class="label">SCORE</span>
+                    <span id="success-score-val" class="value">0</span>
+                </div>
+                <div id="daily-completion-badge" class="summary-item hidden">
+                    <span class="label">DAILY STREAK</span>
+                    <span id="success-streak-val" class="value">1</span>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-next-level" class="primary-btn pulse-glow">Next Level</button>
+                <button id="btn-success-close" class="secondary-btn">Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main entry JS module script -->
+    <script type="module" src="js/game.js?v=3"></script>
+</body>
+</html>

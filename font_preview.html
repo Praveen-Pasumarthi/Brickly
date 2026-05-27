@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gridly – Font Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Lobster&family=Oleo+Script:wght@700&family=Righteous&family=Leckerli+One&family=Dancing+Script:wght@700&family=Boogaloo&family=Fredoka:wght@600&family=Permanent+Marker&family=Caveat:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a16;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            padding: 40px 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #ffffff;
+            font-size: 18px;
+            font-family: sans-serif;
+            margin-bottom: 8px;
+            opacity: 0.7;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            font-family: sans-serif;
+            margin-bottom: 40px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .card {
+            position: relative;
+            border-radius: 20px;
+            padding: 32px 24px 24px;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            border: 2px solid transparent;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            background: var(--card-bg);
+            z-index: 0;
+        }
+        .card:hover {
+            transform: translateY(-6px) scale(1.02);
+            border-color: var(--accent);
+            box-shadow: 0 20px 60px var(--glow);
+        }
+        .card.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent), 0 20px 60px var(--glow);
+        }
+        .card.selected .pick-badge {
+            display: flex;
+        }
+        .card-label {
+            position: relative;
+            z-index: 1;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            margin-bottom: 14px;
+            font-family: sans-serif;
+        }
+        .card-text {
+            position: relative;
+            z-index: 1;
+            font-size: 72px;
+            line-height: 1.1;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 2px 12px var(--glow));
+            display: block;
+        }
+        .crown {
+            -webkit-text-fill-color: initial;
+            color: #f5c842;
+            font-size: 32px;
+            vertical-align: top;
+            position: relative;
+            top: -4px;
+        }
+        .card-desc {
+            position: relative;
+            z-index: 1;
+            font-size: 12px;
+            color: rgba(255,255,255,0.35);
+            margin-top: 12px;
+            font-family: sans-serif;
+            font-style: italic;
+        }
+        .pick-badge {
+            display: none;
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            z-index: 2;
+            background: var(--accent);
+            color: #fff;
+            font-size: 11px;
+            font-family: sans-serif;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Font-specific themes */
+        .card-1 { --card-bg: linear-gradient(135deg, #1a0e08 0%, #120a04 100%); --gradient: linear-gradient(90deg, #ff7e3d, #ffba6b); --accent: #ff7e3d; --glow: rgba(255,126,61,0.3); }
+        .card-2 { --card-bg: linear-gradient(135deg, #1a0808 0%, #120404 100%); --gradient: linear-gradient(90deg, #ff3d3d, #ff8c42); --accent: #ff3d3d; --glow: rgba(255,61,61,0.3); }
+        .card-3 { --card-bg: linear-gradient(135deg, #001a18 0%, #000e0c 100%); --gradient: linear-gradient(90deg, #00e5b8, #00c4ff); --accent: #00e5b8; --glow: rgba(0,229,184,0.3); }
+        .card-4 { --card-bg: linear-gradient(135deg, #08091a 0%, #040512 100%); --gradient: linear-gradient(90deg, #4f8aff, #a56bff); --accent: #4f8aff; --glow: rgba(79,138,255,0.3); }
+        .card-5 { --card-bg: linear-gradient(135deg, #150a1a 0%, #0d0412 100%); --gradient: linear-gradient(90deg, #e03dff, #ff6bb5); --accent: #e03dff; --glow: rgba(224,61,255,0.3); }
+        .card-6 { --card-bg: linear-gradient(135deg, #1a1600 0%, #120f00 100%); --gradient: linear-gradient(90deg, #f5c842, #ffed8a); --accent: #f5c842; --glow: rgba(245,200,66,0.3); }
+        .card-7 { --card-bg: linear-gradient(135deg, #001a0a 0%, #000e05 100%); --gradient: linear-gradient(90deg, #33e06b, #a0ff72); --accent: #33e06b; --glow: rgba(51,224,107,0.3); }
+        .card-8 { --card-bg: linear-gradient(135deg, #1a0f00 0%, #120900 100%); --gradient: linear-gradient(90deg, #ff9900, #ffe066); --accent: #ff9900; --glow: rgba(255,153,0,0.3); }
+
+        .apply-btn {
+            display: block;
+            margin: 40px auto 0;
+            padding: 16px 48px;
+            background: linear-gradient(135deg, #4f8aff, #a56bff);
+            color: white;
+            font-size: 15px;
+            font-family: sans-serif;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 8px 32px rgba(79,138,255,0.4);
+        }
+        .apply-btn:hover { transform: scale(1.05); box-shadow: 0 12px 40px rgba(79,138,255,0.6); }
+        .apply-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        #selection-text {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 13px;
+            color: #666;
+            font-family: sans-serif;
+        }
+        #selection-text span { color: #4f8aff; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Choose Your Font</h1>
+    <p class="subtitle">Click a style to select it — then hit Apply to update the game title</p>
+
+    <div class="grid" id="font-grid">
+
+        <div class="card card-1" data-font="Pacifico" data-name="Pacifico" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">① Pacifico — Bubbly Retro Script</div>
+            <span class="card-text" style="font-family:'Pacifico',cursive;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Fun, round, casual — great retro-gaming vibe</div>
+        </div>
+
+        <div class="card card-2" data-font="Lobster" data-name="Lobster" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">② Lobster — Bold Vintage Script</div>
+            <span class="card-text" style="font-family:'Lobster',cursive;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Bold, vintage, high-energy — commands attention</div>
+        </div>
+
+        <div class="card card-3" data-font="'Oleo Script', cursive" data-name="Oleo Script" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">③ Oleo Script — Fat Bold Cursive</div>
+            <span class="card-text" style="font-family:'Oleo Script',cursive;font-weight:700;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Thick, chunky cursive — very readable and expressive</div>
+        </div>
+
+        <div class="card card-4" data-font="Righteous" data-name="Righteous" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">④ Righteous — Geometric Art-Deco</div>
+            <span class="card-text" style="font-family:'Righteous',sans-serif;">GRI<span class="crown">👑</span>DLY</span>
+            <div class="card-desc">Futuristic, geometric, clean — modern arcade feel</div>
+        </div>
+
+        <div class="card card-5" data-font="'Leckerli One', cursive" data-name="Leckerli One" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">⑤ Leckerli One — Chunky Playful Cursive</div>
+            <span class="card-text" style="font-family:'Leckerli One',cursive;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Energetic, friendly handwritten — cheerful and bold</div>
+        </div>
+
+        <div class="card card-6" data-font="'Dancing Script', cursive" data-name="Dancing Script" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">⑥ Dancing Script — Elegant Calligraphy</div>
+            <span class="card-text" style="font-family:'Dancing Script',cursive;font-weight:700;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Flowing, elegant, sophisticated — premium feel</div>
+        </div>
+
+        <div class="card card-7" data-font="'Permanent Marker', cursive" data-name="Permanent Marker" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">⑦ Permanent Marker — Street / Graffiti</div>
+            <span class="card-text" style="font-family:'Permanent Marker',cursive;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Raw, bold marker feel — street art edge</div>
+        </div>
+
+        <div class="card card-8" data-font="'Caveat', cursive" data-name="Caveat" onclick="selectFont(this)">
+            <div class="pick-badge">✓ SELECTED</div>
+            <div class="card-label">⑧ Caveat — Handwritten Casual</div>
+            <span class="card-text" style="font-family:'Caveat',cursive;font-weight:700;">Gr<span class="crown">👑</span>idly</span>
+            <div class="card-desc">Natural, handwritten, casual — approachable and warm</div>
+        </div>
+
+    </div>
+
+    <button class="apply-btn" id="apply-btn" onclick="applyFont()" disabled>Apply Selected Font →</button>
+    <p id="selection-text">No font selected yet</p>
+
+    <script>
+        let selectedCard = null;
+        let selectedFontName = null;
+        let selectedFontFamily = null;
+
+        function selectFont(card) {
+            if (selectedCard) selectedCard.classList.remove('selected');
+            selectedCard = card;
+            card.classList.add('selected');
+            selectedFontName = card.dataset.name;
+            selectedFontFamily = card.dataset.font;
+            document.getElementById('apply-btn').disabled = false;
+            document.getElementById('selection-text').innerHTML = 
+                `Selected: <span>${selectedFontName}</span> — click Apply to update the game`;
+        }
+
+        function applyFont() {
+            if (!selectedFontFamily) return;
+            const btn = document.getElementById('apply-btn');
+            btn.textContent = '✓ Done! Close this tab and refresh the game.';
+            btn.disabled = true;
+            btn.style.background = 'linear-gradient(135deg, #33e06b, #00c4ff)';
+            
+            // Write the selected font to localStorage so we can read it if needed
+            localStorage.setItem('gridly_chosen_font', selectedFontFamily);
+            localStorage.setItem('gridly_chosen_font_name', selectedFontName);
+            
+            document.getElementById('selection-text').innerHTML = 
+                `✅ Font <span>${selectedFontName}</span> selected! Let me know the choice and I'll apply it to the game code.`;
+        }
+    </script>
+</body>
+</html>

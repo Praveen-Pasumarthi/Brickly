@@ -1,0 +1,1425 @@
+/**
+ * Gridly - Main Game Orchestrator & Loop
+ * Integrates the core engine, spawner, audio, themes, particles, and storage,
+ * managing mobile touch dragging, state validations, and HUD bindings.
+ */
+
+import { Board } from './engine.js';
+import { Spawner } from './spawner.js';
+import { StorageManager } from './storage.js';
+import { ModeManager, AdventureLevels } from './modes.js';
+import { THEMES, drawThemeBlock } from './themes.js';
+import { AudioManager } from './audio.js';
+import { ParticleSystem } from './particles.js';
+
+// --- Game State Variables ---
+let board;
+let spawner;
+let audio;
+let particles;
+
+let score = 0;
+let highScore = 0;
+let comboStreak = 0;       // Sequential line-clear combo counter
+let comboTimerMs = 0;      // Milliseconds remaining in the 10-second combo window
+let comboTimerActive = false;
+const COMBO_WINDOW_MS = 10000;
+let lastFrameTime = 0;     // For deltaTime computation in renderLoop
+let placementCount = 0;    // Number of blocks placed in Blast mode
+
+let activeMode = 'classic'; // 'classic', 'adventure', 'blast', 'daily'
+let activeTheme = 'indigo'; // default skin: dark blue with gold+purple blocks
+let prevTheme = 'indigo';
+let transitionProgress = 1.0;
+const transitionDuration = 30; // 30 frames = 0.5s
+let vibrationEnabled = true;
+
+// Mode Specific States
+let currentLevelConfig = null;
+let adventureLevel = 1;
+let movesLimit = 0;
+let linesClearedCount = 0;
+let targetGoldBlocksCount = 0;
+let activeBombs = []; // [{ r, c, timer }]
+
+// Seed state for Daily Challenge
+let dailyDateStr = '';
+let dailyChallengeConfig = null;
+
+// Canvas Scaling & Layout
+let gameCanvas;
+let ctx;
+let cellSize = 0;
+let boardOffsetX = 0;
+let boardOffsetY = 0;
+const boardLayout = { x: 0, y: 0, width: 0, height: 0, cellSize: 0 };
+
+// Touch Dragging State
+let isDragging = false;
+let draggedSlot = -1; // 0, 1, 2
+let draggedShape = null;
+let pointerX = 0;
+let pointerY = 0;
+
+// Grid Snapping / Preview Projector State
+let hoverRow = -1;
+let hoverCol = -1;
+let previewClearedLines = { rows: [], cols: [] };
+
+// --- DOM Bindings ---
+// (sound icons now live inside the settings modal)
+
+// --- Initialization ---
+window.addEventListener('DOMContentLoaded', () => {
+    initGame();
+});
+
+function initGame() {
+    document.body.classList.add('menu-active');
+
+    // 1. Instantiate Core Classes
+    board = new Board();
+    spawner = new Spawner();
+    audio = new AudioManager();
+    particles = new ParticleSystem();
+
+    // 2. Setup Canvas
+    gameCanvas = document.getElementById('game-canvas');
+    ctx = gameCanvas.getContext('2d');
+
+    // 3. Load Saved Settings and High Scores
+    const settings = StorageManager.getSettings();
+    activeTheme = settings.theme || 'classic';
+    prevTheme = activeTheme;
+    transitionProgress = 1.0;
+    audio.setSfxEnabled(settings.sfx !== false);
+    audio.setBgmEnabled(settings.bgm !== false);
+    vibrationEnabled = settings.vibration !== false;
+    highScore = StorageManager.getHighScore(activeMode);
+
+    applyTheme(activeTheme);
+    updateSoundIcons();
+
+    // 4. Initialize layout
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    // 5. Setup Input Event Listeners
+    setupDragEvents();
+    setupUIBindings();
+
+    // 6. Sync Main Menu daily victories widget
+    document.getElementById('menu-streak-val').innerText = StorageManager.getDailyStreak();
+    
+    // Write high score to header crown
+    document.getElementById('best-score-top-val').innerText = highScore;
+
+    // 7. Start Render Animation Loop
+    requestAnimationFrame(renderLoop);
+}
+
+// --- Layout Handling ---
+function handleResize() {
+    const container = document.getElementById('canvas-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const dpr = window.devicePixelRatio || 1;
+    gameCanvas.width = width * dpr;
+    gameCanvas.height = height * dpr;
+    
+    // Scale canvas context for Retina/High-DPI sharp rendering
+    ctx.resetTransform();
+    ctx.scale(dpr, dpr);
+
+    // Keep grid perfectly square and centered in canvas
+    const padding = 10;
+    const boardSize = Math.min(width, height) - padding * 2;
+    const cols = board ? board.cols : 8;
+    const rows = board ? board.rows : 8;
+    cellSize = boardSize / cols;
+    boardOffsetX = (width - boardSize) / 2;
+    boardOffsetY = (height - boardSize) / 2;
+
+    // Cache layout bounds for particle explosions projection
+    boardLayout.x = boardOffsetX;
+    boardLayout.y = boardOffsetY;
+    boardLayout.width = boardSize;
+    boardLayout.height = boardSize;
+    boardLayout.cellSize = cellSize;
+    boardLayout.cols = cols;
+    boardLayout.rows = rows;
+
+    // Redraw slots canvases
+    for (let i = 0; i < 3; i++) {
+        resizeTraySlot(i);
+    }
+}
+
+function resizeTraySlot(slotIndex) {
+    const canvas = document.getElementById(`tray-canvas-${slotIndex}`);
+    if (!canvas) return;
+
+    const slotDiv = canvas.parentElement;
+    const width = slotDiv.clientWidth;
+    const height = slotDiv.clientHeight;
+    
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    
+    const slotCtx = canvas.getContext('2d');
+    slotCtx.resetTransform();
+    slotCtx.scale(dpr, dpr);
+}
+
+// --- Drag & Drop Core Pointer Event Handlers ---
+function setupDragEvents() {
+    // We bind touch listeners on each slot container
+    const slots = document.querySelectorAll('.tray-slot');
+    
+    slots.forEach(slot => {
+        slot.addEventListener('pointerdown', (e) => {
+            if (isDragging) return;
+            const slotIndex = parseInt(slot.dataset.slot, 10);
+            
+            // Check if slot has active shape
+            const shape = spawner.slots[slotIndex];
+            if (!shape) return;
+
+            // Unlock audio on first gesture if suspended
+            audio.unlock();
+
+            // Set dragging states
+            isDragging = true;
+            draggedSlot = slotIndex;
+            draggedShape = shape;
+
+            // Get pointer relative positions
+            pointerX = e.clientX;
+            pointerY = e.clientY;
+
+            // Add dragging visual class
+            slot.classList.add('dragging');
+            audio.playDragStart();
+            triggerHaptic('light'); // light tick on pickup
+        });
+    });
+
+    // Move and release event bindings are bound globally to window
+    // to handle pointer exits from the container borders
+    window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        pointerX = e.clientX;
+        pointerY = e.clientY;
+
+        // Calculate projections
+        projectDraggedShapePreview();
+    });
+
+    window.addEventListener('pointerup', (e) => {
+        if (!isDragging) return;
+        
+        // Remove dragging class from all slots
+        document.querySelectorAll('.tray-slot').forEach(s => s.classList.remove('dragging'));
+
+        attemptBlockPlacement();
+    });
+}
+
+/**
+ * Calculates board snap projections and highlights Prospective lines clearing.
+ */
+function projectDraggedShapePreview() {
+    if (!draggedShape) return;
+
+    const rect = gameCanvas.getBoundingClientRect();
+    
+    // Vertical Offset: -60px ensures shape floats above user's thumb
+    const offsetPointerY = pointerY - 65; 
+    
+    // Map screen coordinate center relative to canvas top-left
+    const localX = pointerX - rect.left;
+    const localY = offsetPointerY - rect.top;
+
+    const shapeRows = draggedShape.matrix.length;
+    const shapeCols = draggedShape.matrix[0].length;
+
+    // Centering the shape projection under the pointer
+    const col = Math.round((localX - boardOffsetX - (shapeCols * cellSize) / 2) / cellSize);
+    const row = Math.round((localY - boardOffsetY - (shapeRows * cellSize) / 2) / cellSize);
+
+    // Validate placement at computed coords
+    if (board.validatePlacement(draggedShape.matrix, row, col)) {
+        if (hoverRow !== row || hoverCol !== col) {
+            triggerHaptic('light'); // snap tick on position shift
+        }
+        hoverRow = row;
+        hoverCol = col;
+
+        // Calculate line clearances on prospective placement
+        calculateGlowPreviews(row, col);
+    } else {
+        hoverRow = -1;
+        hoverCol = -1;
+        previewClearedLines = { rows: [], cols: [] };
+    }
+}
+
+/**
+ * Predicts rows and columns that will clear if placed at current coords.
+ */
+function calculateGlowPreviews(row, col) {
+    // Temporarily apply shape blocks
+    const tempGrid = board.grid.map(r => [...r]);
+    const shapeMatrix = draggedShape.matrix;
+
+    for (let r = 0; r < shapeMatrix.length; r++) {
+        for (let c = 0; c < shapeMatrix[r].length; c++) {
+            if (shapeMatrix[r][c] > 0) {
+                tempGrid[row + r][col + c] = draggedShape.colorId;
+            }
+        }
+    }
+
+    // Run clearance check on temp grid
+    const fullRows = [];
+    const fullCols = [];
+
+    // Check rows
+    for (let r = 0; r < board.rows; r++) {
+        if (tempGrid[r].every(val => val > 0)) fullRows.push(r);
+    }
+    // Check columns
+    for (let c = 0; c < board.cols; c++) {
+        let colFull = true;
+        for (let r = 0; r < board.rows; r++) {
+            if (tempGrid[r][c] === 0) {
+                colFull = false;
+                break;
+            }
+        }
+        if (colFull) fullCols.push(c);
+    }
+
+    previewClearedLines.rows = fullRows;
+    previewClearedLines.cols = fullCols;
+}
+
+/**
+ * Places the shape if snapped, triggers scoring, decrements moves, refills slots,
+ * and checks for victory or game over conditions.
+ */
+function attemptBlockPlacement() {
+    if (hoverRow >= 0 && hoverCol >= 0 && draggedShape) {
+        const matrix = draggedShape.matrix;
+        const colorId = draggedShape.colorId;
+        
+        let hasClearedLines = false;
+        let hasPerfectSpot = false;
+
+        // 1. Commit placement
+        board.placeShape(matrix, hoverRow, hoverCol, colorId);
+        audio.playPlace();
+        particles.spawnPlacementParticles(hoverRow, hoverCol, matrix, boardLayout, getActiveThemeConfig());
+
+        // Calculate score points for placed blocks count (+1 pt per block)
+        let blocksCount = 0;
+        for (let r = 0; r < matrix.length; r++) {
+            for (let c = 0; c < matrix[r].length; c++) {
+                if (matrix[r][c] > 0) blocksCount++;
+            }
+        }
+        score += blocksCount;
+
+        // Check if placed in the target spot in the background (perfect spot)
+        let targetSpotBonus = 0;
+        if (draggedShape.targetSpot && hoverRow === draggedShape.targetSpot.r && hoverCol === draggedShape.targetSpot.c) {
+            targetSpotBonus = 30; // Small score boost
+            score += targetSpotBonus;
+            hasPerfectSpot = true;
+            
+            // Floating bonus score text near the placement
+            const textX = boardOffsetX + (hoverCol + matrix[0].length / 2) * cellSize;
+            const textY = boardOffsetY + (hoverRow) * cellSize - 10;
+            particles.addFloatingText(`+${targetSpotBonus} Perfect Spot!`, textX, textY - 20, '#ffd700', 1.15);
+        }
+
+        // 2. Consume slot
+        spawner.useShape(draggedSlot);
+
+        // Increment placement counters
+        placementCount++;
+
+        // Timely theme change: cycle theme every 15 placements
+        if (placementCount > 0 && placementCount % 15 === 0) {
+            triggerThemeChange();
+            const centerX = boardOffsetX + (cellSize * board.cols) / 2;
+            const centerY = boardOffsetY + (cellSize * board.rows) / 2;
+            particles.addFloatingText('Theme Shift!', centerX, centerY, getActiveThemeConfig().colors.textPrimary, 1.15);
+        }
+
+        // 3. Scan & Clear filled lines
+        const { rows, cols } = board.checkFullLines();
+        const clearedLinesCount = rows.length + cols.length;
+
+        if (clearedLinesCount > 0) {
+            comboStreak += 1;
+            comboTimerMs = COMBO_WINDOW_MS;   // reset/extend combo window
+            comboTimerActive = true;
+            hasClearedLines = true;
+            
+            // Score Math: Cleared count * 100 * comboStreak + streak bonus
+            const streakBonus = comboStreak > 1 ? (comboStreak - 1) * 200 : 0;
+            const pointsGained = clearedLinesCount * 100 * comboStreak + streakBonus;
+            score += pointsGained;
+
+            // Spawn floating reward text
+            const rect = gameCanvas.getBoundingClientRect();
+            const textX = boardOffsetX + (hoverCol + matrix[0].length / 2) * cellSize;
+            const textY = boardOffsetY + (hoverRow) * cellSize - 10;
+            
+            let floatMsg = `+${pointsGained}`;
+            if (comboStreak > 1) {
+                floatMsg += ` (Combo x${comboStreak}! +${streakBonus} Bonus)`;
+            } else if (clearedLinesCount > 1) {
+                floatMsg += ` (Multi x${clearedLinesCount}!)`;
+            }
+            particles.addFloatingText(floatMsg, textX, textY, getActiveThemeConfig().colors.textPrimary, 1.0 + (comboStreak * 0.12));
+
+            // Trigger "Perfect!" text sunburst in the center of the grid on combos or multi-clears
+            if (comboStreak > 1 || clearedLinesCount >= 2) {
+                const centerX = boardOffsetX + (cellSize * board.cols) / 2;
+                const centerY = boardOffsetY + (cellSize * board.rows) / 2;
+                particles.addFloatingText('Perfect!', centerX, centerY, '#ffd32a', 1.25);
+            }
+
+            // Trigger sparkles and explosions
+            particles.spawnLineClearParticles(rows, cols, boardLayout, getActiveThemeConfig());
+            audio.playClear(comboStreak);
+
+            // Voice announcement for combo/clears
+            let vocalMsg = "";
+            if (comboStreak > 1) {
+                if (comboStreak === 2) vocalMsg = "Great";
+                else if (comboStreak === 3) vocalMsg = "Excellent";
+                else if (comboStreak === 4) vocalMsg = "Amazing";
+                else vocalMsg = "Unbelievable";
+            } else if (clearedLinesCount >= 2) {
+                if (clearedLinesCount === 2) vocalMsg = "Good";
+                else if (clearedLinesCount === 3) vocalMsg = "Great";
+                else vocalMsg = "Excellent";
+            }
+            
+            if (vocalMsg) {
+                audio.speak(vocalMsg);
+            }
+
+            // Cleanse bomb timers (Blast Mode)
+            if (activeMode === 'blast') {
+                ModeManager.cleanseBombs(board, rows, cols, activeBombs);
+                updateDangerBanner();
+            }
+
+            // Sync targets destroyed (Adventure Mode & Daily Challenge)
+            if (activeMode === 'adventure' || activeMode === 'daily') {
+                // Count targets remaining in cleared lines
+                let clearedTargets = 0;
+                rows.forEach(r => {
+                    for (let c = 0; c < board.cols; c++) {
+                        if (board.grid[r][c] === 13) clearedTargets++;
+                    }
+                });
+                cols.forEach(c => {
+                    for (let r = 0; r < board.rows; r++) {
+                        if (board.grid[r][c] === 13 && !rows.includes(r)) clearedTargets++;
+                    }
+                });
+                
+                linesClearedCount += clearedLinesCount;
+            }
+
+            // Execute grid collapse state update
+            board.clearLines(rows, cols);
+
+            // Check for a Full Board Clear (board completely empty)
+            let boardIsEmpty = true;
+            for (let r = 0; r < board.rows; r++) {
+                for (let c = 0; c < board.cols; c++) {
+                    if (board.grid[r][c] > 0) {
+                        boardIsEmpty = false;
+                        break;
+                    }
+                }
+                if (!boardIsEmpty) break;
+            }
+
+            if (boardIsEmpty) {
+                const clearBonus = 500; // Large reward
+                score += clearBonus;
+                
+                const centerX = boardOffsetX + (cellSize * board.cols) / 2;
+                const centerY = boardOffsetY + (cellSize * board.rows) / 2;
+                particles.addFloatingText('BOARD CLEAR!', centerX, centerY, '#ffd32a', 1.45);
+                
+                const textX = boardOffsetX + (hoverCol + matrix[0].length / 2) * cellSize;
+                const textY = boardOffsetY + (hoverRow) * cellSize - 10;
+                particles.addFloatingText(`+${clearBonus} Clear Bonus!`, textX, textY - 20, '#ffd700', 1.25);
+                
+                audio.speak("Unbelievable");
+                
+                // Cycle theme as reward
+                triggerThemeChange();
+            }
+
+        } // no else — combo now resets via timer expiry, not on missed placement
+
+        // Trigger Placement Haptic feedback
+        if (hasClearedLines) {
+            triggerHaptic('heavy');
+        } else if (hasPerfectSpot) {
+            triggerHaptic('double');
+        } else {
+            triggerHaptic('medium');
+        }
+
+        // 4. Mode Specific Counters
+        if (activeMode === 'blast') {
+            // Tick bombs down
+            const exploded = ModeManager.tickBombs(activeBombs);
+            updateDangerBanner();
+
+            if (exploded) {
+                triggerGameOver("A bomb detonated!");
+                cleanupDragState();
+                return;
+            }
+
+            // Spawn a new bomb every 5 moves
+            if (placementCount % 5 === 0) {
+                ModeManager.spawnBomb(board, activeBombs);
+                updateDangerBanner();
+            }
+        }
+
+        if (activeMode === 'adventure' || activeMode === 'daily') {
+            movesLimit--;
+            updateHUDObjective();
+
+            // Refresh target block count
+            targetGoldBlocksCount = countGoldBlocksRemaining();
+            
+            // Check victory condition
+            if (checkModeVictory()) {
+                triggerVictory();
+                cleanupDragState();
+                return;
+            }
+
+            // Check moves depletion gameover
+            if (movesLimit <= 0) {
+                triggerGameOver("Out of moves!");
+                cleanupDragState();
+                return;
+            }
+        }
+
+        // 5. Refill tray slots if all three are empty
+        const refilled = spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs, activeMode === 'daily' ? ModeManager.getDailySeed(dailyDateStr) : null);
+
+        // 6. High Score check (Classic & Classic 10x10 mode)
+        if (activeMode === 'classic' || activeMode === 'classic_10') {
+            if (score > highScore) {
+                highScore = score;
+                StorageManager.saveHighScore(highScore, activeMode);
+            }
+        }
+
+        // 7. Auto Save Game state
+        saveCurrentGameState();
+
+        // 7.5. Force immediate HUD display update
+        updateHUD();
+
+        // 8. Game Over check (Are there moves left?)
+        if (spawner.checkGameOver(board)) {
+            triggerGameOver("No valid placement moves left!");
+            cleanupDragState();
+            return;
+        }
+    }
+
+    cleanupDragState();
+}
+
+function cleanupDragState() {
+    isDragging = false;
+    draggedSlot = -1;
+    draggedShape = null;
+    hoverRow = -1;
+    hoverCol = -1;
+    previewClearedLines = { rows: [], cols: [] };
+
+    // Update tray slot elements opacity
+    document.querySelectorAll('.tray-slot').forEach((slot, idx) => {
+        if (spawner.slots[idx] === null) {
+            slot.classList.add('empty');
+        } else {
+            slot.classList.remove('empty');
+        }
+    });
+
+    // Save state
+    saveCurrentGameState();
+}
+
+// --- Drawing / Render Loop ---
+function renderLoop(now) {
+    // Compute deltaTime for smooth timer updates
+    const deltaMs = now - (lastFrameTime || now);
+    lastFrameTime = now;
+
+    // Tick combo countdown window
+    if (comboTimerActive) {
+        comboTimerMs -= deltaMs;
+        if (comboTimerMs <= 0) {
+            comboTimerMs = 0;
+            comboTimerActive = false;
+            comboStreak = 0;
+            updateComboWidget();
+        } else {
+            updateComboWidget();
+        }
+    }
+
+    // Update theme transition progress
+    if (transitionProgress < 1.0) {
+        transitionProgress += 1.0 / transitionDuration;
+        if (transitionProgress > 1.0) transitionProgress = 1.0;
+    }
+
+    // 1. Update particles physics
+    particles.update();
+
+    // 2. Clear canvas
+    ctx.clearRect(0, 0, gameCanvas.width / window.devicePixelRatio, gameCanvas.height / window.devicePixelRatio);
+
+    // 3. Apply Screen Shake transformation matrix
+    ctx.save();
+    ctx.translate(particles.shakeX, particles.shakeY);
+
+    // 4. Draw Board Grid Lines & Occupied cells
+    drawBoardGrid();
+
+    // 5. Draw Prospective Snap Glow previews
+    drawSnapPreview();
+
+    // 6. Draw particles canvas overlays
+    particles.draw(ctx);
+
+    ctx.restore();
+
+    // 7. Render Dragging Shape at pointer position
+    drawDraggedShapeOverlay();
+
+    // 8. Render Tray Slots
+    for (let i = 0; i < 3; i++) {
+        drawTraySlot(i);
+    }
+
+    // 9. Frame ticker
+    requestAnimationFrame(renderLoop);
+}
+
+function drawBoardGrid() {
+    const theme = THEMES[activeTheme];
+    const cols = board ? board.cols : 8;
+    const rows = board ? board.rows : 8;
+    
+    // Draw background card shadow & fill
+    ctx.save();
+    ctx.fillStyle = theme.colors.gridBg;
+    ctx.strokeStyle = theme.colors.boardBorder;
+    ctx.lineWidth = 4;
+    
+    // Rounded Board Outer panel (reduced corner radius to 8)
+    ctx.beginPath();
+    ctx.roundRect(boardOffsetX - 2, boardOffsetY - 2, cellSize * cols + 4, cellSize * rows + 4, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    // Draw individual empty cells & blocks
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const cx = boardOffsetX + c * cellSize;
+            const cy = boardOffsetY + r * cellSize;
+            const cellValue = board.grid[r][c];
+
+            if (cellValue > 0) {
+                // Occupied Cell
+                drawThemeBlock(ctx, cx, cy, cellSize, cellSize, cellValue, theme);
+
+                // Draw bomb countdown indicator overlay
+                if (cellValue === 14 && activeMode === 'blast') {
+                    const bomb = activeBombs.find(b => b.r === r && b.c === c);
+                    if (bomb) {
+                        drawBombCountdownText(cx, cy, cellSize, bomb.timer);
+                    }
+                }
+            } else {
+                // Empty Cell
+                ctx.save();
+                ctx.fillStyle = theme.colors.cellEmpty;
+                ctx.strokeStyle = theme.colors.gridLines;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(cx + 1.5, cy + 1.5, cellSize - 3, cellSize - 3, cellSize * 0.12);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+    }
+}
+
+/**
+ * Highlights cells and prospective columns/rows that will clear.
+ */
+function drawSnapPreview() {
+    if (!isDragging || hoverRow < 0 || hoverCol < 0 || !draggedShape) return;
+
+    const theme = THEMES[activeTheme];
+    const shapeMatrix = draggedShape.matrix;
+
+    ctx.save();
+
+    // 1. Draw glowing prospective blocks
+    for (let r = 0; r < shapeMatrix.length; r++) {
+        for (let c = 0; c < shapeMatrix[r].length; c++) {
+            if (shapeMatrix[r][c] > 0) {
+                const cx = boardOffsetX + (hoverCol + c) * cellSize;
+                const cy = boardOffsetY + (hoverRow + r) * cellSize;
+                
+                ctx.globalAlpha = 0.55;
+                drawThemeBlock(ctx, cx, cy, cellSize, cellSize, draggedShape.colorId, theme);
+            }
+        }
+    }
+
+    // 2. Draw glowing highlight lines for columns and rows that will be cleared
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = theme.colors.glow;
+
+    const cols = board ? board.cols : 8;
+    const rows = board ? board.rows : 8;
+
+    previewClearedLines.rows.forEach(r => {
+        const ry = boardOffsetY + r * cellSize;
+        ctx.fillRect(boardOffsetX, ry + 2, cellSize * cols, cellSize - 4);
+    });
+
+    previewClearedLines.cols.forEach(c => {
+        const cx = boardOffsetX + c * cellSize;
+        ctx.fillRect(cx + 2, boardOffsetY, cellSize - 4, cellSize * rows);
+    });
+
+    ctx.restore();
+}
+
+/**
+ * Draws the dragged shape anchored above the finger overlay.
+ */
+function drawDraggedShapeOverlay() {
+    if (!isDragging || !draggedShape) return;
+
+    const theme = THEMES[activeTheme];
+    const shapeMatrix = draggedShape.matrix;
+    const shapeRows = shapeMatrix.length;
+    const shapeCols = shapeMatrix[0].length;
+
+    const rect = gameCanvas.getBoundingClientRect();
+    
+    // Scale shape size to match the grid cellSize
+    const dragCellSize = cellSize;
+    const offsetPointerY = pointerY - 65; // vertical offset projection
+
+    const shapeW = shapeCols * dragCellSize;
+    const shapeH = shapeRows * dragCellSize;
+
+    // Compute top-left drawing anchor to center under cursor
+    const startX = (pointerX - rect.left) - shapeW / 2;
+    const startY = (offsetPointerY - rect.top) - shapeH / 2;
+
+    ctx.save();
+    // Add floating shadow effect to dragged blocks
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 8;
+    ctx.globalAlpha = 0.95;
+
+    for (let r = 0; r < shapeRows; r++) {
+        for (let c = 0; c < shapeCols; c++) {
+            if (shapeMatrix[r][c] > 0) {
+                const tx = startX + c * dragCellSize;
+                const ty = startY + r * dragCellSize;
+                drawThemeBlock(ctx, tx, ty, dragCellSize, dragCellSize, draggedShape.colorId, theme);
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function drawTraySlot(slotIndex) {
+    // If dragged slot is active, do not render inside slot tray (transferred to pointer drag)
+    if (isDragging && draggedSlot === slotIndex) {
+        return;
+    }
+
+    const canvas = document.getElementById(`tray-canvas-${slotIndex}`);
+    if (!canvas) return;
+
+    const slotCtx = canvas.getContext('2d');
+    const width = canvas.width / window.devicePixelRatio;
+    const height = canvas.height / window.devicePixelRatio;
+
+    slotCtx.clearRect(0, 0, width, height);
+
+    const shape = spawner.slots[slotIndex];
+    if (!shape) return;
+
+    const theme = THEMES[activeTheme];
+    const shapeMatrix = shape.matrix;
+    const shapeRows = shapeMatrix.length;
+    const shapeCols = shapeMatrix[0].length;
+
+    // Small scale factor for preview slots
+    const slotCellSize = Math.min(width, height) / 4.8;
+    const shapeW = shapeCols * slotCellSize;
+    const shapeH = shapeRows * slotCellSize;
+
+    // Centered start coordinates
+    const sx = (width - shapeW) / 2;
+    const sy = (height - shapeH) / 2;
+
+    for (let r = 0; r < shapeRows; r++) {
+        for (let c = 0; c < shapeCols; c++) {
+            if (shapeMatrix[r][c] > 0) {
+                const tx = sx + c * slotCellSize;
+                const ty = sy + r * slotCellSize;
+                drawThemeBlock(slotCtx, tx, ty, slotCellSize, slotCellSize, shape.colorId, theme);
+            }
+        }
+    }
+}
+
+function drawBombCountdownText(x, y, w, countdown) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px Outfit, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(countdown.toString(), x + w / 2, y + w / 2);
+    ctx.restore();
+}
+
+// --- Game Logic Controllers ---
+export function selectMode(modeName) {
+    audio.unlock();
+    activeMode = modeName;
+    
+    // Hide Main Menu overlay
+    document.body.classList.remove('menu-active');
+    document.getElementById('main-menu-overlay').classList.add('hidden');
+    
+    // Ensure body theme classes sync immediately
+    applyTheme(activeTheme);
+
+    const savedState = StorageManager.getGameState();
+    
+    if (savedState && savedState.mode === activeMode) {
+        // Resume game state
+        score = savedState.score || 0;
+        highScore = StorageManager.getHighScore(activeMode);
+        comboStreak = savedState.comboStreak || 0;
+        placementCount = savedState.placementCount || 0;
+        
+        board.reset(savedState.grid);
+        spawner.slots = savedState.slots || [null, null, null];
+        spawner.spawnCount = savedState.spawnCount !== undefined ? savedState.spawnCount : 2;
+        
+        // Mode specific restores
+        if (activeMode === 'blast') {
+            activeBombs = savedState.activeBombs || [];
+            updateDangerBanner();
+        } else if (activeMode === 'adventure') {
+            adventureLevel = savedState.adventureLevel || 1;
+            movesLimit = savedState.movesLimit || 20;
+            linesClearedCount = savedState.linesClearedCount || 0;
+            targetGoldBlocksCount = countGoldBlocksRemaining();
+        } else if (activeMode === 'daily') {
+            dailyDateStr = getTodayDateString();
+            movesLimit = savedState.movesLimit || 20;
+            linesClearedCount = savedState.linesClearedCount || 0;
+            targetGoldBlocksCount = countGoldBlocksRemaining();
+        }
+
+        updateHUD();
+    } else {
+        // Start fresh
+        startNewGame();
+    }
+    handleResize();
+}
+
+function startNewGame() {
+    score = 0;
+    comboStreak = 0;
+    comboTimerMs = 0;
+    comboTimerActive = false;
+    placementCount = 0;
+    activeBombs = [];
+    spawner.spawnCount = 0;
+    document.getElementById('danger-bar').classList.add('hidden');
+
+    if (activeMode === 'classic') {
+        board.reset(null, 8, 8);
+        spawner.slots = [null, null, null];
+        spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+    } else if (activeMode === 'classic_10') {
+        board.reset(null, 10, 10);
+        spawner.slots = [null, null, null];
+        spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+    } else if (activeMode === 'adventure') {
+        loadAdventureLevel(adventureLevel);
+    } else if (activeMode === 'blast') {
+        board.reset(null, 8, 8);
+        spawner.slots = [null, null, null];
+        spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+        // Spawn 2 initial bombs
+        ModeManager.spawnBomb(board, activeBombs);
+        ModeManager.spawnBomb(board, activeBombs);
+        updateDangerBanner();
+    } else if (activeMode === 'daily') {
+        dailyDateStr = getTodayDateString();
+        loadDailyChallenge(dailyDateStr);
+    }
+
+    updateHUD();
+    saveCurrentGameState();
+}
+
+function loadAdventureLevel(levelNum) {
+    const levelConfig = AdventureLevels.find(l => l.levelNumber === levelNum) || AdventureLevels[0];
+    currentLevelConfig = levelConfig;
+
+    board.reset(levelConfig.grid);
+    spawner.slots = [null, null, null];
+    spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+
+    movesLimit = levelConfig.movesLimit;
+    linesClearedCount = 0;
+    targetGoldBlocksCount = countGoldBlocksRemaining();
+}
+
+function loadDailyChallenge(dateStr) {
+    const challenge = ModeManager.generateDailyChallenge(dateStr);
+    dailyChallengeConfig = challenge;
+
+    board.reset(challenge.grid);
+    spawner.slots = [null, null, null];
+    spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs, ModeManager.getDailySeed(dateStr));
+
+    movesLimit = challenge.movesLimit;
+    linesClearedCount = 0;
+    targetGoldBlocksCount = countGoldBlocksRemaining();
+}
+
+function saveCurrentGameState() {
+    StorageManager.saveGameState({
+        mode: activeMode,
+        score,
+        comboStreak,
+        placementCount,
+        grid: board.grid,
+        slots: spawner.slots,
+        activeBombs,
+        adventureLevel,
+        movesLimit,
+        linesClearedCount,
+        spawnCount: spawner.spawnCount
+    });
+}
+
+function countGoldBlocksRemaining() {
+    let count = 0;
+    for (let r = 0; r < board.rows; r++) {
+        for (let c = 0; c < board.cols; c++) {
+            if (board.grid[r][c] === 13) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+function checkModeVictory() {
+    if (activeMode === 'adventure') {
+        const config = AdventureLevels.find(l => l.levelNumber === adventureLevel) || AdventureLevels[0];
+        
+        // Check objectives
+        const goalClearedBlocks = config.preFilledTarget > 0 ? (targetGoldBlocksCount === 0) : true;
+        const goalScore = config.scoreTarget > 0 ? (score >= config.scoreTarget) : true;
+        const goalLines = config.linesTarget > 0 ? (linesClearedCount >= config.linesTarget) : true;
+
+        return goalClearedBlocks && goalScore && goalLines;
+
+    } else if (activeMode === 'daily' && dailyChallengeConfig) {
+        const goalClearedBlocks = dailyChallengeConfig.preFilledTarget > 0 ? (targetGoldBlocksCount === 0) : true;
+        const goalScore = dailyChallengeConfig.scoreTarget > 0 ? (score >= dailyChallengeConfig.scoreTarget) : true;
+        const goalLines = dailyChallengeConfig.linesTarget > 0 ? (linesClearedCount >= dailyChallengeConfig.linesTarget) : true;
+
+        return goalClearedBlocks && goalScore && goalLines;
+    }
+    return false;
+}
+
+// --- HUD & Overlay UI Handlers ---
+function updateHUD() {
+    document.getElementById('score-val').innerText = score;
+    document.getElementById('best-score-val').innerText = highScore;
+    document.getElementById('best-score-top-val').innerText = highScore;
+
+    // Display appropriate level names based on the active mode
+    const modeNames = {
+        classic: 'Classic (8x8)',
+        classic_10: 'Classic 10x10',
+        adventure: `Adventure Lvl ${adventureLevel}`,
+        blast: 'Blast Mode',
+        daily: 'Daily Challenge'
+    };
+    document.getElementById('active-mode-label').innerText = modeNames[activeMode] || 'Classic Mode';
+
+    // Combo widget is updated in real-time via renderLoop / updateComboWidget()
+    // (replaces old badge logic)
+
+    // Toggle specific HUD panels
+    const modeHud = document.getElementById('mode-specific-hud');
+    const streakHud = document.getElementById('daily-streak-hud');
+
+    if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'blast') {
+        modeHud.classList.add('hidden');
+        streakHud.classList.add('hidden');
+    } else if (activeMode === 'adventure') {
+        modeHud.classList.remove('hidden');
+        streakHud.classList.add('hidden');
+        updateHUDObjective();
+    } else if (activeMode === 'daily') {
+        modeHud.classList.remove('hidden');
+        streakHud.classList.remove('hidden');
+        updateHUDObjective();
+        
+        // Update Daily Streaks
+        document.getElementById('daily-streak-val').innerText = StorageManager.getDailyStreak();
+        
+        // Show complete badge if challenge was completed today
+        const lastDate = StorageManager.getDailyLastCompletedDate();
+        if (lastDate === getTodayDateString()) {
+            document.getElementById('daily-completed-badge').classList.remove('hidden');
+        } else {
+            document.getElementById('daily-completed-badge').classList.add('hidden');
+        }
+    }
+}
+
+function updateHUDObjective() {
+    const objectiveText = document.getElementById('objective-text');
+    const movesVal = document.getElementById('moves-val');
+    movesVal.innerText = movesLimit;
+
+    if (activeMode === 'adventure') {
+        const config = AdventureLevels.find(l => l.levelNumber === adventureLevel) || AdventureLevels[0];
+        
+        if (config.preFilledTarget > 0) {
+            objectiveText.innerText = `Gold Blocks Remaining: ${targetGoldBlocksCount}`;
+        } else if (config.linesTarget > 0) {
+            objectiveText.innerText = `Lines Cleared: ${linesClearedCount}/${config.linesTarget}`;
+        } else if (config.scoreTarget > 0) {
+            objectiveText.innerText = `Reach: ${score}/${config.scoreTarget} pts`;
+        }
+
+        // Show level progression percentage fill
+        document.getElementById('progress-bar-container').classList.remove('hidden');
+        let percent = 0;
+        if (config.preFilledTarget > 0) {
+            percent = ((config.preFilledTarget - targetGoldBlocksCount) / config.preFilledTarget) * 100;
+        } else if (config.linesTarget > 0) {
+            percent = (linesClearedCount / config.linesTarget) * 100;
+        } else if (config.scoreTarget > 0) {
+            percent = (score / config.scoreTarget) * 100;
+        }
+        document.getElementById('progress-bar-fill').style.width = `${Math.min(100, percent)}%`;
+
+    } else if (activeMode === 'daily' && dailyChallengeConfig) {
+        if (dailyChallengeConfig.preFilledTarget > 0) {
+            objectiveText.innerText = `Gold Blocks Remaining: ${targetGoldBlocksCount}`;
+        } else if (dailyChallengeConfig.linesTarget > 0) {
+            objectiveText.innerText = `Lines Cleared: ${linesClearedCount}/${dailyChallengeConfig.linesTarget}`;
+        } else if (dailyChallengeConfig.scoreTarget > 0) {
+            objectiveText.innerText = `Reach: ${score}/${dailyChallengeConfig.scoreTarget} pts`;
+        }
+
+        document.getElementById('progress-bar-container').classList.remove('hidden');
+        let percent = 0;
+        if (dailyChallengeConfig.preFilledTarget > 0) {
+            percent = ((dailyChallengeConfig.preFilledTarget - targetGoldBlocksCount) / dailyChallengeConfig.preFilledTarget) * 100;
+        } else if (dailyChallengeConfig.linesTarget > 0) {
+            percent = (linesClearedCount / dailyChallengeConfig.linesTarget) * 100;
+        } else if (dailyChallengeConfig.scoreTarget > 0) {
+            percent = (score / dailyChallengeConfig.scoreTarget) * 100;
+        }
+        document.getElementById('progress-bar-fill').style.width = `${Math.min(100, percent)}%`;
+    }
+}
+
+function updateDangerBanner() {
+    const dangerBar = document.getElementById('danger-bar');
+    if (activeMode !== 'blast' || activeBombs.length === 0) {
+        dangerBar.classList.add('hidden');
+        return;
+    }
+
+    // Find min timer
+    const minTimer = Math.min(...activeBombs.map(b => b.timer));
+    
+    dangerBar.classList.remove('hidden');
+    document.getElementById('danger-count').innerText = minTimer;
+    
+    // Scale intensity of shake if bomb is critical
+    if (minTimer <= 3) {
+        particles.triggerShake(5, 2);
+    }
+}
+
+function triggerGameOver(reason) {
+    audio.playGameOver();
+    triggerHaptic('heavy');
+    StorageManager.clearGameState();
+
+    document.getElementById('gameover-reason').innerText = reason;
+    document.getElementById('final-score-val').innerText = score;
+    document.getElementById('high-score-val').innerText = highScore;
+
+    document.getElementById('gameover-overlay').classList.remove('hidden');
+}
+
+function triggerVictory() {
+    audio.playLevelWin();
+    triggerHaptic('double');
+    StorageManager.clearGameState();
+
+    const successOverlay = document.getElementById('success-overlay');
+    document.getElementById('success-score-val').innerText = score;
+
+    if (activeMode === 'adventure') {
+        document.getElementById('success-message').innerText = `Level ${adventureLevel} Completed!`;
+        document.getElementById('btn-next-level').innerText = "Next Level";
+        document.getElementById('daily-completion-badge').classList.add('hidden');
+        
+        // Progress unlocked levels
+        adventureLevel = Math.min(adventureLevel + 1, AdventureLevels.length);
+        StorageManager.saveAdventureProgress(adventureLevel);
+    } else if (activeMode === 'daily') {
+        document.getElementById('success-message').innerText = "Today's Challenge Completed!";
+        document.getElementById('btn-next-level').innerText = "Share Victory";
+        
+        // Record Daily Completion streak calendar
+        const currentStreak = StorageManager.recordDailyCompletion(getTodayDateString());
+        
+        const streakBadge = document.getElementById('daily-completion-badge');
+        streakBadge.classList.remove('hidden');
+        document.getElementById('success-streak-val').innerText = currentStreak;
+    }
+
+    successOverlay.classList.remove('hidden');
+}
+
+function getTodayDateString() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+// --- Menu UI Event Bindings ---
+function setupUIBindings() {
+    // Play buttons in the Main Menu overlay
+    document.getElementById('btn-play-adventure').addEventListener('click', () => {
+        selectMode('adventure');
+    });
+    document.getElementById('btn-play-classic').addEventListener('click', () => {
+        selectMode('classic');
+    });
+    document.getElementById('btn-play-classic-10').addEventListener('click', () => {
+        selectMode('classic_10');
+    });
+    document.getElementById('btn-play-blast').addEventListener('click', () => {
+        selectMode('blast');
+    });
+    document.getElementById('btn-play-daily').addEventListener('click', () => {
+        selectMode('daily');
+    });
+
+    // Home button in HUD
+    document.getElementById('btn-home').addEventListener('click', () => {
+        saveCurrentGameState();
+        document.getElementById('menu-streak-val').innerText = StorageManager.getDailyStreak();
+        document.body.classList.add('menu-active');
+        document.getElementById('main-menu-overlay').classList.remove('hidden');
+    });
+
+    // Restart button on GameOver Modal
+    document.getElementById('btn-restart').addEventListener('click', () => {
+        document.getElementById('gameover-overlay').classList.add('hidden');
+        startNewGame();
+    });
+
+    // Next Level / Continue button on Success Modal
+    document.getElementById('btn-next-level').addEventListener('click', () => {
+        document.getElementById('success-overlay').classList.add('hidden');
+        
+        if (activeMode === 'adventure') {
+            startNewGame();
+        } else if (activeMode === 'daily') {
+            // Sharing functionality (simulated web share API)
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Gridly Daily Challenge',
+                    text: `I completed today's Gridly Daily Challenge with score ${score}! Streak: ${StorageManager.getDailyStreak()} days!`,
+                    url: window.location.href
+                }).catch(err => console.log(err));
+            } else {
+                alert(`Victory Shared! Streak: ${StorageManager.getDailyStreak()} days!`);
+            }
+        }
+    });
+
+    // Close button on Success Modal
+    document.getElementById('btn-success-close').addEventListener('click', () => {
+        document.getElementById('success-overlay').classList.add('hidden');
+        document.body.classList.add('menu-active');
+        document.getElementById('main-menu-overlay').classList.remove('hidden');
+    });
+
+    // Settings gear button — open the settings modal
+    document.getElementById('btn-settings').addEventListener('click', () => {
+        openSettings();
+    });
+
+    // Settings modal: close X button
+    document.getElementById('btn-settings-close').addEventListener('click', closeSettings);
+
+    // Settings modal: backdrop tap to close
+    document.getElementById('settings-overlay').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('settings-overlay')) closeSettings();
+    });
+
+    // Settings modal: Sound toggle
+    document.getElementById('toggle-sound').addEventListener('click', () => {
+        audio.setSfxEnabled(!audio.enabled);
+        saveSettingsState();
+        updateSoundIcons();
+    });
+
+    // Settings modal: BGM toggle (visual only — placeholder)
+    document.getElementById('toggle-bgm').addEventListener('click', () => {
+        audio.setBgmEnabled(!audio.bgmEnabled);
+        saveSettingsState();
+        updateSoundIcons();
+    });
+
+    // Settings modal: Vibration toggle (visual only)
+    document.getElementById('toggle-vibration').addEventListener('click', () => {
+        vibrationEnabled = !vibrationEnabled;
+        saveSettingsState();
+        updateSoundIcons();
+        if (vibrationEnabled) triggerHaptic('light');
+    });
+
+    // Settings modal: Home button
+    document.getElementById('btn-settings-home').addEventListener('click', () => {
+        closeSettings();
+        saveCurrentGameState();
+        document.getElementById('menu-streak-val').innerText = StorageManager.getDailyStreak();
+        document.body.classList.add('menu-active');
+        document.getElementById('main-menu-overlay').classList.remove('hidden');
+    });
+
+    // Settings modal: Restart button
+    document.getElementById('btn-settings-restart').addEventListener('click', () => {
+        closeSettings();
+        startNewGame();
+    });
+
+    // Settings modal: Change Skin / cycle theme
+    document.getElementById('btn-settings-theme').addEventListener('click', () => {
+        triggerThemeChange();
+        const centerX = boardOffsetX + (cellSize * (board ? board.cols : 8)) / 2;
+        const centerY = boardOffsetY + (cellSize * (board ? board.rows : 8)) / 2;
+        particles.addFloatingText('Theme: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1), centerX, centerY, '#ffffff', 1.1);
+    });
+}
+
+// --- Settings Modal Open/Close ---
+function openSettings() {
+    updateSoundIcons();
+    document.getElementById('settings-overlay').classList.remove('hidden');
+}
+
+function closeSettings() {
+    document.getElementById('settings-overlay').classList.add('hidden');
+}
+
+// --- Combo Ring Widget Updater ---
+function updateComboWidget() {
+    const widget = document.getElementById('combo-widget');
+    if (!widget) return;
+    if (!comboTimerActive || comboStreak < 1) {
+        widget.classList.add('hidden');
+        return;
+    }
+    widget.classList.remove('hidden');
+
+    const CIRCUMFERENCE = 2 * Math.PI * 18; // r=18 ≈ 113.1
+    const pct = comboTimerMs / COMBO_WINDOW_MS;
+    const offset = CIRCUMFERENCE * (1 - pct);
+    const ringFill = document.getElementById('combo-ring-fill');
+    if (ringFill) ringFill.style.strokeDashoffset = offset;
+
+    const timerEl = document.getElementById('combo-timer-val');
+    if (timerEl) timerEl.textContent = Math.ceil(comboTimerMs / 1000);
+
+    const countEl = document.getElementById('combo-count');
+    const colors = ['#f7c948', '#ff8c00', '#ff3d3d', '#c840ff'];
+    const color = colors[Math.min(comboStreak - 1, colors.length - 1)];
+    if (countEl) { countEl.textContent = `x${comboStreak}`; countEl.style.color = color; }
+    if (ringFill) ringFill.style.stroke = color;
+}
+
+
+function triggerThemeChange() {
+    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora'];
+    let nextIndex = (themeKeys.indexOf(activeTheme) + 1) % themeKeys.length;
+    prevTheme = activeTheme;
+    activeTheme = themeKeys[nextIndex];
+    transitionProgress = 0.0;
+    applyTheme(activeTheme);
+    
+    saveSettingsState();
+}
+
+function applyTheme(themeId) {
+    const menuActive = document.body.classList.contains('menu-active');
+    document.body.className = ''; // Reset theme classes
+    if (menuActive) document.body.classList.add('menu-active');
+    document.body.classList.add(`theme-${themeId}`);
+}
+
+function triggerHaptic(type = 'light') {
+    if (!vibrationEnabled) return;
+    if (!('vibrate' in navigator)) return;
+    try {
+        if (type === 'light') {
+            navigator.vibrate(10);
+        } else if (type === 'medium') {
+            navigator.vibrate(22);
+        } else if (type === 'heavy') {
+            navigator.vibrate(50);
+        } else if (type === 'double') {
+            navigator.vibrate([20, 30, 20]);
+        }
+    } catch (e) {
+        console.warn("Haptic feedback vibration error:", e);
+    }
+}
+
+function updateSoundIcons() {
+    const soundIcon = document.getElementById('settings-sound-icon');
+    if (soundIcon) soundIcon.classList.toggle('off', !audio.enabled);
+
+    const bgmIcon = document.getElementById('toggle-bgm')?.querySelector('.settings-toggle-icon');
+    if (bgmIcon) bgmIcon.classList.toggle('off', !audio.bgmEnabled);
+
+    const vibrationIcon = document.getElementById('toggle-vibration')?.querySelector('.settings-toggle-icon');
+    if (vibrationIcon) vibrationIcon.classList.toggle('off', !vibrationEnabled);
+}
+
+function saveSettingsState() {
+    StorageManager.saveSettings({
+        theme: activeTheme,
+        sfx: audio.enabled,
+        bgm: audio.bgmEnabled,
+        vibration: vibrationEnabled
+    });
+}
+
+// --- Theme Transition Color Interpolators ---
+function parseColor(str) {
+    if (!str) return [255, 255, 255, 1];
+    str = str.trim();
+    if (str.startsWith('#')) {
+        let hex = str.slice(1);
+        if (hex.length === 3) {
+            hex = hex.split('').map(x => x + x).join('');
+        }
+        const num = parseInt(hex, 16);
+        return [num >> 16, (num >> 8) & 255, num & 255, 1];
+    } else if (str.startsWith('rgba') || str.startsWith('rgb')) {
+        const parts = str.match(/[\d.]+/g);
+        if (parts) {
+            const r = parseInt(parts[0], 10);
+            const g = parseInt(parts[1], 10);
+            const b = parseInt(parts[2], 10);
+            const a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+            return [r, g, b, a];
+        }
+    }
+    return [255, 255, 255, 1];
+}
+
+function stringifyColor(rgba) {
+    return `rgba(${Math.round(rgba[0])}, ${Math.round(rgba[1])}, ${Math.round(rgba[2])}, ${rgba[3]})`;
+}
+
+function lerpColor(strA, strB, t) {
+    const cA = parseColor(strA);
+    const cB = parseColor(strB);
+    const r = cA[0] + (cB[0] - cA[0]) * t;
+    const g = cA[1] + (cB[1] - cA[1]) * t;
+    const b = cA[2] + (cB[2] - cA[2]) * t;
+    const a = cA[3] + (cB[3] - cA[3]) * t;
+    return stringifyColor([r, g, b, a]);
+}
+
+function getActiveThemeConfig() {
+    const targetTheme = THEMES[activeTheme];
+    if (transitionProgress >= 1.0) {
+        return targetTheme;
+    }
+    const fromTheme = THEMES[prevTheme] || targetTheme;
+    const t = transitionProgress;
+    const colors = {};
+    for (const key in targetTheme.colors) {
+        colors[key] = lerpColor(fromTheme.colors[key], targetTheme.colors[key], t);
+    }
+    return {
+        id: targetTheme.id,
+        name: targetTheme.name,
+        colors: colors,
+        blockStyle: t < 0.5 ? fromTheme.blockStyle : targetTheme.blockStyle,
+        particleStyle: t < 0.5 ? fromTheme.particleStyle : targetTheme.particleStyle
+    };
+}
