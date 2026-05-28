@@ -479,7 +479,7 @@ export class ParticleSystem {
 
                 // Stylized outline text
                 const textSize = Math.round(38 * t.scale);
-                ctx.font = `extrabold ${textSize}px 'Outfit', 'Inter', system-ui, sans-serif`;
+                ctx.font = `900 ${textSize}px 'Outfit', 'Inter', system-ui, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 

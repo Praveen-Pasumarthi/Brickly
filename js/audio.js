@@ -13,6 +13,14 @@ export class AudioManager {
         // Master gain node — all SFX route through this so volume is consistent
         this.masterGain = null;
 
+        // Cache SpeechSynthesis voices (loaded asynchronously on most browsers)
+        this.voices = [];
+        if ('speechSynthesis' in window) {
+            const loadVoices = () => { this.voices = window.speechSynthesis.getVoices(); };
+            loadVoices();
+            window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+        }
+
         // BGM using HTMLAudioElement for simple, native playback (no cracking)
         this.bgmAudio = new Audio('bgm/bgm.wav');
         this.bgmAudio.loop = true;
@@ -69,6 +77,17 @@ export class AudioManager {
         this.init();
         this.resume();
         this.startBgm();
+        
+        // Unlock Web Speech API — must speak audible text during user gesture
+        if (!this.speechUnlocked && 'speechSynthesis' in window) {
+            try {
+                const unlockUtterance = new SpeechSynthesisUtterance(' ');
+                unlockUtterance.volume = 0.01;
+                unlockUtterance.rate = 2.0;
+                window.speechSynthesis.speak(unlockUtterance);
+                this.speechUnlocked = true;
+            } catch (e) {}
+        }
     }
 
     setSfxEnabled(enabled) {
@@ -193,13 +212,13 @@ export class AudioManager {
 
         const now = this.ctx.currentTime;
 
-        // C Major Pentatonic — harmonious clear sounds
-        const pentatonicScale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
-        const baseIndex = Math.min(comboCount - 1, pentatonicScale.length - 1);
+        // C Major Pentatonic — dropped two octaves for a soft, deep tone
+        const pentatonicScale = [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63];
+        const baseIndex = Math.min(comboCount - 1, 3, pentatonicScale.length - 1);
         const rootFreq = pentatonicScale[baseIndex];
 
-        // Rising major triad arpeggio: [Root, Major 3rd, Perfect 5th]
-        const notes = [rootFreq, rootFreq * 1.25, rootFreq * 1.5];
+        // Soft triad: [Root, minor 3rd, 5th] — mellower intervals
+        const notes = [rootFreq, rootFreq * 1.18, rootFreq * 1.38];
 
         notes.forEach((freq, idx) => {
             const noteDelay = idx * 0.055;
@@ -210,39 +229,40 @@ export class AudioManager {
 
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, playTime);
-            osc.frequency.exponentialRampToValueAtTime(freq * 1.1, playTime + 0.16);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.03, playTime + 0.16);
 
-            // 15ms micro-attack
-            const volume = Math.min(0.25 + (comboCount * 0.03), 0.5);
+            // Low volume — keeps combo audible but never harsh
+            const volume = Math.min(0.07 + 0.03 * Math.log2(1 + comboCount), 0.13);
             gainNode.gain.setValueAtTime(0, playTime);
             gainNode.gain.linearRampToValueAtTime(volume, playTime + 0.015);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, playTime + 0.30);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, playTime + 0.25);
 
             osc.connect(gainNode);
             gainNode.connect(this.masterGain);
 
             osc.start(playTime);
-            osc.stop(playTime + 0.35);
+            osc.stop(playTime + 0.30);
             osc.onended = () => { osc.disconnect(); gainNode.disconnect(); };
         });
 
-        // Glitter shimmer on top (raised from 0.015 → 0.12)
+        // Glitter shimmer — very subtle, fades at higher combos
+        const shimmerGain = Math.max(0.008, 0.015 - comboCount * 0.001);
         const glitterOsc = this.ctx.createOscillator();
         const glitterGain = this.ctx.createGain();
 
         glitterOsc.type = 'sine';
-        glitterOsc.frequency.setValueAtTime(rootFreq * 2, now);
-        glitterOsc.frequency.linearRampToValueAtTime(rootFreq * 4, now + 0.15);
+        glitterOsc.frequency.setValueAtTime(rootFreq * 1.2, now);
+        glitterOsc.frequency.linearRampToValueAtTime(rootFreq * 1.6, now + 0.15);
 
         glitterGain.gain.setValueAtTime(0, now);
-        glitterGain.gain.linearRampToValueAtTime(0.08, now + 0.02);
-        glitterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+        glitterGain.gain.linearRampToValueAtTime(shimmerGain, now + 0.02);
+        glitterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
 
         glitterOsc.connect(glitterGain);
         glitterGain.connect(this.masterGain);
 
         glitterOsc.start(now);
-        glitterOsc.stop(now + 0.25);
+        glitterOsc.stop(now + 0.22);
         glitterOsc.onended = () => { glitterOsc.disconnect(); glitterGain.disconnect(); };
     }
 
@@ -324,30 +344,8 @@ export class AudioManager {
      */
     async speak(phrase) {
         if (!this.enabled) return;
-        
-        // 1. Try Native Capacitor TextToSpeech Plugin (Robust on Android)
-        try {
-            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-                const TTS = window.Capacitor.registerPlugin('TextToSpeech');
-                if (TTS) {
-                    await TTS.speak({
-                        text: phrase,
-                        lang: 'en-US',
-                        rate: 0.95,
-                        pitch: 0.95,
-                        volume: 1.0
-                    });
-                    return; // Skip Web Speech API if native succeeds
-                }
-            }
-        } catch (e) {
-            console.warn("Capacitor Native TTS error:", e);
-        }
-
-        // 2. Fallback to Web Speech API
         if (!('speechSynthesis' in window)) return;
-        
-        // Permanently map specific praises to a specific soothing voice gender
+
         const genderMap = {
             "Good": "male",
             "Great": "female",
@@ -359,42 +357,54 @@ export class AudioManager {
             "Marvelous": "female",
             "Unbelievable": "female"
         };
-        
-        try {
-            // Cancel current speech to prevent queuing lag
-            window.speechSynthesis.cancel();
-            
-            const utterance = new SpeechSynthesisUtterance(phrase);
-            utterance.pitch = 0.95; // Soothing, lower pitch
-            utterance.rate = 0.95; // Slightly slower, calm delivery
-            utterance.volume = 1.0; 
-            
-            const targetGender = genderMap[phrase] || "female"; // Default to female if unknown
-            const voices = window.speechSynthesis.getVoices();
-            
-            let bestVoice = null;
-            if (targetGender === "female") {
-                // Find a soothing female voice
-                bestVoice = voices.find(v => v.lang.startsWith('en') && 
-                    (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('victoria')));
-            } else {
-                // Find a soothing male voice
-                bestVoice = voices.find(v => v.lang.startsWith('en') && 
-                    (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('alex') || v.name.toLowerCase().includes('arthur')) 
-                    && !v.name.toLowerCase().includes('female'));
-            }
 
-            // Fallbacks if no specific gender match found
-            if (!bestVoice) bestVoice = voices.find(v => v.lang.startsWith('en-GB'));
-            if (!bestVoice) bestVoice = voices.find(v => v.lang.startsWith('en'));
-            
-            if (bestVoice) {
-                utterance.voice = bestVoice;
+        const doSpeak = () => {
+            try {
+                const utterance = new SpeechSynthesisUtterance(phrase);
+                utterance.pitch = 0.95;
+                utterance.rate = 0.95;
+                utterance.volume = 1.0;
+
+                const targetGender = genderMap[phrase] || "female";
+                const voices = this.voices.length ? this.voices : window.speechSynthesis.getVoices();
+                const enVoices = voices.filter(v => v.lang.startsWith('en'));
+
+                let bestVoice = null;
+                if (targetGender === "female") {
+                    bestVoice = enVoices.find(v =>
+                        /samantha|victoria|karen|moira|tessa|zira|female/i.test(v.name)
+                    );
+                    if (!bestVoice) bestVoice = enVoices.find(v => /google.*uk.*female|google.*us.*female/i.test(v.name));
+                } else {
+                    bestVoice = enVoices.find(v =>
+                        /daniel|alex|arthur|male|james|matthew|google.*uk.*male|google.*us.*male/i.test(v.name)
+                    );
+                }
+
+                if (!bestVoice) bestVoice = enVoices.find(v => v.lang.startsWith('en-'));
+                if (!bestVoice) bestVoice = enVoices[0];
+                if (!bestVoice && voices.length) bestVoice = voices[0];
+
+                if (bestVoice) utterance.voice = bestVoice;
+
+                window.speechSynthesis.speak(utterance);
+
+                // Retry once after a short delay if browser dropped the utterance
+                setTimeout(() => {
+                    if (window.speechSynthesis.speaking) return;
+                    try { window.speechSynthesis.speak(utterance); } catch (_) {}
+                }, 150);
+            } catch (e) {
+                console.warn("Speech synthesis error:", e);
             }
-            
-            window.speechSynthesis.speak(utterance);
-        } catch (e) {
-            console.warn("Speech synthesis error:", e);
+        };
+
+        // If something is currently speaking, cancel and wait one tick before speaking
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+            window.speechSynthesis.cancel();
+            setTimeout(doSpeak, 60);
+        } else {
+            doSpeak();
         }
     }
 }
