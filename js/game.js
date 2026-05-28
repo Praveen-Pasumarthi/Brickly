@@ -12,6 +12,16 @@ import { THEMES, drawThemeBlock } from './themes.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
 
+// --- Null-safe DOM helper ---
+function $(id) { return document.getElementById(id); }
+
+// Global error handler — catch silent crashes that prevent init
+window.onerror = function(msg, src, line, col, err) {
+    console.error('[Gridly] Runtime error:', msg, 'at', src, line + ':' + col, err);
+    document.body.classList.add('menu-active');
+    return false;
+};
+
 // --- Game State Variables ---
 let board;
 let spawner;
@@ -27,7 +37,7 @@ const COMBO_WINDOW_MS = 10000;
 let lastFrameTime = 0;     // For deltaTime computation in renderLoop
 let placementCount = 0;    // Number of blocks placed in Blast mode
 
-let activeMode = 'classic'; // 'classic', 'adventure', 'blast', 'daily'
+let activeMode = 'classic'; // 'classic', 'missions', 'blast'
 let activeTheme = 'indigo'; // default skin: dark blue with gold+purple blocks
 let prevTheme = 'indigo';
 let transitionProgress = 1.0;
@@ -37,15 +47,11 @@ let vibrationEnabled = true;
 
 // Mode Specific States
 let currentLevelConfig = null;
-let adventureLevel = 1;
+let missionLevel = 1;
 let movesLimit = 0;
 let linesClearedCount = 0;
 let targetGoldBlocksCount = 0;
 let activeBombs = []; // [{ r, c, timer }]
-
-// Seed state for Daily Challenge
-let dailyDateStr = '';
-let dailyChallengeConfig = null;
 
 // Canvas Scaling & Layout
 let gameCanvas;
@@ -74,7 +80,12 @@ let previewClearedLines = { rows: [], cols: [] };
 
 // --- Initialization ---
 window.addEventListener('DOMContentLoaded', () => {
-    initGame();
+    try {
+        initGame();
+    } catch (err) {
+        console.error('[Gridly] initGame crashed:', err);
+        document.body.classList.add('menu-active');
+    }
 });
 
 function initGame() {
@@ -98,7 +109,7 @@ function initGame() {
     prevTheme = activeTheme;
     transitionProgress = 1.0;
     audio.setSfxEnabled(settings.sfx !== false);
-    audio.setBgmEnabled(settings.bgm !== false);
+    audio.setBgmEnabled(false);
     vibrationEnabled = settings.vibration !== false;
     highScore = StorageManager.getHighScore(activeMode);
 
@@ -109,15 +120,13 @@ function initGame() {
     window.addEventListener('resize', handleResize);
     handleResize();
 
-    // 5. Setup Input Event Listeners
+    // 5. Setup Input Event Listeners (must run even if earlier steps fail)
     setupDragEvents();
     setupUIBindings();
 
-    // 6. Sync Main Menu daily victories widget
-    document.getElementById('menu-streak-val').innerText = StorageManager.getDailyStreak();
-    
-    // Write high score to header crown
-    document.getElementById('best-score-top-val').innerText = highScore;
+    // 6. Write high score to header crown
+    const topScoreEl = $('best-score-top-val');
+    if (topScoreEl) topScoreEl.innerText = highScore;
 
     // 7. Start Render Animation Loop
     requestAnimationFrame(renderLoop);
@@ -437,8 +446,8 @@ function attemptBlockPlacement() {
                 updateDangerBanner();
             }
 
-            // Sync targets destroyed (Adventure Mode & Daily Challenge)
-            if (activeMode === 'adventure' || activeMode === 'daily') {
+            // Sync targets destroyed (Missions Mode)
+            if (activeMode === 'missions') {
                 // Count targets remaining in cleared lines
                 let clearedTargets = 0;
                 rows.forEach(r => {
@@ -520,7 +529,7 @@ function attemptBlockPlacement() {
             }
         }
 
-        if (activeMode === 'adventure' || activeMode === 'daily') {
+        if (activeMode === 'missions') {
             movesLimit--;
             updateHUDObjective();
 
@@ -543,7 +552,7 @@ function attemptBlockPlacement() {
         }
 
         // 5. Refill tray slots if all three are empty
-        const refilled = spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs, activeMode === 'daily' ? ModeManager.getDailySeed(dailyDateStr) : null);
+        const refilled = spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
 
         // 6. High Score check (Classic & Classic 10x10 mode)
         if (activeMode === 'classic' || activeMode === 'classic_10') {
@@ -883,55 +892,63 @@ function drawBombOverlay(x, y, w, countdown) {
 
 // --- Game Logic Controllers ---
 export function selectMode(modeName) {
-    audio.unlock();
+    try {
+        audio.unlock();
+        const settings = StorageManager.getSettings();
+        if (settings.bgm !== false) {
+            audio.setBgmEnabled(true);
+        }
+    } catch (err) {
+        console.warn('[Gridly] audio unlock failed:', err);
+    }
     activeMode = modeName;
     
     // Hide Main Menu overlay
     document.body.classList.remove('menu-active');
-    document.getElementById('main-menu-overlay').classList.add('hidden');
+    const menuOverlay = $('main-menu-overlay');
+    if (menuOverlay) menuOverlay.classList.add('hidden');
     
     // Ensure body theme classes sync immediately
     applyTheme(activeTheme);
 
     const savedState = StorageManager.getGameState();
     
-    if (savedState && savedState.mode === activeMode) {
-        // Resume game state
-        score = savedState.score || 0;
-        highScore = StorageManager.getHighScore(activeMode);
-        comboStreak = savedState.comboStreak || 0;
-        placementCount = savedState.placementCount || 0;
-        
-        board.reset(savedState.grid);
-        spawner.slots = savedState.slots || [null, null, null];
-        spawner.spawnCount = savedState.spawnCount !== undefined ? savedState.spawnCount : 2;
-        
-        // Mode specific restores
-        if (activeMode === 'blast') {
-            activeBombs = savedState.activeBombs || [];
-            updateDangerBanner();
-        } else if (activeMode === 'adventure') {
-            adventureLevel = savedState.adventureLevel || 1;
-            movesLimit = savedState.movesLimit || 20;
-            linesClearedCount = savedState.linesClearedCount || 0;
-            targetGoldBlocksCount = countGoldBlocksRemaining();
-        } else if (activeMode === 'daily') {
-            dailyDateStr = getTodayDateString();
-            // Regenerate the daily challenge config so the HUD objective/progress bar
-            // renders correctly even when resuming a saved state.
-            dailyChallengeConfig = ModeManager.generateDailyChallenge(dailyDateStr);
-            movesLimit = savedState.movesLimit || 20;
-            linesClearedCount = savedState.linesClearedCount || 0;
-            targetGoldBlocksCount = countGoldBlocksRemaining();
-        }
+    let resumeOk = false;
+    if (savedState && savedState.mode === activeMode && savedState.grid) {
+        try {
+            // Resume game state
+            score = savedState.score || 0;
+            highScore = StorageManager.getHighScore(activeMode);
+            comboStreak = savedState.comboStreak || 0;
+            placementCount = savedState.placementCount || 0;
+            
+            board.reset(savedState.grid);
+            spawner.slots = savedState.slots || [null, null, null];
+            spawner.spawnCount = savedState.spawnCount !== undefined ? savedState.spawnCount : 2;
+            
+            // Mode specific restores
+            if (activeMode === 'blast') {
+                activeBombs = savedState.activeBombs || [];
+                updateDangerBanner();
+            } else if (activeMode === 'missions') {
+                missionLevel = savedState.missionLevel || 1;
+                movesLimit = savedState.movesLimit || 20;
+                linesClearedCount = savedState.linesClearedCount || 0;
+                targetGoldBlocksCount = countGoldBlocksRemaining();
+            }
 
-        updateHUD();
-        updateTraySlotOpacities();
-    } else {
-        // Start fresh
+            updateHUD();
+            updateTraySlotOpacities();
+            resumeOk = true;
+        } catch (err) {
+            console.warn('[Gridly] corrupted save state, starting fresh:', err);
+            StorageManager.clearGameState();
+        }
+    }
+    if (!resumeOk) {
         startNewGame();
     }
-    handleResize();
+    try { handleResize(); } catch (err) { console.warn('[Gridly] handleResize error:', err); }
 }
 
 function startNewGame() {
@@ -942,7 +959,8 @@ function startNewGame() {
     placementCount = 0;
     activeBombs = [];
     spawner.spawnCount = 0;
-    document.getElementById('danger-bar').classList.add('hidden');
+    const dangerBar = $('danger-bar');
+    if (dangerBar) dangerBar.classList.add('hidden');
     // Force-hide the combo widget immediately — state reset above won't hide the DOM element
     // unless updateComboWidget() is explicitly called.
     updateComboWidget();
@@ -950,25 +968,22 @@ function startNewGame() {
     if (activeMode === 'classic') {
         board.reset(null, 8, 8);
         spawner.slots = [null, null, null];
-        spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+        spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
     } else if (activeMode === 'classic_10') {
         board.reset(null, 10, 10);
         spawner.slots = [null, null, null];
-        spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
-    } else if (activeMode === 'adventure') {
-        loadAdventureLevel(adventureLevel);
+        spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
+    } else if (activeMode === 'missions') {
+        loadMissionLevel(missionLevel);
     } else if (activeMode === 'blast') {
         board.reset(null, 8, 8);
         spawner.slots = [null, null, null];
-        spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+        spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
         // Spawn 2 initial bombs with staggered timers so they don't detonate at the same time.
         // First bomb: 9 moves (urgent threat), Second bomb: 14 moves (gives breathing room).
         ModeManager.spawnBomb(board, activeBombs, 9);
         ModeManager.spawnBomb(board, activeBombs, 14);
         updateDangerBanner();
-    } else if (activeMode === 'daily') {
-        dailyDateStr = getTodayDateString();
-        loadDailyChallenge(dailyDateStr);
     }
 
     updateHUD();
@@ -976,36 +991,23 @@ function startNewGame() {
     saveCurrentGameState();
 }
 
-function loadAdventureLevel(levelNum) {
+function loadMissionLevel(levelNum) {
     const levelConfig = AdventureLevels.find(l => l.levelNumber === levelNum) || AdventureLevels[0];
     currentLevelConfig = levelConfig;
 
     board.reset(levelConfig.grid);
     spawner.slots = [null, null, null];
-    spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
+    spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
 
     movesLimit = levelConfig.movesLimit;
     linesClearedCount = 0;
     targetGoldBlocksCount = countGoldBlocksRemaining();
 }
 
-function loadDailyChallenge(dateStr) {
-    const challenge = ModeManager.generateDailyChallenge(dateStr);
-    dailyChallengeConfig = challenge;
-
-    board.reset(challenge.grid);
-    spawner.slots = [null, null, null];
-    spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs, ModeManager.getDailySeed(dateStr));
-
-    movesLimit = challenge.movesLimit;
-    linesClearedCount = 0;
-    targetGoldBlocksCount = countGoldBlocksRemaining();
-}
-
 function saveCurrentGameState() {
     // If the gameover or success modals are displayed, do not overwrite the cleared state
-    const gameoverOverlay = document.getElementById('gameover-overlay');
-    const successOverlay = document.getElementById('success-overlay');
+    const gameoverOverlay = $('gameover-overlay');
+    const successOverlay = $('success-overlay');
     if ((gameoverOverlay && !gameoverOverlay.classList.contains('hidden')) || 
         (successOverlay && !successOverlay.classList.contains('hidden'))) {
         return;
@@ -1019,7 +1021,7 @@ function saveCurrentGameState() {
         grid: board.grid,
         slots: spawner.slots,
         activeBombs,
-        adventureLevel,
+        missionLevel,
         movesLimit,
         linesClearedCount,
         spawnCount: spawner.spawnCount
@@ -1039,20 +1041,13 @@ function countGoldBlocksRemaining() {
 }
 
 function checkModeVictory() {
-    if (activeMode === 'adventure') {
-        const config = AdventureLevels.find(l => l.levelNumber === adventureLevel) || AdventureLevels[0];
+    if (activeMode === 'missions') {
+        const config = AdventureLevels.find(l => l.levelNumber === missionLevel) || AdventureLevels[0];
         
         // Check objectives
         const goalClearedBlocks = config.preFilledTarget > 0 ? (targetGoldBlocksCount === 0) : true;
         const goalScore = config.scoreTarget > 0 ? (score >= config.scoreTarget) : true;
         const goalLines = config.linesTarget > 0 ? (linesClearedCount >= config.linesTarget) : true;
-
-        return goalClearedBlocks && goalScore && goalLines;
-
-    } else if (activeMode === 'daily' && dailyChallengeConfig) {
-        const goalClearedBlocks = dailyChallengeConfig.preFilledTarget > 0 ? (targetGoldBlocksCount === 0) : true;
-        const goalScore = dailyChallengeConfig.scoreTarget > 0 ? (score >= dailyChallengeConfig.scoreTarget) : true;
-        const goalLines = dailyChallengeConfig.linesTarget > 0 ? (linesClearedCount >= dailyChallengeConfig.linesTarget) : true;
 
         return goalClearedBlocks && goalScore && goalLines;
     }
@@ -1061,70 +1056,56 @@ function checkModeVictory() {
 
 // --- HUD & Overlay UI Handlers ---
 function updateHUD() {
-    document.getElementById('score-val').innerText = score;
-    document.getElementById('best-score-val').innerText = highScore;
-    document.getElementById('best-score-top-val').innerText = highScore;
+    const scoreEl = $('score-val');
+    const bestEl = $('best-score-val');
+    const topEl = $('best-score-top-val');
+    if (scoreEl) scoreEl.innerText = score;
+    if (bestEl) bestEl.innerText = highScore;
+    if (topEl) topEl.innerText = highScore;
 
     // Display appropriate level names based on the active mode
     const modeNames = {
         classic: 'Classic (8x8)',
         classic_10: 'Classic 10x10',
-        adventure: `Adventure Lvl ${adventureLevel}`,
-        blast: 'Blast Mode',
-        daily: 'Daily Challenge'
+        missions: `Missions Lvl ${missionLevel}`,
+        blast: 'Blast Mode'
     };
-    document.getElementById('active-mode-label').innerText = modeNames[activeMode] || 'Classic Mode';
-
-    // Combo widget is updated in real-time via renderLoop / updateComboWidget()
-    // (replaces old badge logic)
+    const modeLabel = $('active-mode-label');
+    if (modeLabel) modeLabel.innerText = modeNames[activeMode] || 'Classic Mode';
 
     // Toggle specific HUD panels
-    const modeHud = document.getElementById('mode-specific-hud');
-    const streakHud = document.getElementById('daily-streak-hud');
+    const modeHud = $('mode-specific-hud');
 
     if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'blast') {
-        modeHud.classList.add('hidden');
-        streakHud.classList.add('hidden');
-    } else if (activeMode === 'adventure') {
-        modeHud.classList.remove('hidden');
-        streakHud.classList.add('hidden');
+        if (modeHud) modeHud.classList.add('hidden');
+    } else if (activeMode === 'missions') {
+        if (modeHud) modeHud.classList.remove('hidden');
         updateHUDObjective();
-    } else if (activeMode === 'daily') {
-        modeHud.classList.remove('hidden');
-        streakHud.classList.remove('hidden');
-        updateHUDObjective();
-        
-        // Update Daily Streaks
-        document.getElementById('daily-streak-val').innerText = StorageManager.getDailyStreak();
-        
-        // Show complete badge if challenge was completed today
-        const lastDate = StorageManager.getDailyLastCompletedDate();
-        if (lastDate === getTodayDateString()) {
-            document.getElementById('daily-completed-badge').classList.remove('hidden');
-        } else {
-            document.getElementById('daily-completed-badge').classList.add('hidden');
-        }
     }
 }
 
 function updateHUDObjective() {
-    const objectiveText = document.getElementById('objective-text');
-    const movesVal = document.getElementById('moves-val');
-    movesVal.innerText = movesLimit;
+    const objectiveText = $('objective-text');
+    const movesVal = $('moves-val');
+    if (movesVal) movesVal.innerText = movesLimit;
 
-    if (activeMode === 'adventure') {
-        const config = AdventureLevels.find(l => l.levelNumber === adventureLevel) || AdventureLevels[0];
+    if (activeMode === 'missions') {
+        const config = AdventureLevels.find(l => l.levelNumber === missionLevel) || AdventureLevels[0];
         
-        if (config.preFilledTarget > 0) {
-            objectiveText.innerText = `Gold Blocks Remaining: ${targetGoldBlocksCount}`;
-        } else if (config.linesTarget > 0) {
-            objectiveText.innerText = `Lines Cleared: ${linesClearedCount}/${config.linesTarget}`;
-        } else if (config.scoreTarget > 0) {
-            objectiveText.innerText = `Reach: ${score}/${config.scoreTarget} pts`;
+        if (objectiveText) {
+            if (config.preFilledTarget > 0) {
+                objectiveText.innerText = `Gold Blocks Remaining: ${targetGoldBlocksCount}`;
+            } else if (config.linesTarget > 0) {
+                objectiveText.innerText = `Lines Cleared: ${linesClearedCount}/${config.linesTarget}`;
+            } else if (config.scoreTarget > 0) {
+                objectiveText.innerText = `Reach: ${score}/${config.scoreTarget} pts`;
+            }
         }
 
         // Show level progression percentage fill
-        document.getElementById('progress-bar-container').classList.remove('hidden');
+        const progressContainer = $('progress-bar-container');
+        const progressFill = $('progress-bar-fill');
+        if (progressContainer) progressContainer.classList.remove('hidden');
         let percent = 0;
         if (config.preFilledTarget > 0) {
             percent = ((config.preFilledTarget - targetGoldBlocksCount) / config.preFilledTarget) * 100;
@@ -1133,42 +1114,23 @@ function updateHUDObjective() {
         } else if (config.scoreTarget > 0) {
             percent = (score / config.scoreTarget) * 100;
         }
-        document.getElementById('progress-bar-fill').style.width = `${Math.min(100, percent)}%`;
-
-    } else if (activeMode === 'daily' && dailyChallengeConfig) {
-        if (dailyChallengeConfig.preFilledTarget > 0) {
-            objectiveText.innerText = `Gold Blocks Remaining: ${targetGoldBlocksCount}`;
-        } else if (dailyChallengeConfig.linesTarget > 0) {
-            objectiveText.innerText = `Lines Cleared: ${linesClearedCount}/${dailyChallengeConfig.linesTarget}`;
-        } else if (dailyChallengeConfig.scoreTarget > 0) {
-            objectiveText.innerText = `Reach: ${score}/${dailyChallengeConfig.scoreTarget} pts`;
-        }
-
-        document.getElementById('progress-bar-container').classList.remove('hidden');
-        let percent = 0;
-        if (dailyChallengeConfig.preFilledTarget > 0) {
-            percent = ((dailyChallengeConfig.preFilledTarget - targetGoldBlocksCount) / dailyChallengeConfig.preFilledTarget) * 100;
-        } else if (dailyChallengeConfig.linesTarget > 0) {
-            percent = (linesClearedCount / dailyChallengeConfig.linesTarget) * 100;
-        } else if (dailyChallengeConfig.scoreTarget > 0) {
-            percent = (score / dailyChallengeConfig.scoreTarget) * 100;
-        }
-        document.getElementById('progress-bar-fill').style.width = `${Math.min(100, percent)}%`;
+        if (progressFill) progressFill.style.width = `${Math.min(100, percent)}%`;
     }
 }
 
 function updateDangerBanner() {
-    const dangerBar = document.getElementById('danger-bar');
+    const dangerBar = $('danger-bar');
     if (activeMode !== 'blast' || activeBombs.length === 0) {
-        dangerBar.classList.add('hidden');
+        if (dangerBar) dangerBar.classList.add('hidden');
         return;
     }
 
     // Find min timer
     const minTimer = Math.min(...activeBombs.map(b => b.timer));
     
-    dangerBar.classList.remove('hidden');
-    document.getElementById('danger-count').innerText = minTimer;
+    if (dangerBar) dangerBar.classList.remove('hidden');
+    const dangerCount = $('danger-count');
+    if (dangerCount) dangerCount.innerText = minTimer;
     
     // Scale intensity of shake if bomb is critical
     if (minTimer <= 3) {
@@ -1181,11 +1143,15 @@ function triggerGameOver(reason) {
     triggerHaptic('heavy');
     StorageManager.clearGameState();
 
-    document.getElementById('gameover-reason').innerText = reason;
-    document.getElementById('final-score-val').innerText = score;
-    document.getElementById('high-score-val').innerText = highScore;
+    const reasonEl = $('gameover-reason');
+    const finalScoreEl = $('final-score-val');
+    const highScoreEl = $('high-score-val');
+    if (reasonEl) reasonEl.innerText = reason;
+    if (finalScoreEl) finalScoreEl.innerText = score;
+    if (highScoreEl) highScoreEl.innerText = highScore;
 
-    document.getElementById('gameover-overlay').classList.remove('hidden');
+    const overlay = $('gameover-overlay');
+    if (overlay) overlay.classList.remove('hidden');
 }
 
 function triggerVictory() {
@@ -1193,174 +1159,175 @@ function triggerVictory() {
     triggerHaptic('double');
     StorageManager.clearGameState();
 
-    const successOverlay = document.getElementById('success-overlay');
-    document.getElementById('success-score-val').innerText = score;
+    const successOverlay = $('success-overlay');
+    const successScoreEl = $('success-score-val');
+    if (successScoreEl) successScoreEl.innerText = score;
 
-    if (activeMode === 'adventure') {
-        document.getElementById('success-message').innerText = `Level ${adventureLevel} Completed!`;
-        document.getElementById('btn-next-level').innerText = "Next Level";
-        document.getElementById('daily-completion-badge').classList.add('hidden');
-        document.getElementById('success-divider').classList.add('hidden');
+    if (activeMode === 'missions') {
+        const msgEl = $('success-message');
+        const nextBtn = $('btn-next-level');
+        if (msgEl) msgEl.innerText = `Level ${missionLevel} Completed!`;
+        if (nextBtn) nextBtn.innerText = "Next Level";
         
         // Progress unlocked levels
-        adventureLevel = Math.min(adventureLevel + 1, AdventureLevels.length);
-        StorageManager.saveAdventureProgress(adventureLevel);
-    } else if (activeMode === 'daily') {
-        document.getElementById('success-message').innerText = "Today's Challenge Completed!";
-        document.getElementById('btn-next-level').innerText = "Share Victory";
-        
-        // Record Daily Completion streak calendar
-        const currentStreak = StorageManager.recordDailyCompletion(getTodayDateString());
-        
-        const streakBadge = document.getElementById('daily-completion-badge');
-        streakBadge.classList.remove('hidden');
-        document.getElementById('success-divider').classList.remove('hidden');
-        document.getElementById('success-streak-val').innerText = currentStreak;
+        missionLevel = Math.min(missionLevel + 1, AdventureLevels.length);
+        StorageManager.saveAdventureProgress(missionLevel);
     }
 
-    successOverlay.classList.remove('hidden');
-}
-
-function getTodayDateString() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    if (successOverlay) successOverlay.classList.remove('hidden');
 }
 
 // --- Menu UI Event Bindings ---
 function setupUIBindings() {
     // Play buttons in the Main Menu overlay
-    document.getElementById('btn-play-adventure').addEventListener('click', () => {
-        selectMode('adventure');
-    });
-    document.getElementById('btn-play-classic').addEventListener('click', () => {
-        selectMode('classic');
-    });
-    document.getElementById('btn-play-classic-10').addEventListener('click', () => {
-        selectMode('classic_10');
-    });
-    document.getElementById('btn-play-blast').addEventListener('click', () => {
-        selectMode('blast');
-    });
-    document.getElementById('btn-play-daily').addEventListener('click', () => {
-        selectMode('daily');
-    });
+    const btnMissions = $('btn-play-missions');
+    const btnClassic = $('btn-play-classic');
+    const btnClassic10 = $('btn-play-classic-10');
+    const btnBlast = $('btn-play-blast');
+
+    if (btnMissions) btnMissions.addEventListener('click', () => selectMode('missions'));
+    if (btnClassic) btnClassic.addEventListener('click', () => selectMode('classic'));
+    if (btnClassic10) btnClassic10.addEventListener('click', () => selectMode('classic_10'));
+    if (btnBlast) btnBlast.addEventListener('click', () => selectMode('blast'));
 
     // Home button in HUD
-    document.getElementById('btn-home').addEventListener('click', () => {
-        saveCurrentGameState();
-        document.getElementById('menu-streak-val').innerText = StorageManager.getDailyStreak();
-        document.body.classList.add('menu-active');
-        document.getElementById('main-menu-overlay').classList.remove('hidden');
-    });
+    const btnHome = $('btn-home');
+    if (btnHome) {
+        btnHome.addEventListener('click', () => {
+            saveCurrentGameState();
+            document.body.classList.add('menu-active');
+            const menuOverlay = $('main-menu-overlay');
+            if (menuOverlay) menuOverlay.classList.remove('hidden');
+        });
+    }
 
     // Restart button on GameOver Modal
-    document.getElementById('btn-restart').addEventListener('click', () => {
-        document.getElementById('gameover-overlay').classList.add('hidden');
-        startNewGame();
-    });
+    const btnRestart = $('btn-restart');
+    if (btnRestart) {
+        btnRestart.addEventListener('click', () => {
+            const overlay = $('gameover-overlay');
+            if (overlay) overlay.classList.add('hidden');
+            startNewGame();
+        });
+    }
 
     // Next Level / Continue button on Success Modal
-    document.getElementById('btn-next-level').addEventListener('click', () => {
-        document.getElementById('success-overlay').classList.add('hidden');
-        
-        if (activeMode === 'adventure') {
+    const btnNextLevel = $('btn-next-level');
+    if (btnNextLevel) {
+        btnNextLevel.addEventListener('click', () => {
+            const overlay = $('success-overlay');
+            if (overlay) overlay.classList.add('hidden');
             startNewGame();
-        } else if (activeMode === 'daily') {
-            // Sharing functionality (simulated web share API)
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Gridly Daily Challenge',
-                    text: `I completed today's Gridly Daily Challenge with score ${score}! Streak: ${StorageManager.getDailyStreak()} days!`,
-                    url: window.location.href
-                }).catch(err => console.log(err));
-            } else {
-                alert(`Victory Shared! Streak: ${StorageManager.getDailyStreak()} days!`);
-            }
-        }
-    });
+        });
+    }
 
     // Close button on Success Modal
-    document.getElementById('btn-success-close').addEventListener('click', () => {
-        document.getElementById('success-overlay').classList.add('hidden');
-        document.body.classList.add('menu-active');
-        document.getElementById('main-menu-overlay').classList.remove('hidden');
-    });
+    const btnSuccessClose = $('btn-success-close');
+    if (btnSuccessClose) {
+        btnSuccessClose.addEventListener('click', () => {
+            const overlay = $('success-overlay');
+            if (overlay) overlay.classList.add('hidden');
+            document.body.classList.add('menu-active');
+            const menuOverlay = $('main-menu-overlay');
+            if (menuOverlay) menuOverlay.classList.remove('hidden');
+        });
+    }
 
     // Settings gear button — open the settings modal
-    document.getElementById('btn-settings').addEventListener('click', () => {
-        openSettings();
-    });
+    const btnSettings = $('btn-settings');
+    if (btnSettings) btnSettings.addEventListener('click', () => openSettings());
 
     // Settings modal: close X button
-    document.getElementById('btn-settings-close').addEventListener('click', closeSettings);
+    const btnSettingsClose = $('btn-settings-close');
+    if (btnSettingsClose) btnSettingsClose.addEventListener('click', closeSettings);
 
     // Settings modal: backdrop tap to close
-    document.getElementById('settings-overlay').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('settings-overlay')) closeSettings();
-    });
+    const settingsOverlay = $('settings-overlay');
+    if (settingsOverlay) {
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) closeSettings();
+        });
+    }
 
     // Settings modal: Sound toggle
-    document.getElementById('toggle-sound').addEventListener('click', () => {
-        audio.setSfxEnabled(!audio.enabled);
-        saveSettingsState();
-        updateSoundIcons();
-    });
+    const toggleSound = $('toggle-sound');
+    if (toggleSound) {
+        toggleSound.addEventListener('click', () => {
+            audio.setSfxEnabled(!audio.enabled);
+            saveSettingsState();
+            updateSoundIcons();
+        });
+    }
 
-    // Settings modal: BGM toggle (visual only — placeholder)
-    document.getElementById('toggle-bgm').addEventListener('click', () => {
-        audio.setBgmEnabled(!audio.bgmEnabled);
-        saveSettingsState();
-        updateSoundIcons();
-    });
+    // Settings modal: BGM toggle
+    const toggleBgm = $('toggle-bgm');
+    if (toggleBgm) {
+        toggleBgm.addEventListener('click', () => {
+            audio.setBgmEnabled(!audio.bgmEnabled);
+            saveSettingsState();
+            updateSoundIcons();
+        });
+    }
 
-    // Settings modal: Vibration toggle (visual only)
-    document.getElementById('toggle-vibration').addEventListener('click', () => {
-        vibrationEnabled = !vibrationEnabled;
-        saveSettingsState();
-        updateSoundIcons();
-        if (vibrationEnabled) triggerHaptic('light');
-    });
+    // Settings modal: Vibration toggle
+    const toggleVibration = $('toggle-vibration');
+    if (toggleVibration) {
+        toggleVibration.addEventListener('click', () => {
+            vibrationEnabled = !vibrationEnabled;
+            saveSettingsState();
+            updateSoundIcons();
+            if (vibrationEnabled) triggerHaptic('light');
+        });
+    }
 
     // Settings modal: Home button
-    document.getElementById('btn-settings-home').addEventListener('click', () => {
-        closeSettings();
-        saveCurrentGameState();
-        document.getElementById('menu-streak-val').innerText = StorageManager.getDailyStreak();
-        document.body.classList.add('menu-active');
-        document.getElementById('main-menu-overlay').classList.remove('hidden');
-    });
+    const btnSettingsHome = $('btn-settings-home');
+    if (btnSettingsHome) {
+        btnSettingsHome.addEventListener('click', () => {
+            closeSettings();
+            saveCurrentGameState();
+            document.body.classList.add('menu-active');
+            const menuOverlay = $('main-menu-overlay');
+            if (menuOverlay) menuOverlay.classList.remove('hidden');
+        });
+    }
 
     // Settings modal: Restart button
-    document.getElementById('btn-settings-restart').addEventListener('click', () => {
-        closeSettings();
-        startNewGame();
-    });
+    const btnSettingsRestart = $('btn-settings-restart');
+    if (btnSettingsRestart) {
+        btnSettingsRestart.addEventListener('click', () => {
+            closeSettings();
+            startNewGame();
+        });
+    }
 
     // Settings modal: Change Skin / cycle theme
-    document.getElementById('btn-settings-theme').addEventListener('click', () => {
-        triggerThemeChange();
-        const centerX = boardOffsetX + (cellSize * (board ? board.cols : 8)) / 2;
-        const centerY = boardOffsetY + (cellSize * (board ? board.rows : 8)) / 2;
-        particles.addFloatingText('Theme: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1), centerX, centerY, '#ffffff', 1.1);
-    });
+    const btnSettingsTheme = $('btn-settings-theme');
+    if (btnSettingsTheme) {
+        btnSettingsTheme.addEventListener('click', () => {
+            triggerThemeChange();
+            const centerX = boardOffsetX + (cellSize * (board ? board.cols : 8)) / 2;
+            const centerY = boardOffsetY + (cellSize * (board ? board.rows : 8)) / 2;
+            particles.addFloatingText('Theme: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1), centerX, centerY, '#ffffff', 1.1);
+        });
+    }
 }
 
 // --- Settings Modal Open/Close ---
 function openSettings() {
     updateSoundIcons();
-    document.getElementById('settings-overlay').classList.remove('hidden');
+    const overlay = $('settings-overlay');
+    if (overlay) overlay.classList.remove('hidden');
 }
 
 function closeSettings() {
-    document.getElementById('settings-overlay').classList.add('hidden');
+    const overlay = $('settings-overlay');
+    if (overlay) overlay.classList.add('hidden');
 }
 
 // --- Combo Ring Widget Updater ---
 function updateComboWidget() {
-    const widget = document.getElementById('combo-widget');
+    const widget = $('combo-widget');
     if (!widget) return;
     if (!comboTimerActive || comboStreak < 1) {
         widget.classList.add('hidden');
@@ -1371,13 +1338,13 @@ function updateComboWidget() {
     const CIRCUMFERENCE = 2 * Math.PI * 18; // r=18 ≈ 113.1
     const pct = comboTimerMs / COMBO_WINDOW_MS;
     const offset = CIRCUMFERENCE * (1 - pct);
-    const ringFill = document.getElementById('combo-ring-fill');
+    const ringFill = $('combo-ring-fill');
     if (ringFill) ringFill.style.strokeDashoffset = offset;
 
-    const timerEl = document.getElementById('combo-timer-val');
+    const timerEl = $('combo-timer-val');
     if (timerEl) timerEl.textContent = Math.ceil(comboTimerMs / 1000);
 
-    const countEl = document.getElementById('combo-count');
+    const countEl = $('combo-count');
     
     // Choose dynamic combo colors from the active theme's block colors
     const theme = getActiveThemeConfig();
@@ -1404,7 +1371,7 @@ function triggerThemeChange() {
     
     triggerHaptic('heavy');
     
-    const overlay = document.getElementById('theme-shift-overlay');
+    const overlay = $('theme-shift-overlay');
     if (overlay) {
         overlay.classList.add('active');
         if (audio && typeof audio.speak === 'function') {
@@ -1461,13 +1428,13 @@ function triggerHaptic(type = 'light') {
 }
 
 function updateSoundIcons() {
-    const soundIcon = document.getElementById('settings-sound-icon');
+    const soundIcon = $('settings-sound-icon');
     if (soundIcon) soundIcon.classList.toggle('off', !audio.enabled);
 
-    const bgmIcon = document.getElementById('toggle-bgm')?.querySelector('.settings-toggle-icon');
+    const bgmIcon = $('toggle-bgm')?.querySelector('.settings-toggle-icon');
     if (bgmIcon) bgmIcon.classList.toggle('off', !audio.bgmEnabled);
 
-    const vibrationIcon = document.getElementById('toggle-vibration')?.querySelector('.settings-toggle-icon');
+    const vibrationIcon = $('toggle-vibration')?.querySelector('.settings-toggle-icon');
     if (vibrationIcon) vibrationIcon.classList.toggle('off', !vibrationEnabled);
 }
 

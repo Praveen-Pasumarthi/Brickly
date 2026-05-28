@@ -38,6 +38,9 @@
                 <button id="btn-play-blast" class="menu-btn-raised blue-btn">
                     <span class="btn-icon">💣</span> Blast Mode
                 </button>
+                <button id="btn-play-missions" class="menu-btn-raised purple-btn">
+                    <span class="btn-icon">🎯</span> Missions
+                </button>
             </div>
         </div>
     </div>
@@ -106,6 +109,23 @@
                 </div>
             </section>
     
+            <!-- MODE-SPECIFIC OBJECTIVE HUD -->
+            <div id="mode-specific-hud" class="hidden">
+                <div class="glass-panel" style="margin-top:6px;">
+                    <div class="hud-item" style="width:100%;">
+                        <span class="hud-label">OBJECTIVE</span>
+                        <span id="objective-text" class="objective-desc">—</span>
+                    </div>
+                    <div class="mode-info-row" style="width:100%; margin-top:6px;">
+                        <span class="hud-label">MOVES LEFT</span>
+                        <span id="moves-val" class="hud-val-text" style="color:#ffd700;">0</span>
+                    </div>
+                    <div id="progress-bar-container">
+                        <div id="progress-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- BOMB DANGER ALERT INDICATOR -->
             <div id="danger-bar" class="hidden">
                 <span>⚠️ WARNING: BOMB DETONATING IN <strong id="danger-count">3</strong> MOVES!</span>
@@ -217,9 +237,32 @@
         </div>
     </div>
 
+    <!-- SUCCESS / LEVEL COMPLETE MODAL -->
+    <div id="success-overlay" class="modal-overlay hidden">
+        <div class="modal-card success-card glass-panel">
+            <div class="modal-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                    <path fill="#ffd700" d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/>
+                </svg>
+            </div>
+            <h2 class="title-success">VICTORY!</h2>
+            <p id="success-message">Level Completed!</p>
+            <div class="modal-score-summary">
+                <div class="summary-item">
+                    <span class="label">FINAL SCORE</span>
+                    <span id="success-score-val" class="value">0</span>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-next-level" class="primary-btn pulse-glow">Next Level</button>
+                <button id="btn-success-close" class="secondary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
 
 
     <!-- Main entry JS module script -->
-    <script type="module" src="js/game.js?v=3"></script>
+    <script type="module" src="js/game.js?v=4"></script>
 </body>
 </html>

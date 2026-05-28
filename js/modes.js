@@ -1,13 +1,12 @@
 /**
  * Gridly - Game Modes Controller
- * Contains Campaign Level definitions, seeded Daily Challenges generator,
- * and Blast Mode bomb state managers.
+ * Contains Mission Level definitions and Blast Mode bomb state managers.
  */
 
 // Cell IDs mapping:
 // 0: Empty
 // 1-12: Normal colored blocks (themes map these to Neon/Pastel/Wood/Gems)
-// 13: Target/Pre-filled Block (Adventure & Daily Challenge clear objective)
+// 13: Target/Pre-filled Block (Missions clear objective)
 // 14: Bomb Block (Blast Mode, countdown timer triggers game over)
 
 export const AdventureLevels = [
@@ -204,109 +203,6 @@ export const AdventureLevels = [
 ];
 
 export class ModeManager {
-    /**
-     * Converts a calendar date string into an integer seed value.
-     * @param {string} dateStr - Format 'YYYY-MM-DD'
-     * @returns {number}
-     */
-    static getDailySeed(dateStr) {
-        const parts = dateStr.split('-');
-        return parseInt(parts[0] + parts[1] + parts[2], 10);
-    }
-
-    /**
-     * Generates a deterministic, platform-wide level configuration based on calendar date.
-     * @param {string} dateStr - 'YYYY-MM-DD'
-     * @returns {Object} Deterministic challenge config.
-     */
-    static generateDailyChallenge(dateStr) {
-        const seed = this.getDailySeed(dateStr);
-
-        // Simple mulberry32-style seeded PRNG
-        const seededRNG = (s) => {
-            return function() {
-                let t = s += 0x6D2B79F5;
-                t = Math.imul(t ^ (t >>> 15), t | 1);
-                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-            };
-        };
-
-        const rand = seededRNG(seed);
-
-        // Randomize goal type:
-        // 1 = Clear pre-filled blocks (Gold Blocks)
-        // 2 = Clear specific number of lines
-        // 3 = Score milestone
-        const goalType = Math.floor(rand() * 3) + 1;
-        const movesLimit = 22 + Math.floor(rand() * 14); // 22 to 35 moves limit
-
-        let scoreTarget = 0;
-        let linesTarget = 0;
-        let preFilledTarget = 0;
-        const grid = Array.from({ length: 8 }, () => Array(8).fill(0));
-
-        if (goalType === 1) {
-            // Objective: Clear gold blocks
-            const targetCount = 6 + Math.floor(rand() * 8); // 6 to 13 targets
-            preFilledTarget = targetCount;
-
-            let placed = 0;
-            while (placed < targetCount) {
-                const r = Math.floor(rand() * 8);
-                const c = Math.floor(rand() * 8);
-                if (grid[r][c] === 0) {
-                    grid[r][c] = 13;
-                    placed++;
-                }
-            }
-        } else if (goalType === 2) {
-            // Objective: Clear lines
-            linesTarget = 6 + Math.floor(rand() * 8); // 6 to 13 lines
-
-            // Spawn a few decorative pre-filled targets to create interesting puzzle obstacles
-            const obstacleCount = 4 + Math.floor(rand() * 4);
-            let placed = 0;
-            while (placed < obstacleCount) {
-                const r = Math.floor(rand() * 8);
-                const c = Math.floor(rand() * 8);
-                if (grid[r][c] === 0) {
-                    grid[r][c] = 13;
-                    placed++;
-                }
-            }
-        } else {
-            // Objective: Score target
-            scoreTarget = 600 + Math.floor(rand() * 10) * 100; // 600 to 1500 points
-
-            const obstacleCount = 5 + Math.floor(rand() * 5);
-            let placed = 0;
-            while (placed < obstacleCount) {
-                const r = Math.floor(rand() * 8);
-                const c = Math.floor(rand() * 8);
-                if (grid[r][c] === 0) {
-                    grid[r][c] = 13;
-                    placed++;
-                }
-            }
-        }
-
-        return {
-            date: dateStr,
-            name: `Challenge ${dateStr}`,
-            description: goalType === 1
-                ? `Clear all ${preFilledTarget} gold blocks in ${movesLimit} moves!`
-                : goalType === 2
-                ? `Clear ${linesTarget} lines in ${movesLimit} moves!`
-                : `Score ${scoreTarget} points in ${movesLimit} moves!`,
-            movesLimit,
-            scoreTarget,
-            linesTarget,
-            preFilledTarget,
-            grid
-        };
-    }
-
     /**
      * Spawns a new bomb block at a random empty grid cell in Blast mode.
      * @param {Board} board - Board instance.
