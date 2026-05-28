@@ -716,45 +716,152 @@ function drawBoardGrid() {
 }
 
 /**
- * Highlights cells and prospective columns/rows that will clear.
+ * Shows where the dragged block will land (ghost shadow) and
+ * which rows/cols will clear (bright pulsing bands with theme colors).
  */
 function drawSnapPreview() {
     if (!isDragging || hoverRow < 0 || hoverCol < 0 || !draggedShape) return;
 
     const theme = getActiveThemeConfig();
     const shapeMatrix = draggedShape.matrix;
+    const now = performance.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now * 0.005);
 
     ctx.save();
 
-    // 1. Draw glowing prospective blocks
+    const boardCols = board ? board.cols : 8;
+    const boardRows = board ? board.rows : 8;
+    const hasLineClear = previewClearedLines.rows.length > 0 || previewClearedLines.cols.length > 0;
+
+    // ══════════════════════════════════════════════════════════════
+    //  1. GHOST PIECE — dark shadow + colored border on the grid
+    // ══════════════════════════════════════════════════════════════
+    const blockColor = theme.colors[draggedShape.colorId] || '#ffffff';
+    const inset = 2;
+    const rad = cellSize * 0.14;
+
     for (let r = 0; r < shapeMatrix.length; r++) {
         for (let c = 0; c < shapeMatrix[r].length; c++) {
             if (shapeMatrix[r][c] > 0) {
                 const cx = boardOffsetX + (hoverCol + c) * cellSize;
                 const cy = boardOffsetY + (hoverRow + r) * cellSize;
-                
-                ctx.globalAlpha = 0.55;
-                drawThemeBlock(ctx, cx, cy, cellSize, cellSize, draggedShape.colorId, theme);
+
+                // Dark semi-transparent shadow fill
+                ctx.globalAlpha = 0.5;
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.beginPath();
+                ctx.roundRect(cx + inset, cy + inset, cellSize - inset * 2, cellSize - inset * 2, rad);
+                ctx.fill();
+
+                // Colored block preview (muted version of the actual block)
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = blockColor;
+                ctx.beginPath();
+                ctx.roundRect(cx + inset + 2, cy + inset + 2, cellSize - (inset + 2) * 2, cellSize - (inset + 2) * 2, rad * 0.8);
+                ctx.fill();
+
+                // Bright pulsing border — theme-colored, thick, unmistakable
+                ctx.globalAlpha = 0.65 + pulse * 0.35;
+                ctx.strokeStyle = blockColor;
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = blockColor;
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.roundRect(cx + inset, cy + inset, cellSize - inset * 2, cellSize - inset * 2, rad);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
             }
         }
     }
 
-    // 2. Draw glowing highlight lines for columns and rows that will be cleared
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = theme.colors.glow;
+    // ══════════════════════════════════════════════════════════════
+    //  2. LINE-CLEAR GLOW — pulsing fill + 4-sided border inside board
+    // ══════════════════════════════════════════════════════════════
+    if (hasLineClear) {
+        const accentColor = theme.colors.glow || blockColor;
 
-    const cols = board ? board.cols : 8;
-    const rows = board ? board.rows : 8;
+        // --- Rows that will clear ---
+        previewClearedLines.rows.forEach(r => {
+            const ry = boardOffsetY + r * cellSize;
 
-    previewClearedLines.rows.forEach(r => {
-        const ry = boardOffsetY + r * cellSize;
-        ctx.fillRect(boardOffsetX, ry + 2, cellSize * cols, cellSize - 4);
-    });
+            // Colored glow fill
+            ctx.globalAlpha = 0.2 + pulse * 0.2;
+            ctx.fillStyle = accentColor;
+            ctx.fillRect(boardOffsetX, ry, cellSize * boardCols, cellSize);
 
-    previewClearedLines.cols.forEach(c => {
-        const cx = boardOffsetX + c * cellSize;
-        ctx.fillRect(cx + 2, boardOffsetY, cellSize - 4, cellSize * rows);
-    });
+            // White inner core
+            ctx.globalAlpha = 0.08 + pulse * 0.1;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(boardOffsetX + 2, ry + 2, cellSize * boardCols - 4, cellSize - 4);
+
+            // Sweep beam — stays within board bounds
+            const totalW = cellSize * boardCols;
+            const sweepX = boardOffsetX + ((now * 0.05) % (totalW + cellSize * 2)) - cellSize;
+            const grad = ctx.createLinearGradient(sweepX - cellSize, 0, sweepX + cellSize, 0);
+            grad.addColorStop(0, 'rgba(255,255,255,0)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.globalAlpha = 0.4 + pulse * 0.4;
+            ctx.fillStyle = grad;
+            ctx.fillRect(boardOffsetX, ry + 1, totalW, cellSize - 2);
+
+            // 4-sided border — clipped to board area
+            ctx.globalAlpha = 0.65 + pulse * 0.35;
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = accentColor;
+            ctx.shadowBlur = 10;
+            ctx.strokeRect(boardOffsetX + 1, ry + 1, totalW - 2, cellSize - 2);
+            ctx.shadowBlur = 0;
+
+            // Inner white border for contrast
+            ctx.globalAlpha = 0.4 + pulse * 0.3;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(boardOffsetX + 3, ry + 3, totalW - 6, cellSize - 6);
+        });
+
+        // --- Cols that will clear ---
+        previewClearedLines.cols.forEach(c => {
+            const cx = boardOffsetX + c * cellSize;
+
+            // Colored glow fill
+            ctx.globalAlpha = 0.2 + pulse * 0.2;
+            ctx.fillStyle = accentColor;
+            ctx.fillRect(cx, boardOffsetY, cellSize, cellSize * boardRows);
+
+            // White inner core
+            ctx.globalAlpha = 0.08 + pulse * 0.1;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(cx + 2, boardOffsetY + 2, cellSize - 4, cellSize * boardRows - 4);
+
+            // Sweep beam — stays within board bounds
+            const totalH = cellSize * boardRows;
+            const sweepY = boardOffsetY + ((now * 0.05) % (totalH + cellSize * 2)) - cellSize;
+            const grad = ctx.createLinearGradient(0, sweepY - cellSize, 0, sweepY + cellSize);
+            grad.addColorStop(0, 'rgba(255,255,255,0)');
+            grad.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.globalAlpha = 0.4 + pulse * 0.4;
+            ctx.fillStyle = grad;
+            ctx.fillRect(cx + 1, boardOffsetY, cellSize - 2, totalH);
+
+            // 4-sided border — clipped to board area
+            ctx.globalAlpha = 0.65 + pulse * 0.35;
+            ctx.strokeStyle = accentColor;
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = accentColor;
+            ctx.shadowBlur = 10;
+            ctx.strokeRect(cx + 1, boardOffsetY + 1, cellSize - 2, totalH - 2);
+            ctx.shadowBlur = 0;
+
+            // Inner white border for contrast
+            ctx.globalAlpha = 0.4 + pulse * 0.3;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx + 3, boardOffsetY + 3, cellSize - 6, totalH - 6);
+        });
+    }
 
     ctx.restore();
 }
@@ -1365,7 +1472,7 @@ function updateComboWidget() {
 
 
 function triggerThemeChange() {
-    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora'];
+    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese', 'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy'];
     let nextIndex = (themeKeys.indexOf(activeTheme) + 1) % themeKeys.length;
     const nextTheme = themeKeys[nextIndex];
     

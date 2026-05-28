@@ -36,7 +36,7 @@ export const THEMES = {
             14: '#ff3300'  // Bomb (Red warning cushion)
         },
         blockStyle: 'cushion',
-        particleStyle: 'sparkles'
+        particleStyle: 'star'
     },
     neon: {
         id: 'neon',
@@ -141,7 +141,7 @@ export const THEMES = {
             14: '#e60026'  // Bomb (Fissured Obsidian Core)
         },
         blockStyle: 'gemstone',
-        particleStyle: 'sparkles'
+        particleStyle: 'shard'
     },
     pastel: {
         id: 'pastel',
@@ -211,7 +211,7 @@ export const THEMES = {
             14: '#ff3300'   // Bomb Red
         },
         blockStyle: 'cushion',
-        particleStyle: 'sparkles'
+        particleStyle: 'star'
     },
     blush: {
         id: 'blush',
@@ -234,10 +234,10 @@ export const THEMES = {
             4:  '#c84c60',  5:  '#e87888',  6:  '#ea8090',
             7:  '#d05e70',  8:  '#e06878',  9:  '#e8647a',
             10: '#d4546a', 11: '#f07888', 12: '#c84c60',
-            13: '#ffd700', 14: '#ff3300'
+            13: '#ffd700',             14: '#ff3300'
         },
         blockStyle: 'cushion',
-        particleStyle: 'sparkles'
+        particleStyle: 'petal'
     },
     snow: {
         id: 'snow',
@@ -272,7 +272,7 @@ export const THEMES = {
             14: '#cc2222'   // Red Candy Bomb
         },
         blockStyle: 'cushion',
-        particleStyle: 'bubbles'
+        particleStyle: 'snowflake'
     },
     ocean: {
         id: 'ocean',
@@ -342,7 +342,199 @@ export const THEMES = {
             14: '#ff1744'
         },
         blockStyle: 'neon',
-        particleStyle: 'glitch'
+        particleStyle: 'ribbon'
+    },
+    watermelon: {
+        id: 'watermelon',
+        name: 'Watermelon',
+        colors: {
+            bg: '#1a472a',
+            gridBg: '#0f2e1a',
+            gridLines: '#1a3d24',
+            cellEmpty: 'rgba(26, 61, 36, 0.4)',
+            textPrimary: '#ffffff',
+            textSecondary: '#a8e6a0',
+            hudBg: 'rgba(15, 46, 26, 0.8)',
+            boardBorder: '#0a1f10',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(168, 230, 160, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#e53935', 2: '#43a047', 3: '#ef5350', 4: '#66bb6a',
+            5: '#c62828', 6: '#2e7d32', 7: '#ff7043', 8: '#81c784',
+            9: '#e53935', 10: '#43a047', 11: '#ef5350', 12: '#66bb6a',
+            13: '#ffd700', 14: '#ff1744'
+        },
+        blockStyle: 'cushion',
+        particleStyle: 'seed'
+    },
+    cheese: {
+        id: 'cheese',
+        name: 'Cheese',
+        colors: {
+            bg: '#5c4a1e',
+            gridBg: '#3d3010',
+            gridLines: '#4a3a15',
+            cellEmpty: 'rgba(74, 58, 21, 0.4)',
+            textPrimary: '#fff8e1',
+            textSecondary: '#ffe082',
+            hudBg: 'rgba(61, 48, 16, 0.8)',
+            boardBorder: '#2a1f08',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(255, 224, 130, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#ffc107', 2: '#ff9800', 3: '#ffca28', 4: '#ffb300',
+            5: '#ff8f00', 6: '#ffe082', 7: '#ffa726', 8: '#ffd54f',
+            9: '#ffc107', 10: '#ff9800', 11: '#ffca28', 12: '#ffb300',
+            13: '#ffd700', 14: '#ff5722'
+        },
+        blockStyle: 'cushion',
+        particleStyle: 'crumb'
+    },
+    crochet: {
+        id: 'crochet',
+        name: 'Crochet Ribbons',
+        colors: {
+            bg: '#4a3048',
+            gridBg: '#2d1c2c',
+            gridLines: '#3a2538',
+            cellEmpty: 'rgba(58, 37, 56, 0.4)',
+            textPrimary: '#f3e5f5',
+            textSecondary: '#ce93d8',
+            hudBg: 'rgba(45, 28, 44, 0.8)',
+            boardBorder: '#1a0e19',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(206, 147, 216, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#f48fb1', 2: '#80cbc4', 3: '#fff176', 4: '#b39ddb',
+            5: '#f06292', 6: '#4dd0e1', 7: '#ffcc80', 8: '#a5d6a7',
+            9: '#f48fb1', 10: '#80cbc4', 11: '#fff176', 12: '#b39ddb',
+            13: '#ffd700', 14: '#ef5350'
+        },
+        blockStyle: 'pastel',
+        particleStyle: 'yarn'
+    },
+    tropical: {
+        id: 'tropical',
+        name: 'Tropical Fruits',
+        colors: {
+            bg: '#004d40',
+            gridBg: '#00332b',
+            gridLines: '#004036',
+            cellEmpty: 'rgba(0, 64, 54, 0.4)',
+            textPrimary: '#e0f2f1',
+            textSecondary: '#80cbc4',
+            hudBg: 'rgba(0, 51, 43, 0.8)',
+            boardBorder: '#001a15',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(128, 203, 196, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#ff7043', 2: '#66bb6a', 3: '#fdd835', 4: '#ab47bc',
+            5: '#ff5722', 6: '#43a047', 7: '#ffca28', 8: '#7e57c2',
+            9: '#ff7043', 10: '#66bb6a', 11: '#fdd835', 12: '#ab47bc',
+            13: '#ffd700', 14: '#d32f2f'
+        },
+        blockStyle: 'cushion',
+        particleStyle: 'petal'
+    },
+    marble: {
+        id: 'marble',
+        name: 'Marble',
+        colors: {
+            bg: '#263238',
+            gridBg: '#1a2327',
+            gridLines: '#232f34',
+            cellEmpty: 'rgba(35, 47, 52, 0.4)',
+            textPrimary: '#eceff1',
+            textSecondary: '#90a4ae',
+            hudBg: 'rgba(26, 35, 39, 0.8)',
+            boardBorder: '#0d1416',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(144, 164, 174, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#b0bec5', 2: '#78909c', 3: '#cfd8dc', 4: '#546e7a',
+            5: '#90a4ae', 6: '#607d8b', 7: '#b0bec5', 8: '#455a64',
+            9: '#b0bec5', 10: '#78909c', 11: '#cfd8dc', 12: '#546e7a',
+            13: '#ffd700', 14: '#ef5350'
+        },
+        blockStyle: 'gemstone',
+        particleStyle: 'shard'
+    },
+    lava: {
+        id: 'lava',
+        name: 'Lava',
+        colors: {
+            bg: '#1a0a00',
+            gridBg: '#120700',
+            gridLines: '#1f0d00',
+            cellEmpty: 'rgba(31, 13, 0, 0.4)',
+            textPrimary: '#ffccbc',
+            textSecondary: '#ff8a65',
+            hudBg: 'rgba(18, 7, 0, 0.85)',
+            boardBorder: '#0a0400',
+            shadow: 'rgba(255, 87, 34, 0.3)',
+            glow: 'rgba(255, 138, 101, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 255, 0, 0.85)',
+            1: '#ff5722', 2: '#ff9800', 3: '#f44336', 4: '#ffc107',
+            5: '#e64a19', 6: '#ef6c00', 7: '#d32f2f', 8: '#ff8f00',
+            9: '#ff5722', 10: '#ff9800', 11: '#f44336', 12: '#ffc107',
+            13: '#ffd700', 14: '#ffff00'
+        },
+        blockStyle: 'neon',
+        particleStyle: 'ember'
+    },
+    sakura: {
+        id: 'sakura',
+        name: 'Sakura',
+        colors: {
+            bg: '#2c1a2e',
+            gridBg: '#1e1020',
+            gridLines: '#281528',
+            cellEmpty: 'rgba(40, 21, 40, 0.4)',
+            textPrimary: '#fce4ec',
+            textSecondary: '#f48fb1',
+            hudBg: 'rgba(30, 16, 32, 0.8)',
+            boardBorder: '#120814',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(244, 143, 177, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#f8bbd0', 2: '#e91e63', 3: '#f48fb1', 4: '#c2185b',
+            5: '#f06292', 6: '#ad1457', 7: '#fce4ec', 8: '#ec407a',
+            9: '#f8bbd0', 10: '#e91e63', 11: '#f48fb1', 12: '#c2185b',
+            13: '#ffd700', 14: '#ff1744'
+        },
+        blockStyle: 'cushion',
+        particleStyle: 'petal'
+    },
+    candy: {
+        id: 'candy',
+        name: 'Candy',
+        colors: {
+            bg: '#4a148c',
+            gridBg: '#311b5e',
+            gridLines: '#3a1f70',
+            cellEmpty: 'rgba(58, 31, 112, 0.4)',
+            textPrimary: '#f3e5f5',
+            textSecondary: '#ce93d8',
+            hudBg: 'rgba(49, 27, 94, 0.8)',
+            boardBorder: '#1a0a3e',
+            shadow: 'rgba(0, 0, 0, 0.5)',
+            glow: 'rgba(206, 147, 216, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)',
+            bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#e040fb', 2: '#00e5ff', 3: '#ffeb3b', 4: '#76ff03',
+            5: '#d500f9', 6: '#00b8d4', 7: '#ffd600', 8: '#64dd17',
+            9: '#e040fb', 10: '#00e5ff', 11: '#ffeb3b', 12: '#76ff03',
+            13: '#ffd700', 14: '#ff1744'
+        },
+        blockStyle: 'pastel',
+        particleStyle: 'sprinkle'
     }
 };
 

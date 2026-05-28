@@ -53,17 +53,35 @@ export class ParticleSystem {
      */
     spawnTileClearParticles(x, y, tileSize, theme) {
         const type = theme.particleStyle;
-        const count = type === 'glitch' ? 12 : type === 'leaves' ? 8 : 10;
         const colors = [theme.colors[1], theme.colors[2], theme.colors[3], theme.colors[4]];
 
-        for (let i = 0; i < count; i++) {
+        // Per-type particle configs: { count, gravity, speed, decay, rotSpeed, sizeRange }
+        const configs = {
+            sparkles:  { count: 10, gravity: 0.12, speed: 3.5, decay: 0.018, rotSpeed: 0.15, sizeMin: 3, sizeMax: 8 },
+            glitch:    { count: 12, gravity: 0,    speed: 2.5, decay: 0.014, rotSpeed: 0.08, sizeMin: 3, sizeMax: 7 },
+            leaves:    { count: 8,  gravity: 0.04, speed: 2.0, decay: 0.012, rotSpeed: 0.10, sizeMin: 4, sizeMax: 9 },
+            bubbles:   { count: 10, gravity: -0.02,speed: 2.0, decay: 0.012, rotSpeed: 0.05, sizeMin: 3, sizeMax: 7 },
+            star:      { count: 11, gravity: 0.06, speed: 3.0, decay: 0.016, rotSpeed: 0.18, sizeMin: 3, sizeMax: 8 },
+            petal:     { count: 9,  gravity: 0.03, speed: 2.2, decay: 0.011, rotSpeed: 0.12, sizeMin: 4, sizeMax: 9 },
+            snowflake: { count: 13, gravity: 0.02, speed: 1.8, decay: 0.010, rotSpeed: 0.06, sizeMin: 3, sizeMax: 7 },
+            ember:     { count: 14, gravity: -0.06,speed: 3.0, decay: 0.020, rotSpeed: 0.20, sizeMin: 2, sizeMax: 6 },
+            sprinkle:  { count: 15, gravity: 0.08, speed: 3.5, decay: 0.018, rotSpeed: 0.25, sizeMin: 2, sizeMax: 5 },
+            yarn:      { count: 8,  gravity: -0.01,speed: 1.5, decay: 0.010, rotSpeed: 0.08, sizeMin: 4, sizeMax: 8 },
+            shard:     { count: 11, gravity: 0.10, speed: 3.8, decay: 0.017, rotSpeed: 0.22, sizeMin: 3, sizeMax: 7 },
+            ribbon:    { count: 9,  gravity: -0.01,speed: 2.0, decay: 0.011, rotSpeed: 0.10, sizeMin: 5, sizeMax: 10 },
+            seed:      { count: 10, gravity: 0.14, speed: 2.8, decay: 0.016, rotSpeed: 0.12, sizeMin: 2, sizeMax: 4 },
+            crumb:     { count: 10, gravity: 0.10, speed: 2.5, decay: 0.015, rotSpeed: 0.14, sizeMin: 2, sizeMax: 5 }
+        };
+
+        const cfg = configs[type] || configs.sparkles;
+
+        for (let i = 0; i < cfg.count; i++) {
             const px = x + tileSize / 2 + (Math.random() - 0.5) * (tileSize * 0.8);
             const py = y + tileSize / 2 + (Math.random() - 0.5) * (tileSize * 0.8);
             const color = colors[Math.floor(Math.random() * colors.length)];
             
-            // Random direction
             const angle = Math.random() * Math.PI * 2;
-            const speed = 1.5 + Math.random() * 3.5;
+            const speed = (cfg.speed * 0.4) + Math.random() * cfg.speed;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
 
@@ -75,12 +93,12 @@ export class ParticleSystem {
                 color,
                 alpha: 1.0,
                 life: 1.0,
-                decay: 0.015 + Math.random() * 0.02,
-                size: 3 + Math.random() * 6,
+                decay: cfg.decay + Math.random() * 0.008,
+                size: cfg.sizeMin + Math.random() * (cfg.sizeMax - cfg.sizeMin),
                 type,
-                rotation: Math.random() * Math.PI,
-                rotSpeed: (Math.random() - 0.5) * 0.15,
-                gravity: type === 'leaves' ? 0.04 : type === 'sparkles' ? 0.12 : 0
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * cfg.rotSpeed,
+                gravity: cfg.gravity
             });
         }
     }
@@ -261,6 +279,164 @@ export class ParticleSystem {
                 ctx.fillStyle = p.color;
                 ctx.beginPath();
                 ctx.arc(0, 0, p.size * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'star') {
+                // Five-pointed star
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+                    const r = i === 0 ? p.size : p.size;
+                    const method = i === 0 ? 'moveTo' : 'lineTo';
+                    ctx[method](Math.cos(angle) * r, Math.sin(angle) * r);
+                    const innerAngle = angle + (2 * Math.PI) / 10;
+                    ctx.lineTo(Math.cos(innerAngle) * p.size * 0.4, Math.sin(innerAngle) * p.size * 0.4);
+                }
+                ctx.closePath();
+                ctx.fill();
+                // White twinkle center
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'petal') {
+                // Flower petal — elongated oval with pointed tip
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size);
+                ctx.bezierCurveTo(p.size * 0.6, -p.size * 0.6, p.size * 0.5, p.size * 0.5, 0, p.size);
+                ctx.bezierCurveTo(-p.size * 0.5, p.size * 0.5, -p.size * 0.6, -p.size * 0.6, 0, -p.size);
+                ctx.closePath();
+                ctx.fill();
+                // Subtle vein line
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size * 0.8);
+                ctx.lineTo(0, p.size * 0.8);
+                ctx.stroke();
+            } else if (p.type === 'snowflake') {
+                // Six-armed snowflake
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 1.2;
+                ctx.lineCap = 'round';
+                const arms = 6;
+                const armLen = p.size * 0.8;
+                for (let i = 0; i < arms; i++) {
+                    const a = (i * Math.PI * 2) / arms;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    const ex = Math.cos(a) * armLen;
+                    const ey = Math.sin(a) * armLen;
+                    ctx.lineTo(ex, ey);
+                    // Small branch at 60% of arm
+                    const bx = Math.cos(a) * armLen * 0.6;
+                    const by = Math.sin(a) * armLen * 0.6;
+                    const ba1 = a + Math.PI / 6;
+                    const ba2 = a - Math.PI / 6;
+                    ctx.moveTo(bx, by);
+                    ctx.lineTo(bx + Math.cos(ba1) * armLen * 0.3, by + Math.sin(ba1) * armLen * 0.3);
+                    ctx.moveTo(bx, by);
+                    ctx.lineTo(bx + Math.cos(ba2) * armLen * 0.3, by + Math.sin(ba2) * armLen * 0.3);
+                    ctx.stroke();
+                }
+                // White center dot
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'ember') {
+                // Glowing ember — radial gradient circle
+                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.3, p.color);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'sprinkle') {
+                // Candy sprinkle — small rounded bar
+                const w = p.size * 1.8;
+                const h = p.size * 0.5;
+                const r = h / 2;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.moveTo(-w / 2 + r, -h / 2);
+                ctx.lineTo(w / 2 - r, -h / 2);
+                ctx.arc(w / 2 - r, 0, r, -Math.PI / 2, Math.PI / 2);
+                ctx.lineTo(-w / 2 + r, h / 2);
+                ctx.arc(-w / 2 + r, 0, r, Math.PI / 2, -Math.PI / 2);
+                ctx.closePath();
+                ctx.fill();
+            } else if (p.type === 'yarn') {
+                // Yarn loop — open circle with a trailing tail
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size * 0.6, 0, Math.PI * 1.6);
+                ctx.stroke();
+                // Small trailing tail
+                const tailAngle = Math.PI * 1.6;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(tailAngle) * p.size * 0.6, Math.sin(tailAngle) * p.size * 0.6);
+                ctx.quadraticCurveTo(
+                    p.size * 0.3, p.size * 0.4,
+                    p.size * 0.1, p.size * 0.7
+                );
+                ctx.stroke();
+            } else if (p.type === 'ribbon') {
+                // Aurora ribbon — wavy flowing shape
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 2.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-p.size, 0);
+                ctx.bezierCurveTo(
+                    -p.size * 0.3, -p.size * 0.6,
+                    p.size * 0.3, p.size * 0.6,
+                    p.size, 0
+                );
+                ctx.stroke();
+                // Soft glow behind
+                ctx.strokeStyle = p.color;
+                ctx.globalAlpha = p.alpha * 0.3;
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(-p.size, 0);
+                ctx.bezierCurveTo(
+                    -p.size * 0.3, -p.size * 0.6,
+                    p.size * 0.3, p.size * 0.6,
+                    p.size, 0
+                );
+                ctx.stroke();
+            } else if (p.type === 'seed') {
+                // Watermelon seed — small teardrop
+                ctx.fillStyle = '#1a1a1a';
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size * 0.8);
+                ctx.bezierCurveTo(p.size * 0.4, -p.size * 0.3, p.size * 0.3, p.size * 0.4, 0, p.size * 0.8);
+                ctx.bezierCurveTo(-p.size * 0.3, p.size * 0.4, -p.size * 0.4, -p.size * 0.3, 0, -p.size * 0.8);
+                ctx.closePath();
+                ctx.fill();
+                // Glossy highlight
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.beginPath();
+                ctx.ellipse(-p.size * 0.08, -p.size * 0.2, p.size * 0.1, p.size * 0.3, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'crumb') {
+                // Cheese crumb — irregular polygon
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                const sides = 5 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < sides; i++) {
+                    const a = (i / sides) * Math.PI * 2;
+                    const r = p.size * (0.5 + Math.random() * 0.3);
+                    if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                    else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                }
+                ctx.closePath();
                 ctx.fill();
             }
 

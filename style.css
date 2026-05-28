@@ -157,6 +157,110 @@ body.theme-aurora {
     --btn-border: rgba(100, 255, 200, 0.3);
 }
 
+body.theme-watermelon {
+    --app-bg: #1a472a;
+    --color-accent: #e53935;
+    --color-accent-alt: #43a047;
+    --text-primary: #ffffff;
+    --text-secondary: #a8e6a0;
+    --hud-bg: rgba(15, 46, 26, 0.8);
+    --card-border: rgba(10, 31, 16, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(15, 46, 26, 0.85);
+    --btn-border: rgba(168, 230, 160, 0.4);
+}
+
+body.theme-cheese {
+    --app-bg: #5c4a1e;
+    --color-accent: #ffc107;
+    --color-accent-alt: #ff9800;
+    --text-primary: #fff8e1;
+    --text-secondary: #ffe082;
+    --hud-bg: rgba(61, 48, 16, 0.8);
+    --card-border: rgba(42, 31, 8, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(61, 48, 16, 0.85);
+    --btn-border: rgba(255, 224, 130, 0.4);
+}
+
+body.theme-crochet {
+    --app-bg: #4a3048;
+    --color-accent: #f48fb1;
+    --color-accent-alt: #80cbc4;
+    --text-primary: #f3e5f5;
+    --text-secondary: #ce93d8;
+    --hud-bg: rgba(45, 28, 44, 0.8);
+    --card-border: rgba(26, 14, 25, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(45, 28, 44, 0.85);
+    --btn-border: rgba(206, 147, 216, 0.4);
+}
+
+body.theme-tropical {
+    --app-bg: #004d40;
+    --color-accent: #ff7043;
+    --color-accent-alt: #66bb6a;
+    --text-primary: #e0f2f1;
+    --text-secondary: #80cbc4;
+    --hud-bg: rgba(0, 51, 43, 0.8);
+    --card-border: rgba(0, 26, 21, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(0, 51, 43, 0.85);
+    --btn-border: rgba(128, 203, 196, 0.4);
+}
+
+body.theme-marble {
+    --app-bg: #263238;
+    --color-accent: #b0bec5;
+    --color-accent-alt: #78909c;
+    --text-primary: #eceff1;
+    --text-secondary: #90a4ae;
+    --hud-bg: rgba(26, 35, 39, 0.8);
+    --card-border: rgba(13, 20, 22, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(26, 35, 39, 0.85);
+    --btn-border: rgba(144, 164, 174, 0.4);
+}
+
+body.theme-lava {
+    --app-bg: #1a0a00;
+    --color-accent: #ff5722;
+    --color-accent-alt: #ff9800;
+    --text-primary: #ffccbc;
+    --text-secondary: #ff8a65;
+    --hud-bg: rgba(18, 7, 0, 0.85);
+    --card-border: rgba(10, 4, 0, 0.7);
+    --shadow-color: rgba(255, 87, 34, 0.3);
+    --btn-bg: rgba(18, 7, 0, 0.85);
+    --btn-border: rgba(255, 138, 101, 0.4);
+}
+
+body.theme-sakura {
+    --app-bg: #2c1a2e;
+    --color-accent: #f8bbd0;
+    --color-accent-alt: #e91e63;
+    --text-primary: #fce4ec;
+    --text-secondary: #f48fb1;
+    --hud-bg: rgba(30, 16, 32, 0.8);
+    --card-border: rgba(18, 8, 20, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(30, 16, 32, 0.85);
+    --btn-border: rgba(244, 143, 177, 0.4);
+}
+
+body.theme-candy {
+    --app-bg: #4a148c;
+    --color-accent: #e040fb;
+    --color-accent-alt: #00e5ff;
+    --text-primary: #f3e5f5;
+    --text-secondary: #ce93d8;
+    --hud-bg: rgba(49, 27, 94, 0.8);
+    --card-border: rgba(26, 10, 62, 0.6);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --btn-bg: rgba(49, 27, 94, 0.85);
+    --btn-border: rgba(206, 147, 216, 0.4);
+}
+
 /* --- Global Resets --- */
 * {
     box-sizing: border-box;
