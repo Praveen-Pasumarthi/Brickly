@@ -1,5 +1,5 @@
 /**
- * Gridly - Visual Themes configurations
+ * Brickly - Visual Themes configurations
  * Contains HSL colors mapping, layout themes, and graphics directives for the Canvas renderer.
  */
 

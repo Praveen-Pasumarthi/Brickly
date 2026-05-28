@@ -1,5 +1,5 @@
 /**
- * Gridly - Particle System & Visual Juice Engine
+ * Brickly - Particle System & Visual Juice Engine
  * Renders particle bursts, floating reward text, and screen shake multipliers
  * directly onto the active gameplay canvas.
  */
@@ -438,6 +438,22 @@ export class ParticleSystem {
                 }
                 ctx.closePath();
                 ctx.fill();
+            } else if (p.type === 'shard') {
+                // Shattered gemstone/glass shard — sharp irregular triangle
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size);
+                ctx.lineTo(p.size * 0.8, p.size * 0.4);
+                ctx.lineTo(-p.size * 0.5, p.size * 0.7);
+                ctx.closePath();
+                ctx.fill();
+                // Specular bright edge to make it look like broken glass
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.lineWidth = 0.8;
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size);
+                ctx.lineTo(p.size * 0.8, p.size * 0.4);
+                ctx.stroke();
             }
 
             ctx.restore();
@@ -448,7 +464,8 @@ export class ParticleSystem {
             ctx.save();
             ctx.globalAlpha = t.alpha;
             
-            if (t.text === 'Perfect!' || t.text === 'Excellent!') {
+            const upperText = t.text.toUpperCase();
+            if (['GOOD!', 'GREAT!', 'EXCELLENT!', 'WONDERFUL!', 'AMAZING!', 'FANTASTIC!', 'PERFECT!', 'MARVELOUS!', 'UNBELIEVABLE!'].includes(upperText)) {
                 // Gold Sunblast behind text
                 const radius = 90 * t.scale;
                 const radialGrad = ctx.createRadialGradient(t.x, t.y, 5, t.x, t.y, radius);

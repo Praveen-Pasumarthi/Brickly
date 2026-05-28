@@ -1,6 +1,6 @@
-# Gridly Mobile Build
+# Brickly Mobile Build
 
-Gridly is now set up for Android and iOS using Capacitor. Capacitor packages the existing canvas game into native Android and iOS projects while keeping the shared game code in `index.html`, `style.css`, and `js/`.
+Brickly is now set up for Android and iOS using Capacitor. Capacitor packages the existing canvas game into native Android and iOS projects while keeping the shared game code in `index.html`, `style.css`, and `js/`.
 
 ## First-time setup
 

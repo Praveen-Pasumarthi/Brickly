@@ -1,5 +1,5 @@
 /**
- * Gridly - Main Game Orchestrator & Loop
+ * Brickly - Main Game Orchestrator & Loop
  * Integrates the core engine, spawner, audio, themes, particles, and storage,
  * managing mobile touch dragging, state validations, and HUD bindings.
  */
@@ -17,7 +17,7 @@ function $(id) { return document.getElementById(id); }
 
 // Global error handler — catch silent crashes that prevent init
 window.onerror = function(msg, src, line, col, err) {
-    console.error('[Gridly] Runtime error:', msg, 'at', src, line + ':' + col, err);
+    console.error('[Brickly] Runtime error:', msg, 'at', src, line + ':' + col, err);
     document.body.classList.add('menu-active');
     return false;
 };
@@ -44,6 +44,9 @@ let transitionProgress = 1.0;
 const transitionDuration = 75; // ~1.25 s at 60 fps
 let transitionStartTime = 0;   // performance.now() when transition began
 let vibrationEnabled = true;
+
+const MENU_THEMES = ['royal', 'neon', 'twilight', 'teal'];
+let activeMenuTheme = 'royal';
 
 // Mode Specific States
 let currentLevelConfig = null;
@@ -80,13 +83,32 @@ let previewClearedLines = { rows: [], cols: [] };
 
 // --- Initialization ---
 window.addEventListener('DOMContentLoaded', () => {
+    // Dismiss splash after loading bar animation completes (~2.4s total)
+    const splashEl = document.getElementById('splash-screen');
+    if (splashEl) {
+        setTimeout(() => {
+            splashEl.classList.add('splash-out');
+            setTimeout(() => splashEl.classList.add('splash-gone'), 580);
+        }, 2200); // matches splashLoad animation (0.6s delay + 1.8s duration = 2.4s)
+    }
+
     try {
         initGame();
     } catch (err) {
-        console.error('[Gridly] initGame crashed:', err);
+        console.error('[Brickly] initGame crashed:', err);
         document.body.classList.add('menu-active');
     }
 });
+
+function updateMenuHighScore() {
+    const menuHighScoreEl = document.getElementById('menu-high-score');
+    if (menuHighScoreEl) {
+        const classic = StorageManager.getHighScore('classic') || 0;
+        const classic10 = StorageManager.getHighScore('classic_10') || 0;
+        const blast = StorageManager.getHighScore('blast') || 0;
+        menuHighScoreEl.innerText = Math.max(classic, classic10, blast);
+    }
+}
 
 function initGame() {
     document.body.classList.add('menu-active');
@@ -105,15 +127,24 @@ function initGame() {
 
     // 3. Load Saved Settings and High Scores
     const settings = StorageManager.getSettings();
+    
+    // Force BGM and SFX ON by default, overriding any previously cached mute state
+    settings.bgm = true;
+    settings.sfx = true;
+    StorageManager.saveSettings(settings);
+
     activeTheme = settings.theme || 'classic';
+    activeMenuTheme = settings.menuTheme || 'royal';
     prevTheme = activeTheme;
     transitionProgress = 1.0;
-    audio.setSfxEnabled(settings.sfx !== false);
-    audio.setBgmEnabled(false);
+    
+    audio.setSfxEnabled(true);
+    audio.setBgmEnabled(true);
     vibrationEnabled = settings.vibration !== false;
     highScore = StorageManager.getHighScore(activeMode);
 
     applyTheme(activeTheme);
+    applyMenuTheme(activeMenuTheme);
     updateSoundIcons();
 
     // 4. Initialize layout
@@ -127,6 +158,7 @@ function initGame() {
     // 6. Write high score to header crown
     const topScoreEl = $('best-score-top-val');
     if (topScoreEl) topScoreEl.innerText = highScore;
+    updateMenuHighScore();
 
     // 7. Start Render Animation Loop
     requestAnimationFrame(renderLoop);
@@ -215,6 +247,10 @@ function setupDragEvents() {
             // Unlock audio on first gesture if suspended
             audio.unlock();
 
+            // Capture pointer so pointermove/up/cancel always fire on this element
+            // even if the finger drifts outside — prevents OS scroll stealing the gesture
+            try { slot.setPointerCapture(e.pointerId); } catch (_) {}
+
             // Set dragging states
             isDragging = true;
             draggedSlot = slotIndex;
@@ -249,6 +285,24 @@ function setupDragEvents() {
         document.querySelectorAll('.tray-slot').forEach(s => s.classList.remove('dragging'));
 
         attemptBlockPlacement();
+    });
+
+    // pointercancel fires when the OS interrupts the touch gesture (e.g. notification
+    // pull-down, incoming call, system scroll takeover). Without this handler the drag
+    // state stays locked forever — the piece appears stuck until the user taps again.
+    window.addEventListener('pointercancel', () => {
+        if (!isDragging) return;
+        document.querySelectorAll('.tray-slot').forEach(s => s.classList.remove('dragging'));
+        cleanupDragState();
+    });
+
+    // visibilitychange fires when the app is backgrounded (home button, task switcher).
+    // Same problem: the pointerup is never delivered, so we reset drag on re-focus.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && isDragging) {
+            document.querySelectorAll('.tray-slot').forEach(s => s.classList.remove('dragging'));
+            cleanupDragState();
+        }
     });
 }
 
@@ -412,32 +466,54 @@ function attemptBlockPlacement() {
             }
             particles.addFloatingText(floatMsg, textX, textY, getActiveThemeConfig().colors.textPrimary, 1.0 + (comboStreak * 0.12));
 
-            // Trigger "Perfect!" text sunburst in the center of the grid on combos or multi-clears
-            if (comboStreak > 1 || clearedLinesCount >= 2) {
-                const centerX = boardOffsetX + (cellSize * board.cols) / 2;
-                const centerY = boardOffsetY + (cellSize * board.rows) / 2;
-                particles.addFloatingText('Perfect!', centerX, centerY, '#ffd32a', 1.25);
-            }
-
             // Trigger sparkles and explosions
             particles.spawnLineClearParticles(rows, cols, boardLayout, getActiveThemeConfig());
             audio.playClear(comboStreak);
 
-            // Voice announcement for combo/clears
+            // Voice announcement and center text for combo/clears
             let vocalMsg = "";
-            if (comboStreak > 1) {
-                if (comboStreak === 2) vocalMsg = "Great";
-                else if (comboStreak === 3) vocalMsg = "Excellent";
-                else if (comboStreak === 4) vocalMsg = "Amazing";
-                else vocalMsg = "Unbelievable";
-            } else if (clearedLinesCount >= 2) {
-                if (clearedLinesCount === 2) vocalMsg = "Good";
-                else if (clearedLinesCount === 3) vocalMsg = "Great";
-                else vocalMsg = "Excellent";
+            let msgColor = '#ffd32a';
+            
+            // Calculate praise tiers independently to make it more rewarding
+            let comboTier = 0;
+            if (comboStreak === 2) comboTier = 1;
+            else if (comboStreak === 3) comboTier = 2;
+            else if (comboStreak === 4) comboTier = 3;
+            else if (comboStreak === 5) comboTier = 4;
+            else if (comboStreak >= 6) comboTier = 5;
+
+            let multiTier = 0;
+            if (clearedLinesCount === 2) multiTier = 2; // Make 2 lines very rewarding
+            else if (clearedLinesCount === 3) multiTier = 4;
+            else if (clearedLinesCount >= 4) multiTier = 5;
+
+            // Pick the highest achievement tier
+            const finalTier = Math.max(comboTier, multiTier);
+
+            if (finalTier === 1) {
+                vocalMsg = "Good";
+                msgColor = '#7bed9f'; // Mint green
+            } else if (finalTier === 2) {
+                vocalMsg = (multiTier === 2 && comboTier < 2) ? "Wonderful" : "Great";
+                msgColor = '#ff6b81'; // Soft pink
+            } else if (finalTier === 3) {
+                vocalMsg = "Excellent";
+                msgColor = '#ffd32a'; // Gold
+            } else if (finalTier === 4) {
+                vocalMsg = (multiTier === 4 && comboTier < 4) ? "Fantastic" : "Amazing";
+                msgColor = '#ff9f43'; // Orange
+            } else if (finalTier === 5) {
+                vocalMsg = (multiTier === 5 && comboTier < 5) ? "Perfect" : "Unbelievable";
+                msgColor = '#ee5253'; // Red
             }
             
             if (vocalMsg) {
                 audio.speak(vocalMsg);
+                
+                // Show the specific text on screen instead of just generic 'Perfect!'
+                const centerX = boardOffsetX + (cellSize * board.cols) / 2;
+                const centerY = boardOffsetY + (cellSize * board.rows) / 2;
+                particles.addFloatingText(vocalMsg.toUpperCase() + '!', centerX, centerY, msgColor, 1.25);
             }
 
             // Cleanse bomb timers (Blast Mode)
@@ -485,16 +561,27 @@ function attemptBlockPlacement() {
                 
                 const centerX = boardOffsetX + (cellSize * board.cols) / 2;
                 const centerY = boardOffsetY + (cellSize * board.rows) / 2;
-                particles.addFloatingText('BOARD CLEAR!', centerX, centerY, '#ffd32a', 1.45);
                 
-                const textX = boardOffsetX + (hoverCol + matrix[0].length / 2) * cellSize;
-                const textY = boardOffsetY + (hoverRow) * cellSize - 10;
-                particles.addFloatingText(`+${clearBonus} Clear Bonus!`, textX, textY - 20, '#ffd700', 1.25);
+                // Big "MARVELOUS!" text with theme color
+                particles.addFloatingText('MARVELOUS!', centerX, centerY - 20, theme.colors.textPrimary || '#ffd32a', 1.6);
+                particles.addFloatingText(`+${clearBonus} Board Clear!`, centerX, centerY + 30, '#ffd700', 1.15);
+                
+                // Heavy screen shake for impact
+                particles.triggerShake(20, 8);
+                
+                // Burst particles across the entire board
+                for (let r = 0; r < board.rows; r++) {
+                    for (let c = 0; c < board.cols; c++) {
+                        const bx = boardOffsetX + c * cellSize;
+                        const by = boardOffsetY + r * cellSize;
+                        particles.spawnTileClearParticles(bx, by, cellSize, theme);
+                    }
+                }
                 
                 audio.speak("Unbelievable");
                 
                 // Cycle theme as reward
-                triggerThemeChange();
+                triggerThemeChange(true);
             }
 
         } // no else — combo now resets via timer expiry, not on missed placement
@@ -1006,8 +1093,12 @@ export function selectMode(modeName) {
             audio.setBgmEnabled(true);
         }
     } catch (err) {
-        console.warn('[Gridly] audio unlock failed:', err);
+        console.warn('[Brickly] audio unlock failed:', err);
     }
+    
+    // Lower BGM volume during gameplay to make SFX more audible
+    audio.setBgmVolume(0.45);
+    
     activeMode = modeName;
     
     // Hide Main Menu overlay
@@ -1048,14 +1139,14 @@ export function selectMode(modeName) {
             updateTraySlotOpacities();
             resumeOk = true;
         } catch (err) {
-            console.warn('[Gridly] corrupted save state, starting fresh:', err);
+            console.warn('[Brickly] corrupted save state, starting fresh:', err);
             StorageManager.clearGameState();
         }
     }
     if (!resumeOk) {
         startNewGame();
     }
-    try { handleResize(); } catch (err) { console.warn('[Gridly] handleResize error:', err); }
+    try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
 }
 
 function startNewGame() {
@@ -1302,9 +1393,11 @@ function setupUIBindings() {
     if (btnHome) {
         btnHome.addEventListener('click', () => {
             saveCurrentGameState();
+            audio.setBgmVolume(0.95); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
+            updateMenuHighScore();
         });
     }
 
@@ -1334,15 +1427,20 @@ function setupUIBindings() {
         btnSuccessClose.addEventListener('click', () => {
             const overlay = $('success-overlay');
             if (overlay) overlay.classList.add('hidden');
+            audio.setBgmVolume(0.95); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
+            updateMenuHighScore();
         });
     }
 
     // Settings gear button — open the settings modal
-    const btnSettings = $('btn-settings');
-    if (btnSettings) btnSettings.addEventListener('click', () => openSettings());
+    const btnMenuSettings = $('btn-menu-settings');
+    if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => openSettings());
+
+    const btnGameSettings = $('btn-game-settings');
+    if (btnGameSettings) btnGameSettings.addEventListener('click', () => openSettings());
 
     // Settings modal: close X button
     const btnSettingsClose = $('btn-settings-close');
@@ -1393,6 +1491,7 @@ function setupUIBindings() {
         btnSettingsHome.addEventListener('click', () => {
             closeSettings();
             saveCurrentGameState();
+            audio.setBgmVolume(0.95); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1412,10 +1511,24 @@ function setupUIBindings() {
     const btnSettingsTheme = $('btn-settings-theme');
     if (btnSettingsTheme) {
         btnSettingsTheme.addEventListener('click', () => {
-            triggerThemeChange();
-            const centerX = boardOffsetX + (cellSize * (board ? board.cols : 8)) / 2;
-            const centerY = boardOffsetY + (cellSize * (board ? board.rows : 8)) / 2;
-            particles.addFloatingText('Theme: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1), centerX, centerY, '#ffffff', 1.1);
+            triggerThemeChange(false);
+            const label = $('game-theme-label');
+            if (label) label.innerText = 'Skin: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1);
+        });
+    }
+
+    // Settings modal: Menu Background change
+    const btnSettingsMenuTheme = $('btn-settings-menu-theme');
+    if (btnSettingsMenuTheme) {
+        btnSettingsMenuTheme.addEventListener('click', () => {
+            let idx = MENU_THEMES.indexOf(activeMenuTheme);
+            idx = (idx + 1) % MENU_THEMES.length;
+            activeMenuTheme = MENU_THEMES[idx];
+            applyMenuTheme(activeMenuTheme);
+            saveSettingsState();
+            
+            const label = $('menu-theme-label');
+            if (label) label.innerText = 'Theme: ' + activeMenuTheme.charAt(0).toUpperCase() + activeMenuTheme.slice(1);
         });
     }
 }
@@ -1423,6 +1536,34 @@ function setupUIBindings() {
 // --- Settings Modal Open/Close ---
 function openSettings() {
     updateSoundIcons();
+    
+    const isMenu = document.body.classList.contains('menu-active');
+    
+    const btnHome = $('btn-settings-home');
+    const btnRestart = $('btn-settings-restart');
+    const btnTheme = $('btn-settings-theme');
+    const btnMenuBg = $('btn-settings-menu-theme');
+    
+    if (isMenu) {
+        if (btnHome) btnHome.style.display = 'none';
+        if (btnRestart) btnRestart.style.display = 'none';
+        if (btnTheme) btnTheme.style.display = 'none';
+        if (btnMenuBg) {
+            btnMenuBg.style.display = 'flex';
+            const label = $('menu-theme-label');
+            if (label) label.innerText = 'Theme: ' + activeMenuTheme.charAt(0).toUpperCase() + activeMenuTheme.slice(1);
+        }
+    } else {
+        if (btnHome) btnHome.style.display = 'flex';
+        if (btnRestart) btnRestart.style.display = 'flex';
+        if (btnTheme) {
+            btnTheme.style.display = 'flex';
+            const label = $('game-theme-label');
+            if (label) label.innerText = 'Skin: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1);
+        }
+        if (btnMenuBg) btnMenuBg.style.display = 'none';
+    }
+
     const overlay = $('settings-overlay');
     if (overlay) overlay.classList.remove('hidden');
 }
@@ -1471,7 +1612,7 @@ function updateComboWidget() {
 }
 
 
-function triggerThemeChange() {
+function triggerThemeChange(isGameplay = false) {
     const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese', 'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy'];
     let nextIndex = (themeKeys.indexOf(activeTheme) + 1) % themeKeys.length;
     const nextTheme = themeKeys[nextIndex];
@@ -1479,10 +1620,17 @@ function triggerThemeChange() {
     triggerHaptic('heavy');
     
     const overlay = $('theme-shift-overlay');
-    if (overlay) {
+    if (isGameplay && overlay) {
         overlay.classList.add('active');
+        
+        const praises = ["Excellent", "Good", "Wonderful", "Amazing", "Fantastic", "Marvelous", "Perfect"];
+        const praise = praises[Math.floor(Math.random() * praises.length)];
+        
+        const textEl = overlay.querySelector('.theme-shift-text');
+        if (textEl) textEl.innerText = praise.toUpperCase();
+        
         if (audio && typeof audio.speak === 'function') {
-            audio.speak("Excellent");
+            audio.speak(praise);
         }
         
         // Change the theme in the background after 400ms (when overlay is fully blurred and visible)
@@ -1516,8 +1664,38 @@ function applyTheme(themeId) {
     document.body.classList.add(`theme-${themeId}`);
 }
 
-function triggerHaptic(type = 'light') {
+function applyMenuTheme(themeId) {
+    const overlay = $('main-menu-overlay');
+    if (!overlay) return;
+    MENU_THEMES.forEach(t => overlay.classList.remove(`menu-theme-${t}`));
+    overlay.classList.add(`menu-theme-${themeId}`);
+}
+
+async function triggerHaptic(type = 'light') {
     if (!vibrationEnabled) return;
+
+    // 1. Try native Capacitor Haptics first (works on physical devices)
+    try {
+        if (window.Capacitor && window.Capacitor.registerPlugin) {
+            // Capacitor 3+ requires registering the plugin proxy directly
+            const Haptics = window.Capacitor.registerPlugin('Haptics');
+            if (type === 'light') {
+                await Haptics.impact({ style: 'LIGHT' });
+            } else if (type === 'medium') {
+                await Haptics.impact({ style: 'MEDIUM' });
+            } else if (type === 'heavy') {
+                await Haptics.impact({ style: 'HEAVY' });
+            } else if (type === 'double') {
+                await Haptics.impact({ style: 'MEDIUM' });
+                setTimeout(async () => { await Haptics.impact({ style: 'MEDIUM' }); }, 150);
+            }
+            return; // Exit if native haptics succeeded
+        }
+    } catch (e) {
+        console.warn("Capacitor Haptics error:", e);
+    }
+
+    // 2. Fallback to standard web vibration API
     if (!('vibrate' in navigator)) return;
     try {
         if (type === 'light') {
@@ -1548,6 +1726,7 @@ function updateSoundIcons() {
 function saveSettingsState() {
     StorageManager.saveSettings({
         theme: activeTheme,
+        menuTheme: activeMenuTheme,
         sfx: audio.enabled,
         bgm: audio.bgmEnabled,
         vibration: vibrationEnabled

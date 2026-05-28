@@ -1,5 +1,5 @@
 /**
- * Gridly - Game Modes Controller
+ * Brickly - Game Modes Controller
  * Contains Mission Level definitions and Blast Mode bomb state managers.
  */
 

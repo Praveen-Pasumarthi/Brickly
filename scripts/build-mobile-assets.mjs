@@ -9,7 +9,9 @@ const assets = [
   'index.html',
   'style.css',
   'logo.png',
-  'js'
+  'ingame_logo.png',
+  'js',
+  'bgm'
 ];
 
 await rm(dist, { recursive: true, force: true });
@@ -19,4 +21,4 @@ for (const asset of assets) {
   await cp(join(root, asset), join(dist, asset), { recursive: true });
 }
 
-console.log(`Built Gridly mobile web assets in ${dist}`);
+console.log(`Built Brickly mobile web assets in ${dist}`);

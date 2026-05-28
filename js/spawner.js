@@ -1,5 +1,5 @@
 /**
- * Gridly - Spawn & Tray Engine
+ * Brickly - Spawn & Tray Engine
  * Stores the core shape database including all rotations, handles weighted spawning by score difficulty,
  * maintains the three tray slots, and performs game-over evaluations.
  */
@@ -437,27 +437,26 @@ const STARTER_POOL_2 = [
 ];
 
 // Spawn weights for different score intervals (difficulty scaling)
-// All shapes (including large 3x3 squares and 5-block lines) are placed in the pool from Score=0,
-// but with lower weights, which gradually increase as difficulty scales.
+// Balanced so L-shapes don't dominate — squares, rectangles, and corners get fair weight.
 export const SHAPE_TIERS = [
     {
         maxScore: 500,
         pool: [
-            { key: 'SINGLE', weight: 15 },
-            { key: 'H_LINE_2', weight: 14 },
-            { key: 'V_LINE_2', weight: 14 },
-            { key: 'DIAG_2', weight: 8 },
-            { key: 'DIAG_2_R1', weight: 8 },
+            { key: 'SINGLE', weight: 12 },
+            { key: 'H_LINE_2', weight: 12 },
+            { key: 'V_LINE_2', weight: 12 },
+            { key: 'DIAG_2', weight: 7 },
+            { key: 'DIAG_2_R1', weight: 7 },
             { key: 'H_LINE_3', weight: 10 },
             { key: 'V_LINE_3', weight: 10 },
-            { key: 'V_L_3', weight: 8 },
-            { key: 'V_L_3_R1', weight: 8 },
-            { key: 'V_L_3_R2', weight: 8 },
-            { key: 'V_L_3_R3', weight: 8 },
+            { key: 'V_L_3', weight: 4 },
+            { key: 'V_L_3_R1', weight: 4 },
+            { key: 'V_L_3_R2', weight: 4 },
+            { key: 'V_L_3_R3', weight: 4 },
             { key: 'DIAG_3', weight: 6 },
             { key: 'DIAG_3_R1', weight: 6 },
             { key: 'SQUARE_2', weight: 10 },
-            
+
             // 4-block lines & shapes
             { key: 'H_LINE_4', weight: 10 },
             { key: 'V_LINE_4', weight: 10 },
@@ -465,183 +464,183 @@ export const SHAPE_TIERS = [
             { key: 'T_4_R1', weight: 5 },
             { key: 'T_4_R2', weight: 5 },
             { key: 'T_4_R3', weight: 5 },
-            { key: 'Z_4', weight: 4 },
-            { key: 'Z_4_R1', weight: 4 },
-            { key: 'S_4', weight: 4 },
-            { key: 'S_4_R1', weight: 4 },
-            
-            // 5-block lines, large corners, and 3x3 square
+            { key: 'Z_4', weight: 5 },
+            { key: 'Z_4_R1', weight: 5 },
+            { key: 'S_4', weight: 5 },
+            { key: 'S_4_R1', weight: 5 },
+
+            // 5-block lines, large corners, 3x3 square, rectangles
             { key: 'H_LINE_5', weight: 7 },
             { key: 'V_LINE_5', weight: 7 },
-            { key: 'CORNER_3', weight: 2 },
-            { key: 'CORNER_3_R1', weight: 2 },
-            { key: 'CORNER_3_R2', weight: 2 },
-            { key: 'CORNER_3_R3', weight: 2 },
-            { key: 'BIG_T', weight: 1.5 },
-            { key: 'BIG_T_R1', weight: 1.5 },
-            { key: 'BIG_T_R2', weight: 1.5 },
-            { key: 'BIG_T_R3', weight: 1.5 },
-            { key: 'BIG_L', weight: 1.5 },
-            { key: 'BIG_L_R1', weight: 1.5 },
-            { key: 'BIG_L_R2', weight: 1.5 },
-            { key: 'BIG_L_R3', weight: 1.5 },
-            { key: 'SQUARE_3', weight: 6 },
-            { key: 'RECT_3X2', weight: 3.5 },
-            { key: 'RECT_2X3', weight: 3.5 },
-            
+            { key: 'CORNER_3', weight: 5 },
+            { key: 'CORNER_3_R1', weight: 5 },
+            { key: 'CORNER_3_R2', weight: 5 },
+            { key: 'CORNER_3_R3', weight: 5 },
+            { key: 'BIG_T', weight: 3 },
+            { key: 'BIG_T_R1', weight: 3 },
+            { key: 'BIG_T_R2', weight: 3 },
+            { key: 'BIG_T_R3', weight: 3 },
+            { key: 'BIG_L', weight: 2 },
+            { key: 'BIG_L_R1', weight: 2 },
+            { key: 'BIG_L_R2', weight: 2 },
+            { key: 'BIG_L_R3', weight: 2 },
+            { key: 'SQUARE_3', weight: 10 },
+            { key: 'RECT_3X2', weight: 7 },
+            { key: 'RECT_2X3', weight: 7 },
+
             // 7-block giant L shapes (10x10 mode only)
-            { key: 'L_7', weight: 2.0 },
-            { key: 'L_7_R1', weight: 2.0 },
-            { key: 'L_7_R2', weight: 2.0 },
-            { key: 'L_7_R3', weight: 2.0 }
+            { key: 'L_7', weight: 3 },
+            { key: 'L_7_R1', weight: 3 },
+            { key: 'L_7_R2', weight: 3 },
+            { key: 'L_7_R3', weight: 3 }
         ]
     },
     {
         maxScore: 1500,
         pool: [
-            { key: 'SINGLE', weight: 8 },
-            { key: 'H_LINE_2', weight: 10 },
-            { key: 'V_LINE_2', weight: 10 },
-            { key: 'DIAG_2', weight: 7 },
-            { key: 'DIAG_2_R1', weight: 7 },
-            { key: 'H_LINE_3', weight: 9 },
-            { key: 'V_LINE_3', weight: 9 },
-            { key: 'V_L_3', weight: 7 },
-            { key: 'V_L_3_R1', weight: 7 },
-            { key: 'V_L_3_R2', weight: 7 },
-            { key: 'V_L_3_R3', weight: 7 },
+            { key: 'SINGLE', weight: 7 },
+            { key: 'H_LINE_2', weight: 8 },
+            { key: 'V_LINE_2', weight: 8 },
+            { key: 'DIAG_2', weight: 6 },
+            { key: 'DIAG_2_R1', weight: 6 },
+            { key: 'H_LINE_3', weight: 8 },
+            { key: 'V_LINE_3', weight: 8 },
+            { key: 'V_L_3', weight: 3.5 },
+            { key: 'V_L_3_R1', weight: 3.5 },
+            { key: 'V_L_3_R2', weight: 3.5 },
+            { key: 'V_L_3_R3', weight: 3.5 },
             { key: 'DIAG_3', weight: 5 },
             { key: 'DIAG_3_R1', weight: 5 },
-            { key: 'H_LINE_4', weight: 12 },
-            { key: 'V_LINE_4', weight: 12 },
+            { key: 'H_LINE_4', weight: 11 },
+            { key: 'V_LINE_4', weight: 11 },
             { key: 'SQUARE_2', weight: 8 },
-            { key: 'T_4', weight: 6 },
-            { key: 'T_4_R1', weight: 6 },
-            { key: 'T_4_R2', weight: 6 },
-            { key: 'T_4_R3', weight: 6 },
+            { key: 'T_4', weight: 5 },
+            { key: 'T_4_R1', weight: 5 },
+            { key: 'T_4_R2', weight: 5 },
+            { key: 'T_4_R3', weight: 5 },
             { key: 'Z_4', weight: 5 },
             { key: 'Z_4_R1', weight: 5 },
             { key: 'S_4', weight: 5 },
             { key: 'S_4_R1', weight: 5 },
-            
-            // Large shapes
+
+            // Large shapes — boosted variety
             { key: 'H_LINE_5', weight: 8 },
             { key: 'V_LINE_5', weight: 8 },
-            { key: 'CORNER_3', weight: 3.5 },
-            { key: 'CORNER_3_R1', weight: 3.5 },
-            { key: 'CORNER_3_R2', weight: 3.5 },
-            { key: 'CORNER_3_R3', weight: 3.5 },
-            { key: 'BIG_T', weight: 3 },
-            { key: 'BIG_T_R1', weight: 3 },
-            { key: 'BIG_T_R2', weight: 3 },
-            { key: 'BIG_T_R3', weight: 3 },
-            { key: 'BIG_L', weight: 3 },
-            { key: 'BIG_L_R1', weight: 3 },
-            { key: 'BIG_L_R2', weight: 3 },
-            { key: 'BIG_L_R3', weight: 3 },
-            { key: 'SQUARE_3', weight: 8 },
-            { key: 'RECT_3X2', weight: 4.5 },
-            { key: 'RECT_2X3', weight: 4.5 },
-            
+            { key: 'CORNER_3', weight: 6 },
+            { key: 'CORNER_3_R1', weight: 6 },
+            { key: 'CORNER_3_R2', weight: 6 },
+            { key: 'CORNER_3_R3', weight: 6 },
+            { key: 'BIG_T', weight: 4 },
+            { key: 'BIG_T_R1', weight: 4 },
+            { key: 'BIG_T_R2', weight: 4 },
+            { key: 'BIG_T_R3', weight: 4 },
+            { key: 'BIG_L', weight: 2.5 },
+            { key: 'BIG_L_R1', weight: 2.5 },
+            { key: 'BIG_L_R2', weight: 2.5 },
+            { key: 'BIG_L_R3', weight: 2.5 },
+            { key: 'SQUARE_3', weight: 12 },
+            { key: 'RECT_3X2', weight: 8 },
+            { key: 'RECT_2X3', weight: 8 },
+
             // 7-block giant L shapes (10x10 mode only)
-            { key: 'L_7', weight: 3.5 },
-            { key: 'L_7_R1', weight: 3.5 },
-            { key: 'L_7_R2', weight: 3.5 },
-            { key: 'L_7_R3', weight: 3.5 }
+            { key: 'L_7', weight: 4 },
+            { key: 'L_7_R1', weight: 4 },
+            { key: 'L_7_R2', weight: 4 },
+            { key: 'L_7_R3', weight: 4 }
         ]
     },
     {
         maxScore: 3000,
         pool: [
-            { key: 'SINGLE', weight: 5 },
-            { key: 'H_LINE_2', weight: 7 },
-            { key: 'V_LINE_2', weight: 7 },
-            { key: 'DIAG_2', weight: 6 },
-            { key: 'DIAG_2_R1', weight: 6 },
-            { key: 'H_LINE_3', weight: 7 },
-            { key: 'V_LINE_3', weight: 7 },
-            { key: 'DIAG_3', weight: 4 },
-            { key: 'DIAG_3_R1', weight: 4 },
-            { key: 'H_LINE_4', weight: 12 },
-            { key: 'V_LINE_4', weight: 12 },
-            { key: 'SQUARE_2', weight: 8 },
-            { key: 'T_4', weight: 6 },
-            { key: 'T_4_R1', weight: 6 },
-            { key: 'T_4_R2', weight: 6 },
-            { key: 'T_4_R3', weight: 6 },
-            { key: 'Z_4', weight: 6 },
-            { key: 'Z_4_R1', weight: 6 },
-            { key: 'S_4', weight: 6 },
-            { key: 'S_4_R1', weight: 6 },
-            
-            // Large shapes
-            { key: 'H_LINE_5', weight: 10 },
-            { key: 'V_LINE_5', weight: 10 },
-            { key: 'CORNER_3', weight: 6 },
-            { key: 'CORNER_3_R1', weight: 6 },
-            { key: 'CORNER_3_R2', weight: 6 },
-            { key: 'CORNER_3_R3', weight: 6 },
-            { key: 'BIG_T', weight: 5 },
-            { key: 'BIG_T_R1', weight: 5 },
-            { key: 'BIG_T_R2', weight: 5 },
-            { key: 'BIG_T_R3', weight: 5 },
-            { key: 'BIG_L', weight: 5 },
-            { key: 'BIG_L_R1', weight: 5 },
-            { key: 'BIG_L_R2', weight: 5 },
-            { key: 'BIG_L_R3', weight: 5 },
-            { key: 'SQUARE_3', weight: 10 },
-            { key: 'RECT_3X2', weight: 6.0 },
-            { key: 'RECT_2X3', weight: 6.0 },
-            
-            // 7-block giant L shapes (10x10 mode only)
-            { key: 'L_7', weight: 5.0 },
-            { key: 'L_7_R1', weight: 5.0 },
-            { key: 'L_7_R2', weight: 5.0 },
-            { key: 'L_7_R3', weight: 5.0 }
-        ]
-    },
-    {
-        maxScore: Infinity,
-        pool: [
             { key: 'SINGLE', weight: 4 },
-            { key: 'H_LINE_2', weight: 5 },
-            { key: 'V_LINE_2', weight: 5 },
-            { key: 'DIAG_2', weight: 4 },
-            { key: 'DIAG_2_R1', weight: 4 },
+            { key: 'H_LINE_2', weight: 6 },
+            { key: 'V_LINE_2', weight: 6 },
+            { key: 'DIAG_2', weight: 5 },
+            { key: 'DIAG_2_R1', weight: 5 },
             { key: 'H_LINE_3', weight: 6 },
             { key: 'V_LINE_3', weight: 6 },
             { key: 'DIAG_3', weight: 4 },
             { key: 'DIAG_3_R1', weight: 4 },
             { key: 'H_LINE_4', weight: 10 },
             { key: 'V_LINE_4', weight: 10 },
-            { key: 'SQUARE_2', weight: 6 },
-            { key: 'T_4', weight: 6 },
-            { key: 'T_4_R1', weight: 6 },
-            { key: 'T_4_R2', weight: 6 },
-            { key: 'T_4_R3', weight: 6 },
-            { key: 'Z_4', weight: 6 },
-            { key: 'Z_4_R1', weight: 6 },
-            { key: 'S_4', weight: 6 },
-            { key: 'S_4_R1', weight: 6 },
-            
-            // Large board-filling shapes
-            { key: 'H_LINE_5', weight: 12 },
-            { key: 'V_LINE_5', weight: 12 },
+            { key: 'SQUARE_2', weight: 7 },
+            { key: 'T_4', weight: 5 },
+            { key: 'T_4_R1', weight: 5 },
+            { key: 'T_4_R2', weight: 5 },
+            { key: 'T_4_R3', weight: 5 },
+            { key: 'Z_4', weight: 5 },
+            { key: 'Z_4_R1', weight: 5 },
+            { key: 'S_4', weight: 5 },
+            { key: 'S_4_R1', weight: 5 },
+
+            // Large shapes — high variety at high scores
+            { key: 'H_LINE_5', weight: 10 },
+            { key: 'V_LINE_5', weight: 10 },
             { key: 'CORNER_3', weight: 8 },
             { key: 'CORNER_3_R1', weight: 8 },
             { key: 'CORNER_3_R2', weight: 8 },
             { key: 'CORNER_3_R3', weight: 8 },
+            { key: 'BIG_T', weight: 6 },
+            { key: 'BIG_T_R1', weight: 6 },
+            { key: 'BIG_T_R2', weight: 6 },
+            { key: 'BIG_T_R3', weight: 6 },
+            { key: 'BIG_L', weight: 3 },
+            { key: 'BIG_L_R1', weight: 3 },
+            { key: 'BIG_L_R2', weight: 3 },
+            { key: 'BIG_L_R3', weight: 3 },
+            { key: 'SQUARE_3', weight: 14 },
+            { key: 'RECT_3X2', weight: 9 },
+            { key: 'RECT_2X3', weight: 9 },
+
+            // 7-block giant L shapes (10x10 mode only)
+            { key: 'L_7', weight: 5 },
+            { key: 'L_7_R1', weight: 5 },
+            { key: 'L_7_R2', weight: 5 },
+            { key: 'L_7_R3', weight: 5 }
+        ]
+    },
+    {
+        maxScore: Infinity,
+        pool: [
+            { key: 'SINGLE', weight: 3 },
+            { key: 'H_LINE_2', weight: 4 },
+            { key: 'V_LINE_2', weight: 4 },
+            { key: 'DIAG_2', weight: 3 },
+            { key: 'DIAG_2_R1', weight: 3 },
+            { key: 'H_LINE_3', weight: 5 },
+            { key: 'V_LINE_3', weight: 5 },
+            { key: 'DIAG_3', weight: 3 },
+            { key: 'DIAG_3_R1', weight: 3 },
+            { key: 'H_LINE_4', weight: 8 },
+            { key: 'V_LINE_4', weight: 8 },
+            { key: 'SQUARE_2', weight: 5 },
+            { key: 'T_4', weight: 5 },
+            { key: 'T_4_R1', weight: 5 },
+            { key: 'T_4_R2', weight: 5 },
+            { key: 'T_4_R3', weight: 5 },
+            { key: 'Z_4', weight: 5 },
+            { key: 'Z_4_R1', weight: 5 },
+            { key: 'S_4', weight: 5 },
+            { key: 'S_4_R1', weight: 5 },
+
+            // Large board-filling shapes — most common at high scores
+            { key: 'H_LINE_5', weight: 12 },
+            { key: 'V_LINE_5', weight: 12 },
+            { key: 'CORNER_3', weight: 10 },
+            { key: 'CORNER_3_R1', weight: 10 },
+            { key: 'CORNER_3_R2', weight: 10 },
+            { key: 'CORNER_3_R3', weight: 10 },
             { key: 'BIG_T', weight: 7 },
             { key: 'BIG_T_R1', weight: 7 },
             { key: 'BIG_T_R2', weight: 7 },
             { key: 'BIG_T_R3', weight: 7 },
-            { key: 'BIG_L', weight: 7 },
-            { key: 'BIG_L_R1', weight: 7 },
-            { key: 'BIG_L_R2', weight: 7 },
-            { key: 'BIG_L_R3', weight: 7 },
-            { key: 'SQUARE_3', weight: 12 },
-            { key: 'RECT_3X2', weight: 7.0 },
-            { key: 'RECT_2X3', weight: 7.0 },
+            { key: 'BIG_L', weight: 3 },
+            { key: 'BIG_L_R1', weight: 3 },
+            { key: 'BIG_L_R2', weight: 3 },
+            { key: 'BIG_L_R3', weight: 3 },
+            { key: 'SQUARE_3', weight: 16 },
+            { key: 'RECT_3X2', weight: 10 },
+            { key: 'RECT_2X3', weight: 10 },
             
             // 7-block giant L shapes (10x10 mode only)
             { key: 'L_7', weight: 6.0 },
@@ -660,11 +659,16 @@ export class Spawner {
         this.slots = [null, null, null];
         this.spawnCount = 0;
         this.simulatedFirstSpawnGrid = null;
+        this.recentShapes = []; // tracks last 6 shape keys for variety
     }
 
     /**
-     * Evaluates the tactical value of a simulated shape placement on the board.
-     * Higher score indicates a better realtime strategic placement.
+     * Board-intelligent placement evaluation.
+     * Scores a potential placement by how well it serves the current board state:
+     * - Completes or nearly completes rows/cols
+     * - Fills isolated holes
+     * - Keeps the board flat and organized
+     * - Avoids creating new hard-to-fill gaps
      */
     evaluatePlacement(board, tempGrid, matrix, startRow, startCol, mode, activeBombs = []) {
         const rows = board.rows;
@@ -672,7 +676,11 @@ export class Spawner {
         const shapeRows = matrix.length;
         const shapeCols = matrix[0].length;
         
-        // 1. Simulate the placement on a temporary copy of tempGrid
+        // Generous phase: first 8 spawns actively help the player
+        const generous = this.spawnCount < 8;
+        const clearMultiplier = generous ? 2.5 : 1;
+        
+        // 1. Simulate the placement
         const simGrid = tempGrid.map(row => [...row]);
         for (let r = 0; r < shapeRows; r++) {
             for (let c = 0; c < shapeCols; c++) {
@@ -684,98 +692,143 @@ export class Spawner {
         
         let score = 0;
         
-        // 2. Count cleared lines on the simulated grid
-        let clearedRows = [];
-        let clearedCols = [];
+        // 2. Analyze row/col fill states BEFORE and AFTER placement
+        const preRowFill = [];
+        const preColFill = [];
+        const postRowFill = [];
+        const postColFill = [];
         
-        // Check rows
         for (let r = 0; r < rows; r++) {
-            let full = true;
+            let pre = 0, post = 0;
             for (let c = 0; c < cols; c++) {
-                if (simGrid[r][c] === 0) {
-                    full = false;
-                    break;
-                }
+                if (tempGrid[r][c] > 0) pre++;
+                if (simGrid[r][c] > 0) post++;
             }
-            if (full) clearedRows.push(r);
+            preRowFill.push(pre);
+            postRowFill.push(post);
         }
-        
-        // Check columns
         for (let c = 0; c < cols; c++) {
-            let full = true;
+            let pre = 0, post = 0;
             for (let r = 0; r < rows; r++) {
-                if (simGrid[r][c] === 0) {
-                    full = false;
-                    break;
-                }
+                if (tempGrid[r][c] > 0) pre++;
+                if (simGrid[r][c] > 0) post++;
             }
-            if (full) clearedCols.push(c);
+            preColFill.push(pre);
+            postColFill.push(post);
         }
         
-        const linesCleared = clearedRows.length + clearedCols.length;
-        
-        // 3. Line clear rewards
-        if (linesCleared > 0) {
-            score += linesCleared * 100;
-            if (linesCleared >= 2) score += 200; // bonus for combo lines
-            if (linesCleared >= 3) score += 400;
+        // 3. Line clear detection
+        let clearedRows = 0;
+        let clearedCols = 0;
+        for (let r = 0; r < rows; r++) {
+            if (postRowFill[r] === cols && preRowFill[r] < cols) clearedRows++;
+        }
+        for (let c = 0; c < cols; c++) {
+            if (postColFill[c] === rows && preColFill[c] < rows) clearedCols++;
         }
         
-        // 4. Mode-specific objective bonuses
-        if (mode === 'blast') {
-            // Prioritize clearing columns/rows containing bombs
-            activeBombs.forEach(bomb => {
-                const rowCleared = clearedRows.includes(bomb.r);
-                const colCleared = clearedCols.includes(bomb.c);
-                if (rowCleared || colCleared) {
-                    score += 500; // Massive reward for bomb defusal
-                    if (bomb.timer <= 3) {
-                        score += 300; // Extra urgency bonus
-                    }
-                }
-            });
-        } else if (mode === 'adventure' || mode === 'daily') {
-            // Prioritize clearing gold blocks (color 13)
-            clearedRows.forEach(r => {
-                for (let c = 0; c < cols; c++) {
-                    if (board.grid[r][c] === 13) score += 250;
-                }
-            });
-            clearedCols.forEach(c => {
-                for (let r = 0; r < rows; r++) {
-                    if (board.grid[r][c] === 13 && !clearedRows.includes(r)) score += 250;
-                }
-            });
+        const totalCleared = clearedRows + clearedCols;
+        
+        // Line clear rewards — MASSIVE priority (doubled in generous phase)
+        if (totalCleared > 0) {
+            score += totalCleared * 200 * clearMultiplier;
+            if (totalCleared >= 2) score += 500 * clearMultiplier;
+            if (totalCleared >= 3) score += 1000 * clearMultiplier;
         }
         
-        // 5. Board quality heuristics (lower rows preferred, avoid trapping cells)
-        score += startRow * 6; // favor base slots to keep top open
+        // 4. Near-completion bonus — rows/cols that are now 1 away from full
+        //    MASSIVE boost in generous phase to set up clears
+        for (let r = 0; r < rows; r++) {
+            if (postRowFill[r] === cols - 1 && preRowFill[r] < cols - 1) {
+                score += 80 * clearMultiplier;
+            }
+        }
+        for (let c = 0; c < cols; c++) {
+            if (postColFill[c] === rows - 1 && preColFill[c] < rows - 1) {
+                score += 80 * clearMultiplier;
+            }
+        }
         
-        // Penalize holes created
-        let initialHoles = 0;
-        let postHoles = 0;
+        // 5. Fill-progress reward
+        for (let r = 0; r < rows; r++) {
+            const progress = postRowFill[r] - preRowFill[r];
+            if (progress > 0) score += progress * 8 * clearMultiplier;
+        }
+        for (let c = 0; c < cols; c++) {
+            const progress = postColFill[c] - preColFill[c];
+            if (progress > 0) score += progress * 8 * clearMultiplier;
+        }
         
+        // 6. Hole analysis — penalize creating trapped empty cells
         const countHoles = (grid) => {
             let holes = 0;
             for (let c = 0; c < cols; c++) {
                 let occupiedAbove = false;
                 for (let r = 0; r < rows; r++) {
-                    if (grid[r][c] > 0) {
-                        occupiedAbove = true;
-                    } else if (grid[r][c] === 0 && occupiedAbove) {
-                        holes++;
-                    }
+                    if (grid[r][c] > 0) occupiedAbove = true;
+                    else if (grid[r][c] === 0 && occupiedAbove) holes++;
                 }
             }
             return holes;
         };
         
-        initialHoles = countHoles(tempGrid);
-        postHoles = countHoles(simGrid);
+        const holesBefore = countHoles(tempGrid);
+        const holesAfter = countHoles(simGrid);
+        const newHoles = holesAfter - holesBefore;
         
-        const newHoles = postHoles - initialHoles;
         if (newHoles > 0) {
-            score -= newHoles * 60; // Penalty for clogging empty spaces
+            score -= newHoles * (generous ? 30 : 80); // lighter penalty during generous phase
+        } else if (newHoles < 0) {
+            score += Math.abs(newHoles) * (generous ? 80 : 40); // bigger bonus for filling holes early
+        }
+        
+        // 7. Flatness — prefer placements lower on the board
+        score += startRow * (generous ? 8 : 5);
+        
+        // 8. Compactness — prefer placements that cluster with existing blocks
+        let adjacentCount = 0;
+        for (let r = 0; r < shapeRows; r++) {
+            for (let c = 0; c < shapeCols; c++) {
+                if (matrix[r][c] > 0) {
+                    const cr = startRow + r;
+                    const cc = startCol + c;
+                    if (cr > 0 && tempGrid[cr - 1][cc] > 0) adjacentCount++;
+                    if (cr < rows - 1 && tempGrid[cr + 1][cc] > 0) adjacentCount++;
+                    if (cc > 0 && tempGrid[cr][cc - 1] > 0) adjacentCount++;
+                    if (cc < cols - 1 && tempGrid[cr][cc + 1] > 0) adjacentCount++;
+                }
+            }
+        }
+        score += adjacentCount * (generous ? 10 : 6);
+        
+        // 9. Mode-specific bonuses
+        if (mode === 'blast') {
+            activeBombs.forEach(bomb => {
+                // Check if this placement's row or col contains a bomb
+                for (let r = 0; r < shapeRows; r++) {
+                    for (let c = 0; c < shapeCols; c++) {
+                        if (matrix[r][c] > 0) {
+                            if (startRow + r === bomb.r || startCol + c === bomb.c) {
+                                score += 150;
+                                if (bomb.timer <= 3) score += 200;
+                            }
+                        }
+                    }
+                }
+            });
+        } else if (mode === 'missions') {
+            // Prioritize clearing gold blocks (color 13)
+            for (let r = 0; r < shapeRows; r++) {
+                for (let c = 0; c < shapeCols; c++) {
+                    if (matrix[r][c] > 0) {
+                        const cr = startRow + r;
+                        const cc = startCol + c;
+                        if (board.grid[cr] && board.grid[cr][cc] === 13) {
+                            score += 100;
+                        }
+                    }
+                }
+            }
         }
         
         return score;
@@ -843,9 +896,9 @@ export class Spawner {
                 const isBoard10 = (board.cols >= 10);
                 const pool = tier.pool.filter(item => {
                     if (!isBoard10) {
-                        if (item.key.startsWith('L_7')) {
-                            return false;
-                        }
+                        // 10x10-only shapes
+                        if (item.key.startsWith('L_7')) return false;
+                        if (item.key.startsWith('BIG_T')) return false;
                     }
                     return true;
                 });
@@ -895,17 +948,95 @@ export class Spawner {
                     }
                 }
                 
-                const totalWeight = activePool.reduce((sum, item) => sum + item.weight, 0);
-                let randomVal = rng() * totalWeight;
+                // ═══════════════════════════════════════════════════════════
+                //  BOARD-INTELLIGENT SELECTION
+                //  Score each shape by its best placement, pick from top
+                // ═══════════════════════════════════════════════════════════
                 
-                let selectedKey = activePool[0].key;
-                for (const item of activePool) {
-                    randomVal -= item.weight;
-                    if (randomVal <= 0) {
-                        selectedKey = item.key;
-                        break;
+                // Generous phase: first 8 spawns actively help the player (mirrors evaluatePlacement)
+                const generous = this.spawnCount < 8;
+                
+                // Map each shape to its best placement score
+                const scoredShapes = validPool.map(item => {
+                    const placements = shapePlacements.get(item.key);
+                    const bestScore = placements && placements.length > 0 ? placements[0].evalScore : 0;
+                    
+                    // Generous phase: boost smaller shapes (1-4 blocks) for easier early game
+                    let sizeBonus = 1.0;
+                    if (generous) {
+                        const baseShape = SHAPES[item.key];
+                        if (baseShape) {
+                            const blockCount = baseShape.matrix.flat().filter(v => v > 0).length;
+                            if (blockCount <= 2) sizeBonus = 1.4;
+                            else if (blockCount <= 4) sizeBonus = 1.2;
+                            else if (blockCount <= 5) sizeBonus = 1.0;
+                            else sizeBonus = 0.7; // penalize large shapes early
+                        }
+                    }
+                    
+                    // Variety penalty: reduce score for recently used shapes
+                    let varietyMultiplier = 1.0;
+                    const recentIdx = this.recentShapes.lastIndexOf(item.key);
+                    if (recentIdx >= 0) {
+                        const recency = this.recentShapes.length - recentIdx;
+                        varietyMultiplier = Math.max(0.2, 1 - (0.2 * (7 - recency)));
+                    }
+                    
+                    // Also penalize same "family" as last shape (e.g., don't give 2 L-shapes in a row)
+                    if (this.recentShapes.length > 0) {
+                        const lastKey = this.recentShapes[this.recentShapes.length - 1];
+                        const lastFamily = lastKey.replace(/_R\d+$/, '').replace(/_\d+$/, '');
+                        const thisFamily = item.key.replace(/_R\d+$/, '').replace(/_\d+$/, '');
+                        if (lastFamily === thisFamily && lastFamily.length > 2) {
+                            varietyMultiplier *= 0.35;
+                        }
+                    }
+                    
+                    return {
+                        key: item.key,
+                        bestScore: bestScore,
+                        finalScore: bestScore * varietyMultiplier * sizeBonus,
+                        weight: item.weight
+                    };
+                });
+                
+                // Sort by finalScore descending — best-fitting shapes first
+                scoredShapes.sort((a, b) => b.finalScore - a.finalScore);
+                
+                // Pick from the top candidates (top 6 or however many exist)
+                const topN = Math.min(6, scoredShapes.length);
+                const candidates = scoredShapes.slice(0, topN);
+                
+                let selectedKey;
+                if (candidates.length > 0) {
+                    // Score-weighted random pick from candidates
+                    const candidateTotal = candidates.reduce((s, c) => s + Math.max(c.finalScore, 1), 0);
+                    let pick = rng() * candidateTotal;
+                    selectedKey = candidates[0].key;
+                    for (const c of candidates) {
+                        pick -= Math.max(c.finalScore, 1);
+                        if (pick <= 0) {
+                            selectedKey = c.key;
+                            break;
+                        }
+                    }
+                } else {
+                    // Fallback: plain weighted random from activePool
+                    const totalWeight = activePool.reduce((sum, item) => sum + item.weight, 0);
+                    let randomVal = rng() * totalWeight;
+                    selectedKey = activePool[0].key;
+                    for (const item of activePool) {
+                        randomVal -= item.weight;
+                        if (randomVal <= 0) {
+                            selectedKey = item.key;
+                            break;
+                        }
                     }
                 }
+
+                // Track for variety
+                this.recentShapes.push(selectedKey);
+                if (this.recentShapes.length > 6) this.recentShapes.shift();
                 
                 const baseShape = SHAPES[selectedKey];
                 const shape = {

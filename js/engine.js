@@ -1,5 +1,5 @@
 /**
- * Gridly - Board Logic Matrix Engine
+ * Brickly - Board Logic Matrix Engine
  * Handles the 8x8 cell grid states, shape placement validation, and line clearance logic.
  */
 

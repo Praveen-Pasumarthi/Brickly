@@ -1,5 +1,5 @@
 /**
- * Gridly - Web Audio API Synthesis Engine
+ * Brickly - Web Audio API Synthesis Engine
  * Synthesizes clean, latency-free haptic-like sound effects (SFX) directly
  * inside the client browser context, removing large file asset downloads.
  */
@@ -9,12 +9,33 @@ export class AudioManager {
         this.ctx = null;
         this.enabled = true;
         this.bgmEnabled = true;
-        this.musicGain = null;
-        this.musicTimer = null;
-        this.musicStep = 0;
-        this.nextNoteTime = 0;   // Audio-context-clock time of the next note to schedule
+        
         // Master gain node — all SFX route through this so volume is consistent
         this.masterGain = null;
+
+        // BGM using HTMLAudioElement for simple, native playback (no cracking)
+        this.bgmAudio = new Audio('bgm/bgm.wav');
+        this.bgmAudio.loop = true;
+        this.bgmAudio.volume = 0.95;
+
+        // Auto-pause audio engine when app is minimized or backgrounded
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (this.ctx && this.ctx.state === 'running') {
+                    this.ctx.suspend();
+                }
+                if (this.bgmEnabled && !this.bgmAudio.paused) {
+                    this.bgmAudio.pause();
+                }
+            } else {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+                if (this.bgmEnabled) {
+                    this.bgmAudio.play().catch(e => console.warn("BGM resume blocked:", e));
+                }
+            }
+        });
     }
 
     /**
@@ -63,68 +84,21 @@ export class AudioManager {
         }
     }
 
+    setBgmVolume(vol) {
+        this.bgmAudio.volume = Math.max(0, Math.min(1, vol));
+    }
+
     startBgm() {
-        if (!this.bgmEnabled || this.musicTimer) return;
+        if (!this.bgmEnabled) return;
         this.init();
         this.resume();
-        if (!this.ctx) return;
-
-        if (!this.musicGain) {
-            this.musicGain = this.ctx.createGain();
-            this.musicGain.gain.value = 0.28;
-            this.musicGain.connect(this.ctx.destination);
-        }
-
-        const notes    = [196, 246.94, 293.66, 369.99, 329.63, 246.94, 220, 293.66];
-        const DURATION = 0.78;   // seconds each note sounds for
-        const SPACING  = 0.76;   // seconds between note start times (slight overlap = smooth crossfade)
-        const LOOKAHEAD = 0.10;  // schedule notes up to 100 ms ahead of playback time
-
-        // Seed the scheduler time to now so the first note plays immediately
-        this.nextNoteTime = this.ctx.currentTime;
-
-        const scheduleNotes = () => {
-            if (!this.bgmEnabled || !this.ctx || !this.musicGain) return;
-
-            // Keep scheduling notes that fall within the next LOOKAHEAD window
-            while (this.nextNoteTime < this.ctx.currentTime + LOOKAHEAD) {
-                const freq     = notes[this.musicStep % notes.length];
-                const playTime = this.nextNoteTime;
-
-                const osc  = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(freq, playTime);
-
-                // Smooth attack + decay — fade fully to silence 60 ms before the note ends
-                // so there is NEVER an abrupt cut that causes a click
-                gain.gain.setValueAtTime(0.0001, playTime);
-                gain.gain.exponentialRampToValueAtTime(0.85, playTime + 0.04);
-                gain.gain.exponentialRampToValueAtTime(0.0001, playTime + DURATION - 0.06);
-
-                osc.connect(gain);
-                gain.connect(this.musicGain);
-                osc.start(playTime);
-                osc.stop(playTime + DURATION);
-
-                // Advance the clock by exactly SPACING — no drift possible
-                this.nextNoteTime += SPACING;
-                this.musicStep++;
-            }
-        };
-
-        // First pass immediately, then poll every 25 ms to refill the lookahead buffer
-        scheduleNotes();
-        this.musicTimer = window.setInterval(scheduleNotes, 25);
+        
+        this.bgmAudio.play().catch(e => console.warn("BGM autoplay blocked by browser policy:", e));
     }
 
     stopBgm() {
-        if (this.musicTimer) {
-            window.clearInterval(this.musicTimer);
-            this.musicTimer = null;
-        }
-        this.nextNoteTime = 0;
+        this.bgmAudio.pause();
+        this.bgmAudio.currentTime = 0;
     }
 
     /**
@@ -144,15 +118,17 @@ export class AudioManager {
         osc.frequency.setValueAtTime(450, now);
         osc.frequency.exponentialRampToValueAtTime(600, now + 0.04);
 
-        // Raised from 0.04 → 0.25 — clearly audible tap
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        // 10ms micro-attack to prevent pop
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.20, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
         osc.connect(gain);
         gain.connect(this.masterGain);
 
         osc.start(now);
-        osc.stop(now + 0.06);
+        osc.stop(now + 0.1);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     }
 
     /**
@@ -174,16 +150,18 @@ export class AudioManager {
         thudOsc.frequency.setValueAtTime(280, now);
         thudOsc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
 
-        thudGain.gain.setValueAtTime(0.45, now);
-        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+        thudGain.gain.setValueAtTime(0, now);
+        thudGain.gain.linearRampToValueAtTime(0.35, now + 0.01);
+        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
         thudOsc.connect(thudGain);
         thudGain.connect(this.masterGain);
 
         thudOsc.start(now);
-        thudOsc.stop(now + 0.10);
+        thudOsc.stop(now + 0.15);
+        thudOsc.onended = () => { thudOsc.disconnect(); thudGain.disconnect(); };
 
-        // Clicky snap highlight (raised from 0.04 → 0.2)
+        // Clicky snap highlight
         const clickOsc = this.ctx.createOscillator();
         const clickGain = this.ctx.createGain();
 
@@ -191,14 +169,16 @@ export class AudioManager {
         clickOsc.frequency.setValueAtTime(900, now);
         clickOsc.frequency.exponentialRampToValueAtTime(500, now + 0.04);
 
-        clickGain.gain.setValueAtTime(0.2, now);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        clickGain.gain.setValueAtTime(0, now);
+        clickGain.gain.linearRampToValueAtTime(0.15, now + 0.01);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
         clickOsc.connect(clickGain);
         clickGain.connect(this.masterGain);
 
         clickOsc.start(now);
-        clickOsc.stop(now + 0.05);
+        clickOsc.stop(now + 0.1);
+        clickOsc.onended = () => { clickOsc.disconnect(); clickGain.disconnect(); };
     }
 
     /**
@@ -232,34 +212,38 @@ export class AudioManager {
             osc.frequency.setValueAtTime(freq, playTime);
             osc.frequency.exponentialRampToValueAtTime(freq * 1.1, playTime + 0.16);
 
-            // Raised from max 0.12 → 0.5 (scales with combos but caps cleanly)
-            const volume = Math.min(0.35 + (comboCount * 0.03), 0.6);
-            gainNode.gain.setValueAtTime(volume, playTime);
+            // 15ms micro-attack
+            const volume = Math.min(0.25 + (comboCount * 0.03), 0.5);
+            gainNode.gain.setValueAtTime(0, playTime);
+            gainNode.gain.linearRampToValueAtTime(volume, playTime + 0.015);
             gainNode.gain.exponentialRampToValueAtTime(0.001, playTime + 0.30);
 
             osc.connect(gainNode);
             gainNode.connect(this.masterGain);
 
             osc.start(playTime);
-            osc.stop(playTime + 0.32);
+            osc.stop(playTime + 0.35);
+            osc.onended = () => { osc.disconnect(); gainNode.disconnect(); };
         });
 
         // Glitter shimmer on top (raised from 0.015 → 0.12)
         const glitterOsc = this.ctx.createOscillator();
         const glitterGain = this.ctx.createGain();
 
-        glitterOsc.type = 'triangle';
+        glitterOsc.type = 'sine';
         glitterOsc.frequency.setValueAtTime(rootFreq * 2, now);
-        glitterOsc.frequency.linearRampToValueAtTime(rootFreq * 3.2, now + 0.18);
+        glitterOsc.frequency.linearRampToValueAtTime(rootFreq * 4, now + 0.15);
 
-        glitterGain.gain.setValueAtTime(0.12, now);
+        glitterGain.gain.setValueAtTime(0, now);
+        glitterGain.gain.linearRampToValueAtTime(0.08, now + 0.02);
         glitterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
 
         glitterOsc.connect(glitterGain);
         glitterGain.connect(this.masterGain);
 
         glitterOsc.start(now);
-        glitterOsc.stop(now + 0.22);
+        glitterOsc.stop(now + 0.25);
+        glitterOsc.onended = () => { glitterOsc.disconnect(); glitterGain.disconnect(); };
     }
 
     /**
@@ -321,15 +305,16 @@ export class AudioManager {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, playTime);
 
-            // Raised from 0.04 → 0.4
-            gain.gain.setValueAtTime(0.4, playTime);
+            gain.gain.setValueAtTime(0, playTime);
+            gain.gain.linearRampToValueAtTime(0.25, playTime + 0.02);
             gain.gain.exponentialRampToValueAtTime(0.001, playTime + 0.48);
 
             osc.connect(gain);
             gain.connect(this.masterGain);
 
             osc.start(playTime);
-            osc.stop(playTime + 0.5);
+            osc.stop(playTime + 0.55);
+            osc.onended = () => { osc.disconnect(); gain.disconnect(); };
         });
     }
 
@@ -337,29 +322,79 @@ export class AudioManager {
      * Synthesizes/speaks vocal announcements like Good, Great, Excellent, Amazing, Unbelievable.
      * @param {string} phrase - Word to speak.
      */
-    speak(phrase) {
+    async speak(phrase) {
         if (!this.enabled) return;
+        
+        // 1. Try Native Capacitor TextToSpeech Plugin (Robust on Android)
+        try {
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                const TTS = window.Capacitor.registerPlugin('TextToSpeech');
+                if (TTS) {
+                    await TTS.speak({
+                        text: phrase,
+                        lang: 'en-US',
+                        rate: 0.95,
+                        pitch: 0.95,
+                        volume: 1.0
+                    });
+                    return; // Skip Web Speech API if native succeeds
+                }
+            }
+        } catch (e) {
+            console.warn("Capacitor Native TTS error:", e);
+        }
+
+        // 2. Fallback to Web Speech API
         if (!('speechSynthesis' in window)) return;
+        
+        // Permanently map specific praises to a specific soothing voice gender
+        const genderMap = {
+            "Good": "male",
+            "Great": "female",
+            "Excellent": "female",
+            "Wonderful": "male",
+            "Amazing": "female",
+            "Fantastic": "male",
+            "Perfect": "male",
+            "Marvelous": "female",
+            "Unbelievable": "female"
+        };
         
         try {
             // Cancel current speech to prevent queuing lag
             window.speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(phrase);
-            utterance.pitch = 1.35; // slightly higher pitch for gamey energy
-            utterance.rate = 1.15; // slightly faster rate
-            utterance.volume = 1.0; // Full volume
+            utterance.pitch = 0.95; // Soothing, lower pitch
+            utterance.rate = 0.95; // Slightly slower, calm delivery
+            utterance.volume = 1.0; 
             
-            // Prefer an English voice
+            const targetGender = genderMap[phrase] || "female"; // Default to female if unknown
             const voices = window.speechSynthesis.getVoices();
-            const enVoice = voices.find(v => v.lang.startsWith('en'));
-            if (enVoice) {
-                utterance.voice = enVoice;
+            
+            let bestVoice = null;
+            if (targetGender === "female") {
+                // Find a soothing female voice
+                bestVoice = voices.find(v => v.lang.startsWith('en') && 
+                    (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('victoria')));
+            } else {
+                // Find a soothing male voice
+                bestVoice = voices.find(v => v.lang.startsWith('en') && 
+                    (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('daniel') || v.name.toLowerCase().includes('alex') || v.name.toLowerCase().includes('arthur')) 
+                    && !v.name.toLowerCase().includes('female'));
+            }
+
+            // Fallbacks if no specific gender match found
+            if (!bestVoice) bestVoice = voices.find(v => v.lang.startsWith('en-GB'));
+            if (!bestVoice) bestVoice = voices.find(v => v.lang.startsWith('en'));
+            
+            if (bestVoice) {
+                utterance.voice = bestVoice;
             }
             
             window.speechSynthesis.speak(utterance);
         } catch (e) {
-            console.warn("Speech Synthesis error:", e);
+            console.warn("Speech synthesis error:", e);
         }
     }
 }

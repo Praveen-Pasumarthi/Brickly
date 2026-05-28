@@ -1,8 +1,8 @@
 {
-  "name": "gridly",
+  "name": "brickly",
   "version": "0.1.0",
   "private": true,
-  "description": "Gridly mobile game packaged for Android and iOS with Capacitor.",
+  "description": "Brickly mobile game packaged for Android and iOS with Capacitor.",
   "scripts": {
     "build": "node scripts/build-mobile-assets.mjs",
     "cap:sync": "npm run build && npx cap sync",
@@ -13,9 +13,12 @@
     "ios": "npm run build && npx cap sync ios && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor-community/text-to-speech": "^8.0.0",
     "@capacitor/android": "^8.0.0",
     "@capacitor/core": "^8.0.0",
-    "@capacitor/ios": "^8.0.0"
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.0.0",
+    "jimp": "^1.6.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0"

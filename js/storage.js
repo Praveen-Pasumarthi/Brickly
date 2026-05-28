@@ -1,17 +1,17 @@
 /**
- * Gridly - Local Storage Persistence Engine
+ * Brickly - Local Storage Persistence Engine
  * Manages saving and loading high scores, game states (to resume play),
  * campaign levels, daily victory calendars, and user preferences.
  */
 
 const STORAGE_KEYS = {
-    HIGH_SCORE: 'gridly_high_score',
-    HIGH_SCORE_10: 'gridly_high_score_10',
-    CURRENT_STATE: 'gridly_save_state',
-    DAILY_STREAK: 'gridly_daily_streak',
-    DAILY_LAST_DATE: 'gridly_daily_last_date',
-    ADVENTURE_PROGRESS: 'gridly_adventure_level',
-    SETTINGS: 'gridly_settings'
+    HIGH_SCORE: 'brickly_high_score',
+    HIGH_SCORE_10: 'brickly_high_score_10',
+    CURRENT_STATE: 'brickly_save_state',
+    DAILY_STREAK: 'brickly_daily_streak',
+    DAILY_LAST_DATE: 'brickly_daily_last_date',
+    ADVENTURE_PROGRESS: 'brickly_adventure_level',
+    SETTINGS: 'brickly_settings'
 };
 
 export class StorageManager {
@@ -183,7 +183,7 @@ export class StorageManager {
      * @returns {Object}
      */
     static getSettings() {
-        const defaultSettings = { sfx: true, bgm: true, vibration: true, theme: 'neon' };
+        const defaultSettings = { sfx: true, bgm: true, vibration: true, theme: 'neon', menuTheme: 'royal' };
         if (!this.isAvailable()) return defaultSettings;
         try {
             const settingsStr = localStorage.getItem(STORAGE_KEYS.SETTINGS);

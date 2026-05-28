@@ -1,4 +1,4 @@
-package com.gridly.game;
+package com.brickly.game;
 
 import android.graphics.Color;
 import android.os.Build;
