@@ -625,32 +625,69 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
  * Converts Hex string to RGBA with alpha.
  */
 function hexToRgbA(hex, alpha = 1) {
-    let c;
+    if (!hex) return 'rgba(255, 255, 255, 1)';
+    hex = hex.trim();
     if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
-        c= hex.substring(1).split('');
+        let c = hex.substring(1).split('');
         if(c.length === 3){
-            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+            c = [c[0], c[0], c[1], c[1], c[2], c[2]];
         }
-        c= '0x' + c.join('');
+        c = '0x' + c.join('');
         return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+alpha+')';
+    } else if (hex.startsWith('rgba') || hex.startsWith('rgb')) {
+        const parts = hex.match(/[\d.]+/g);
+        if (parts && parts.length >= 3) {
+            return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+        }
     }
     return hex;
 }
 
 /**
- * Returns a lighter shade of a hex color.
+ * Returns a lighter shade of a color (supports HEX and RGB/RGBA).
  */
-function lightenColor(hex, percent) {
-    const num = parseInt(hex.replace("#",""), 16),
-        amt = Math.round(2.55 * percent),
-        R = (num >> 16) + amt,
-        G = (num >> 8 & 0x00FF) + amt,
-        B = (num & 0x0000FF) + amt;
-    return "#" + (0x1000000 + (R<255?R<0?0:R:255)*0x10000 + (G<255?G<0?0:G:255)*0x100 + (B<255?B<0?0:B:255)).toString(16).slice(1);
+function lightenColor(colorStr, percent) {
+    if (!colorStr) return '#ffffff';
+    colorStr = colorStr.trim();
+    
+    let r, g, b, a = 1;
+    if (colorStr.startsWith('#')) {
+        let hex = colorStr.replace('#', '');
+        if (hex.length === 3) {
+            hex = hex.split('').map(x => x + x).join('');
+        }
+        const num = parseInt(hex, 16);
+        r = num >> 16;
+        g = (num >> 8) & 255;
+        b = num & 255;
+    } else if (colorStr.startsWith('rgba') || colorStr.startsWith('rgb')) {
+        const parts = colorStr.match(/[\d.]+/g);
+        if (parts) {
+            r = parseInt(parts[0], 10);
+            g = parseInt(parts[1], 10);
+            b = parseInt(parts[2], 10);
+            a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+        } else {
+            return colorStr;
+        }
+    } else {
+        return colorStr;
+    }
+
+    const amt = Math.round(2.55 * percent);
+    r = Math.min(255, Math.max(0, r + amt));
+    g = Math.min(255, Math.max(0, g + amt));
+    b = Math.min(255, Math.max(0, b + amt));
+
+    if (colorStr.startsWith('#')) {
+        return "#" + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+    } else {
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
 }
 
 /**
- * Returns a darker shade of a hex color.
+ * Returns a darker shade of a color (supports HEX and RGB/RGBA).
  */
 function darkenColor(hex, percent) {
     return lightenColor(hex, percent);

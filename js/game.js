@@ -31,7 +31,8 @@ let activeMode = 'classic'; // 'classic', 'adventure', 'blast', 'daily'
 let activeTheme = 'indigo'; // default skin: dark blue with gold+purple blocks
 let prevTheme = 'indigo';
 let transitionProgress = 1.0;
-const transitionDuration = 30; // 30 frames = 0.5s
+const transitionDuration = 75; // ~1.25 s at 60 fps
+let transitionStartTime = 0;   // performance.now() when transition began
 let vibrationEnabled = true;
 
 // Mode Specific States
@@ -49,6 +50,8 @@ let dailyChallengeConfig = null;
 // Canvas Scaling & Layout
 let gameCanvas;
 let ctx;
+let dragCanvas;
+let dragCtx;
 let cellSize = 0;
 let boardOffsetX = 0;
 let boardOffsetY = 0;
@@ -86,6 +89,8 @@ function initGame() {
     // 2. Setup Canvas
     gameCanvas = document.getElementById('game-canvas');
     ctx = gameCanvas.getContext('2d');
+    dragCanvas = document.getElementById('drag-canvas');
+    dragCtx = dragCanvas.getContext('2d');
 
     // 3. Load Saved Settings and High Scores
     const settings = StorageManager.getSettings();
@@ -131,6 +136,17 @@ function handleResize() {
     // Scale canvas context for Retina/High-DPI sharp rendering
     ctx.resetTransform();
     ctx.scale(dpr, dpr);
+
+    // Resize drag overlay canvas to cover entire app container
+    const appContainer = document.getElementById('app-container');
+    if (appContainer && dragCanvas) {
+        const appW = appContainer.clientWidth;
+        const appH = appContainer.clientHeight;
+        dragCanvas.width = appW * dpr;
+        dragCanvas.height = appH * dpr;
+        dragCtx.resetTransform();
+        dragCtx.scale(dpr, dpr);
+    }
 
     // Keep grid perfectly square and centered in canvas
     const padding = 10;
@@ -234,20 +250,20 @@ function projectDraggedShapePreview() {
     if (!draggedShape) return;
 
     const rect = gameCanvas.getBoundingClientRect();
-    
-    // Vertical Offset: -60px ensures shape floats above user's thumb
-    const offsetPointerY = pointerY - 65; 
-    
-    // Map screen coordinate center relative to canvas top-left
-    const localX = pointerX - rect.left;
-    const localY = offsetPointerY - rect.top;
 
     const shapeRows = draggedShape.matrix.length;
     const shapeCols = draggedShape.matrix[0].length;
 
-    // Centering the shape projection under the pointer
-    const col = Math.round((localX - boardOffsetX - (shapeCols * cellSize) / 2) / cellSize);
-    const row = Math.round((localY - boardOffsetY - (shapeRows * cellSize) / 2) / cellSize);
+    // The bottom edge of the shape floats 28px above the finger.
+    // Therefore, the top-left corner of the shape is at:
+    const shapeWidthPx = shapeCols * cellSize;
+    const shapeHeightPx = shapeRows * cellSize;
+    const localX = pointerX - rect.left - shapeWidthPx / 2;
+    const localY = pointerY - shapeHeightPx - 28 - rect.top;
+
+    // Snap: find the nearest grid column and row for the top-left corner
+    const col = Math.round((localX - boardOffsetX) / cellSize);
+    const row = Math.round((localY - boardOffsetY) / cellSize);
 
     // Validate placement at computed coords
     if (board.validatePlacement(draggedShape.matrix, row, col)) {
@@ -495,9 +511,11 @@ function attemptBlockPlacement() {
                 return;
             }
 
-            // Spawn a new bomb every 5 moves
+            // Spawn a new bomb every 5 moves, scaling the timer based on how many bombs are already active.
+            // More active bombs = more time to prevent overwhelming the player.
             if (placementCount % 5 === 0) {
-                ModeManager.spawnBomb(board, activeBombs);
+                const nextBombTimer = activeBombs.length >= 2 ? 15 : activeBombs.length === 1 ? 12 : 9;
+                ModeManager.spawnBomb(board, activeBombs, nextBombTimer);
                 updateDangerBanner();
             }
         }
@@ -552,6 +570,16 @@ function attemptBlockPlacement() {
     cleanupDragState();
 }
 
+function updateTraySlotOpacities() {
+    document.querySelectorAll('.tray-slot').forEach((slot, idx) => {
+        if (spawner.slots[idx] === null) {
+            slot.classList.add('empty');
+        } else {
+            slot.classList.remove('empty');
+        }
+    });
+}
+
 function cleanupDragState() {
     isDragging = false;
     draggedSlot = -1;
@@ -560,14 +588,7 @@ function cleanupDragState() {
     hoverCol = -1;
     previewClearedLines = { rows: [], cols: [] };
 
-    // Update tray slot elements opacity
-    document.querySelectorAll('.tray-slot').forEach((slot, idx) => {
-        if (spawner.slots[idx] === null) {
-            slot.classList.add('empty');
-        } else {
-            slot.classList.remove('empty');
-        }
-    });
+    updateTraySlotOpacities();
 
     // Save state
     saveCurrentGameState();
@@ -592,10 +613,12 @@ function renderLoop(now) {
         }
     }
 
-    // Update theme transition progress
+    // Update theme transition using time-based easing (smoothstep, ~1.25 s)
     if (transitionProgress < 1.0) {
-        transitionProgress += 1.0 / transitionDuration;
-        if (transitionProgress > 1.0) transitionProgress = 1.0;
+        const elapsed = now - transitionStartTime;
+        const raw = Math.min(elapsed / 1250, 1.0);          // 1250 ms total
+        // smoothstep: 3t²-2t³  (ease-in-out)
+        transitionProgress = raw * raw * (3 - 2 * raw);
     }
 
     // 1. Update particles physics
@@ -632,7 +655,7 @@ function renderLoop(now) {
 }
 
 function drawBoardGrid() {
-    const theme = THEMES[activeTheme];
+    const theme = getActiveThemeConfig();
     const cols = board ? board.cols : 8;
     const rows = board ? board.rows : 8;
     
@@ -664,7 +687,7 @@ function drawBoardGrid() {
                 if (cellValue === 14 && activeMode === 'blast') {
                     const bomb = activeBombs.find(b => b.r === r && b.c === c);
                     if (bomb) {
-                        drawBombCountdownText(cx, cy, cellSize, bomb.timer);
+                        drawBombOverlay(cx, cy, cellSize, bomb.timer);
                     }
                 }
             } else {
@@ -689,7 +712,7 @@ function drawBoardGrid() {
 function drawSnapPreview() {
     if (!isDragging || hoverRow < 0 || hoverCol < 0 || !draggedShape) return;
 
-    const theme = THEMES[activeTheme];
+    const theme = getActiveThemeConfig();
     const shapeMatrix = draggedShape.matrix;
 
     ctx.save();
@@ -731,43 +754,50 @@ function drawSnapPreview() {
  * Draws the dragged shape anchored above the finger overlay.
  */
 function drawDraggedShapeOverlay() {
-    if (!isDragging || !draggedShape) return;
+    if (!isDragging || !draggedShape) {
+        // Clear drag overlay canvas if we are not dragging
+        if (dragCtx && dragCanvas) {
+            dragCtx.clearRect(0, 0, dragCanvas.width / window.devicePixelRatio, dragCanvas.height / window.devicePixelRatio);
+        }
+        return;
+    }
 
-    const theme = THEMES[activeTheme];
+    const theme = getActiveThemeConfig();
     const shapeMatrix = draggedShape.matrix;
     const shapeRows = shapeMatrix.length;
     const shapeCols = shapeMatrix[0].length;
 
-    const rect = gameCanvas.getBoundingClientRect();
-    
-    // Scale shape size to match the grid cellSize
-    const dragCellSize = cellSize;
-    const offsetPointerY = pointerY - 65; // vertical offset projection
+    // Use dragCanvas bounds for layout coords on the full screen overlay
+    const dragRect = dragCanvas.getBoundingClientRect();
 
+    const dragCellSize = cellSize;
     const shapeW = shapeCols * dragCellSize;
     const shapeH = shapeRows * dragCellSize;
 
-    // Compute top-left drawing anchor to center under cursor
-    const startX = (pointerX - rect.left) - shapeW / 2;
-    const startY = (offsetPointerY - rect.top) - shapeH / 2;
+    // Bottom edge sits 28px above the touch point.
+    // Centered horizontally, lifted vertically so bottom is 28px above finger.
+    const startX = (pointerX - dragRect.left) - shapeW / 2;
+    const startY = (pointerY - shapeH - 28) - dragRect.top;
 
-    ctx.save();
-    // Add floating shadow effect to dragged blocks
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetY = 8;
-    ctx.globalAlpha = 0.95;
+    // Clear drag canvas before rendering the current frame
+    dragCtx.clearRect(0, 0, dragCanvas.width / window.devicePixelRatio, dragCanvas.height / window.devicePixelRatio);
+
+    dragCtx.save();
+    dragCtx.shadowColor = 'rgba(0, 0, 0, 0.50)';
+    dragCtx.shadowBlur = 16;
+    dragCtx.shadowOffsetY = 10;
+    dragCtx.globalAlpha = 0.96;
 
     for (let r = 0; r < shapeRows; r++) {
         for (let c = 0; c < shapeCols; c++) {
             if (shapeMatrix[r][c] > 0) {
                 const tx = startX + c * dragCellSize;
                 const ty = startY + r * dragCellSize;
-                drawThemeBlock(ctx, tx, ty, dragCellSize, dragCellSize, draggedShape.colorId, theme);
+                drawThemeBlock(dragCtx, tx, ty, dragCellSize, dragCellSize, draggedShape.colorId, theme);
             }
         }
     }
-    ctx.restore();
+    dragCtx.restore();
 }
 
 function drawTraySlot(slotIndex) {
@@ -788,13 +818,13 @@ function drawTraySlot(slotIndex) {
     const shape = spawner.slots[slotIndex];
     if (!shape) return;
 
-    const theme = THEMES[activeTheme];
+    const theme = getActiveThemeConfig();
     const shapeMatrix = shape.matrix;
     const shapeRows = shapeMatrix.length;
     const shapeCols = shapeMatrix[0].length;
 
-    // Small scale factor for preview slots
-    const slotCellSize = Math.min(width, height) / 4.8;
+    // Small scale factor for preview slots (fits up to 5-block shapes without clipping)
+    const slotCellSize = Math.min(width, height) / 5.3;
     const shapeW = shapeCols * slotCellSize;
     const shapeH = shapeRows * slotCellSize;
 
@@ -813,15 +843,41 @@ function drawTraySlot(slotIndex) {
     }
 }
 
-function drawBombCountdownText(x, y, w, countdown) {
+function drawBombOverlay(x, y, w, countdown) {
+    const cx = x + w / 2;
+    const cy = y + w / 2;
+    const isUrgent = countdown <= 3;
+
     ctx.save();
+
+    // --- Dark circular backdrop ---
+    const bgRadius = w * 0.38;
+    ctx.beginPath();
+    ctx.arc(cx, cy, bgRadius, 0, Math.PI * 2);
+    ctx.fillStyle = isUrgent ? 'rgba(180,0,0,0.82)' : 'rgba(10,10,10,0.78)';
+    ctx.fill();
+
+    // --- Danger ring (outer stroke) ---
+    ctx.beginPath();
+    ctx.arc(cx, cy, bgRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = isUrgent ? '#ff2222' : '#ff8800';
+    ctx.lineWidth = w * 0.07;
+    ctx.shadowColor  = isUrgent ? '#ff0000' : '#ff6600';
+    ctx.shadowBlur   = isUrgent ? 12 : 6;
+    ctx.stroke();
+
+    // --- Countdown number ---
+    const fontSize = Math.round(w * 0.42);
+    ctx.shadowBlur = 0;
+    ctx.font = `bold ${fontSize}px Outfit, system-ui, sans-serif`;
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px Outfit, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 4;
-    ctx.fillText(countdown.toString(), x + w / 2, y + w / 2);
+    // Tight drop-shadow so number is legible on any theme
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur  = 3;
+    ctx.fillText(countdown.toString(), cx, cy + fontSize * 0.04);
+
     ctx.restore();
 }
 
@@ -861,12 +917,16 @@ export function selectMode(modeName) {
             targetGoldBlocksCount = countGoldBlocksRemaining();
         } else if (activeMode === 'daily') {
             dailyDateStr = getTodayDateString();
+            // Regenerate the daily challenge config so the HUD objective/progress bar
+            // renders correctly even when resuming a saved state.
+            dailyChallengeConfig = ModeManager.generateDailyChallenge(dailyDateStr);
             movesLimit = savedState.movesLimit || 20;
             linesClearedCount = savedState.linesClearedCount || 0;
             targetGoldBlocksCount = countGoldBlocksRemaining();
         }
 
         updateHUD();
+        updateTraySlotOpacities();
     } else {
         // Start fresh
         startNewGame();
@@ -883,6 +943,9 @@ function startNewGame() {
     activeBombs = [];
     spawner.spawnCount = 0;
     document.getElementById('danger-bar').classList.add('hidden');
+    // Force-hide the combo widget immediately — state reset above won't hide the DOM element
+    // unless updateComboWidget() is explicitly called.
+    updateComboWidget();
 
     if (activeMode === 'classic') {
         board.reset(null, 8, 8);
@@ -898,9 +961,10 @@ function startNewGame() {
         board.reset(null, 8, 8);
         spawner.slots = [null, null, null];
         spawner.refillTray(board, score, activeMode, adventureLevel, activeBombs);
-        // Spawn 2 initial bombs
-        ModeManager.spawnBomb(board, activeBombs);
-        ModeManager.spawnBomb(board, activeBombs);
+        // Spawn 2 initial bombs with staggered timers so they don't detonate at the same time.
+        // First bomb: 9 moves (urgent threat), Second bomb: 14 moves (gives breathing room).
+        ModeManager.spawnBomb(board, activeBombs, 9);
+        ModeManager.spawnBomb(board, activeBombs, 14);
         updateDangerBanner();
     } else if (activeMode === 'daily') {
         dailyDateStr = getTodayDateString();
@@ -908,6 +972,7 @@ function startNewGame() {
     }
 
     updateHUD();
+    updateTraySlotOpacities();
     saveCurrentGameState();
 }
 
@@ -938,6 +1003,14 @@ function loadDailyChallenge(dateStr) {
 }
 
 function saveCurrentGameState() {
+    // If the gameover or success modals are displayed, do not overwrite the cleared state
+    const gameoverOverlay = document.getElementById('gameover-overlay');
+    const successOverlay = document.getElementById('success-overlay');
+    if ((gameoverOverlay && !gameoverOverlay.classList.contains('hidden')) || 
+        (successOverlay && !successOverlay.classList.contains('hidden'))) {
+        return;
+    }
+
     StorageManager.saveGameState({
         mode: activeMode,
         score,
@@ -1127,6 +1200,7 @@ function triggerVictory() {
         document.getElementById('success-message').innerText = `Level ${adventureLevel} Completed!`;
         document.getElementById('btn-next-level').innerText = "Next Level";
         document.getElementById('daily-completion-badge').classList.add('hidden');
+        document.getElementById('success-divider').classList.add('hidden');
         
         // Progress unlocked levels
         adventureLevel = Math.min(adventureLevel + 1, AdventureLevels.length);
@@ -1140,6 +1214,7 @@ function triggerVictory() {
         
         const streakBadge = document.getElementById('daily-completion-badge');
         streakBadge.classList.remove('hidden');
+        document.getElementById('success-divider').classList.remove('hidden');
         document.getElementById('success-streak-val').innerText = currentStreak;
     }
 
@@ -1303,9 +1378,21 @@ function updateComboWidget() {
     if (timerEl) timerEl.textContent = Math.ceil(comboTimerMs / 1000);
 
     const countEl = document.getElementById('combo-count');
-    const colors = ['#f7c948', '#ff8c00', '#ff3d3d', '#c840ff'];
-    const color = colors[Math.min(comboStreak - 1, colors.length - 1)];
-    if (countEl) { countEl.textContent = `x${comboStreak}`; countEl.style.color = color; }
+    
+    // Choose dynamic combo colors from the active theme's block colors
+    const theme = getActiveThemeConfig();
+    const comboColors = [
+        theme.colors[1] || '#ffd700',
+        theme.colors[2] || '#ff8c00',
+        theme.colors[5] || '#ff3300',
+        theme.colors[6] || '#c840ff'
+    ];
+    const color = comboColors[Math.min(comboStreak - 1, comboColors.length - 1)];
+
+    if (countEl) { 
+        countEl.textContent = `x${comboStreak}`; 
+        countEl.style.color = color; 
+    }
     if (ringFill) ringFill.style.stroke = color;
 }
 
@@ -1313,12 +1400,39 @@ function updateComboWidget() {
 function triggerThemeChange() {
     const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora'];
     let nextIndex = (themeKeys.indexOf(activeTheme) + 1) % themeKeys.length;
-    prevTheme = activeTheme;
-    activeTheme = themeKeys[nextIndex];
-    transitionProgress = 0.0;
-    applyTheme(activeTheme);
+    const nextTheme = themeKeys[nextIndex];
     
-    saveSettingsState();
+    triggerHaptic('heavy');
+    
+    const overlay = document.getElementById('theme-shift-overlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        if (audio && typeof audio.speak === 'function') {
+            audio.speak("Excellent");
+        }
+        
+        // Change the theme in the background after 400ms (when overlay is fully blurred and visible)
+        setTimeout(() => {
+            prevTheme = activeTheme;
+            activeTheme = nextTheme;
+            transitionProgress = 0.0;
+            transitionStartTime = performance.now();
+            applyTheme(activeTheme);
+            saveSettingsState();
+            
+            // Fade out the splash after another 700ms (total 1.1s display time)
+            setTimeout(() => {
+                overlay.classList.remove('active');
+            }, 700);
+        }, 400);
+    } else {
+        prevTheme = activeTheme;
+        activeTheme = nextTheme;
+        transitionProgress = 0.0;
+        transitionStartTime = performance.now();
+        applyTheme(activeTheme);
+        saveSettingsState();
+    }
 }
 
 function applyTheme(themeId) {

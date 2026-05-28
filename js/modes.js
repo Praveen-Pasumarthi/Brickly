@@ -14,8 +14,8 @@ export const AdventureLevels = [
     {
         levelNumber: 1,
         name: "First Steps",
-        description: "Clear 5 lines within 20 moves.",
-        movesLimit: 20,
+        description: "Clear 5 lines within 25 moves.",
+        movesLimit: 25,
         scoreTarget: 0,
         linesTarget: 5,
         preFilledTarget: 0,
@@ -33,8 +33,8 @@ export const AdventureLevels = [
     {
         levelNumber: 2,
         name: "Gold Rush",
-        description: "Clear all 4 gold blocks in 15 moves.",
-        movesLimit: 15,
+        description: "Clear all 4 gold blocks in 22 moves.",
+        movesLimit: 22,
         scoreTarget: 0,
         linesTarget: 0,
         preFilledTarget: 4,
@@ -52,8 +52,8 @@ export const AdventureLevels = [
     {
         levelNumber: 3,
         name: "Combo Training",
-        description: "Score 400 points in 18 moves.",
-        movesLimit: 18,
+        description: "Score 400 points in 24 moves.",
+        movesLimit: 24,
         scoreTarget: 400,
         linesTarget: 0,
         preFilledTarget: 0,
@@ -71,8 +71,8 @@ export const AdventureLevels = [
     {
         levelNumber: 4,
         name: "Corner Pocket",
-        description: "Clear all 8 gold blocks in 20 moves.",
-        movesLimit: 20,
+        description: "Clear all 8 gold blocks in 28 moves.",
+        movesLimit: 28,
         scoreTarget: 0,
         linesTarget: 0,
         preFilledTarget: 8,
@@ -90,8 +90,8 @@ export const AdventureLevels = [
     {
         levelNumber: 5,
         name: "Gridlock Line",
-        description: "Clear 8 lines in 25 moves.",
-        movesLimit: 25,
+        description: "Clear 8 lines in 32 moves.",
+        movesLimit: 32,
         scoreTarget: 0,
         linesTarget: 8,
         preFilledTarget: 0,
@@ -109,8 +109,8 @@ export const AdventureLevels = [
     {
         levelNumber: 6,
         name: "Crossroads",
-        description: "Clear 12 gold blocks in 22 moves.",
-        movesLimit: 22,
+        description: "Clear 12 gold blocks in 30 moves.",
+        movesLimit: 30,
         scoreTarget: 0,
         linesTarget: 0,
         preFilledTarget: 12,
@@ -128,8 +128,8 @@ export const AdventureLevels = [
     {
         levelNumber: 7,
         name: "Score Attack",
-        description: "Score 1000 points in 25 moves.",
-        movesLimit: 25,
+        description: "Score 1000 points in 34 moves.",
+        movesLimit: 34,
         scoreTarget: 1000,
         linesTarget: 0,
         preFilledTarget: 0,
@@ -147,8 +147,8 @@ export const AdventureLevels = [
     {
         levelNumber: 8,
         name: "Heavy Columns",
-        description: "Clear all 12 gold blocks in 24 moves.",
-        movesLimit: 24,
+        description: "Clear all 12 gold blocks in 32 moves.",
+        movesLimit: 32,
         scoreTarget: 0,
         linesTarget: 0,
         preFilledTarget: 12,
@@ -166,8 +166,8 @@ export const AdventureLevels = [
     {
         levelNumber: 9,
         name: "The Fort",
-        description: "Clear 16 gold blocks in 28 moves.",
-        movesLimit: 28,
+        description: "Clear 16 gold blocks in 36 moves.",
+        movesLimit: 36,
         scoreTarget: 0,
         linesTarget: 0,
         preFilledTarget: 16,
@@ -185,8 +185,8 @@ export const AdventureLevels = [
     {
         levelNumber: 10,
         name: "Obsidian Core",
-        description: "Score 1500 points and clear 12 gold blocks in 30 moves.",
-        movesLimit: 30,
+        description: "Score 1500 points and clear 12 gold blocks in 40 moves.",
+        movesLimit: 40,
         scoreTarget: 1500,
         linesTarget: 0,
         preFilledTarget: 12,
@@ -239,7 +239,7 @@ export class ModeManager {
         // 2 = Clear specific number of lines
         // 3 = Score milestone
         const goalType = Math.floor(rand() * 3) + 1;
-        const movesLimit = 15 + Math.floor(rand() * 16); // 15 to 30 moves limit
+        const movesLimit = 22 + Math.floor(rand() * 14); // 22 to 35 moves limit
 
         let scoreTarget = 0;
         let linesTarget = 0;

@@ -178,25 +178,36 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: background 0.4s ease;
+    /* Smooth theme cross-fade — matches the 1.25s canvas smoothstep */
+    transition:
+        background 1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        color       1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 body.menu-active {
     background: linear-gradient(135deg, #1e90ff 0%, #3742fa 100%);
 }
 
-/* Outer layout locks strictly to Portrait dimensions */
+/* Outer layout locks strictly to Portrait dimensions using an exactly centered grid */
 #app-container {
     width: 100%;
     max-width: 480px;
     height: 100%;
     max-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    display: grid;
+    grid-template-rows: 1fr auto 1fr;
+    grid-template-columns: 100%;
     padding: calc(15px + var(--safe-area-top)) 20px calc(15px + var(--safe-area-bottom)) 20px;
     position: relative;
     overflow: hidden;
+}
+
+.top-section {
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-self: start;
 }
 
 /* ==========================================================================
@@ -428,7 +439,9 @@ body.menu-active {
    ========================================================================== */
 #game-header {
     width: 100%;
-    margin-bottom: 44px;
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
 }
 
 .header-top {
@@ -456,6 +469,7 @@ body.menu-active {
     font-weight: 800;
     color: #ffcc00;
     text-shadow: 1px 1px 0 #6d383b, 2px 2px 0 rgba(0,0,0,0.2);
+    transition: color 1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 /* body.theme-pastel .high-score-num override removed */
 
@@ -468,6 +482,7 @@ body.menu-active {
     display: flex;
     flex-direction: column;
     align-items: center;
+    pointer-events: none;
 }
 
 #diamond-score-badge {
@@ -481,7 +496,10 @@ body.menu-active {
     align-items: center;
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     border-radius: 12px;
-    transition: background 0.5s ease, border-color 0.5s ease;
+    transition:
+        background    1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        border-color  1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        box-shadow    1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 #diamond-score-badge span {
@@ -499,52 +517,61 @@ body.theme-neon #diamond-score-badge span {
 }
 
 /* ── Combo Countdown Widget ──────────────────────────────────────────────── */
+/* Lives directly inside #game-header, below .header-top — never overlaps score */
 #combo-widget {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 5px;
-    padding: 4px 7px 4px 4px;
+    justify-content: center;
+    gap: 10px;
+    position: absolute;
+    top: calc(100% + 32px); /* Centered in the middle between stats HUD and the canvas */
+    right: 14px; /* Align with right-hand side text (BEST SCORE) matching glass-panel padding */
+    padding: 5px 14px 5px 5px;
     border-radius: 999px;
-    background: rgba(5, 8, 18, 0.78);
-    border: 1px solid rgba(0, 246, 255, 0.35);
-    box-shadow: 0 0 14px rgba(0, 246, 255, 0.18);
-    animation: comboPopIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
-    z-index: 5;
+    background: var(--hud-bg);
+    border: 2px solid var(--card-border);
+    box-shadow: 0 4px 12px var(--shadow-color);
+    width: fit-content;
+    animation: comboPopIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     pointer-events: none;
+    z-index: 120; /* Draw above danger warning bars and gameplay containers */
+    transition: 
+        top 0.3s ease,
+        background 1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        border-color 1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        box-shadow 1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 @keyframes comboPopIn {
-    from { transform: translateX(-50%) scale(0.4); opacity: 0; }
-    to   { transform: translateX(-50%) scale(1);   opacity: 1; }
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
 }
+
 
 #combo-ring-wrap {
     position: relative;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
 }
 
 #combo-ring-svg {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     transform: rotate(-90deg);
 }
 
 #combo-ring-bg {
     fill: none;
-    stroke: rgba(255,255,255,0.15);
-    stroke-width: 4.5;
+    stroke: var(--card-border);
+    stroke-width: 4;
+    transition: stroke 1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 #combo-ring-fill {
     fill: none;
     stroke: #f7c948;
-    stroke-width: 4.5;
+    stroke-width: 4;
     stroke-linecap: round;
     stroke-dasharray: 113.1;
     stroke-dashoffset: 0;
@@ -562,28 +589,39 @@ body.theme-neon #diamond-score-badge span {
 }
 
 #combo-timer-val {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-primary);
     font-family: var(--font-hud);
+    transition: color 1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
-#combo-count {
-    font-size: 12px;
-    font-weight: 900;
-    color: #f7c948;
-    font-family: var(--font-hud);
-    letter-spacing: 0.5px;
-    transition: color 0.3s ease;
+.combo-text-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    line-height: 1.1;
 }
 
 #combo-label {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
-    color: rgba(255,255,255,0.78);
-    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    letter-spacing: 1.2px;
     text-transform: uppercase;
     font-family: var(--font-hud);
+    transition: color 1.2s cubic-bezier(0.45, 0, 0.55, 1);
+    margin-bottom: 1px;
+}
+
+#combo-count {
+    font-size: 18px;
+    font-weight: 900;
+    font-family: var(--font-hud);
+    letter-spacing: -0.5px;
+    transition: color 0.3s ease;
+    text-shadow: 0 0 6px currentColor;
 }
 
 /* ── Settings Modal ──────────────────────────────────────────────────────── */
@@ -735,7 +773,12 @@ body.theme-neon #diamond-score-badge span {
     align-items: center;
     cursor: pointer;
     box-shadow: 0 3px 6px var(--shadow-color);
-    transition: transform 0.1s ease;
+    transition:
+        transform 0.1s ease,
+        background    1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        border-color  1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        color         1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        box-shadow    1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .icon-btn:active {
@@ -746,6 +789,7 @@ body.theme-neon #diamond-score-badge span {
    Stats Glass Panel HUD (Moves and levels goals)
    ========================================================================== */
 .glass-panel {
+    position: relative;
     background: var(--hud-bg);
     border: 2px solid var(--card-border);
     box-shadow: 0 4px 12px var(--shadow-color);
@@ -757,7 +801,10 @@ body.theme-neon #diamond-score-badge span {
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    transition: border 0.5s ease, box-shadow 0.5s ease, background 0.5s ease;
+    transition:
+        background   1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        border-color 1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        box-shadow   1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .hud-item {
@@ -772,6 +819,7 @@ body.theme-neon #diamond-score-badge span {
     color: var(--text-secondary);
     margin-bottom: 2px;
     opacity: 0.85;
+    transition: color 1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .hud-val-text {
@@ -859,12 +907,13 @@ body.theme-pastel .objective-desc {
    Gameplay grid canvas boundaries
    ========================================================================== */
 #gameplay-area {
-    flex: 1;
+    grid-row: 2;
     display: flex;
     justify-content: center;
     align-items: center;
-    margin: 8px 0;
     position: relative;
+    width: 100%;
+    align-self: center;
 }
 
 #canvas-container {
@@ -887,12 +936,15 @@ body.theme-pastel .objective-desc {
    Tray slots shape previews
    ========================================================================== */
 #tray-area {
+    grid-row: 3;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
     height: 110px;
-    margin-top: 5px;
+    margin-top: 15px; /* Subtle spacing below canvas */
+    align-self: start; /* Pin to the top of the bottom row, closer to the canvas and away from gesture zones */
+    width: 100%;
 }
 
 .tray-slot {
@@ -906,7 +958,10 @@ body.theme-pastel .objective-desc {
     align-items: center;
     position: relative;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.15);
-    transition: transform 0.15s ease, border 0.5s ease, background 0.5s ease;
+    transition:
+        transform     0.15s ease,
+        background    1.2s cubic-bezier(0.45, 0, 0.55, 1),
+        border-color  1.2s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .tray-canvas {
@@ -941,83 +996,121 @@ body.theme-pastel .objective-desc {
 }
 
 .modal-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
     width: 100%;
     max-width: 340px;
     text-align: center;
-    padding: 24px;
+    padding: 32px 24px;
+    border-radius: 24px !important;
     transform: scale(0.9);
-    animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+    animation: scaleIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.modal-icon {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: drop-shadow(0 0 8px rgba(255, 71, 87, 0.3));
+    animation: bounceSlow 3s infinite ease-in-out;
+}
+
+.success-card .modal-icon {
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
+}
+
+@keyframes bounceSlow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
 }
 
 .modal-card h2 {
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    margin-bottom: 12px;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    font-family: var(--font-primary);
 }
 
 .title-failed {
     color: #ff4757;
-    text-shadow: 0 0 10px rgba(255, 71, 87, 0.25);
+    text-shadow: 0 0 15px rgba(255, 71, 87, 0.4);
 }
 
 .title-success {
     color: #ffd700;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.25);
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
 }
 
 .modal-card p {
-    font-size: 13px;
-    color: #a0aec0;
-    margin-bottom: 20px;
+    font-size: 14px;
+    color: #cbd5e1;
+    margin-bottom: 22px;
+    font-weight: 500;
+    opacity: 0.9;
 }
-/* body.theme-pastel .modal-card p override removed */
 
 .modal-score-summary {
-    background: rgba(0,0,0,0.2);
-    border-radius: 12px;
-    padding: 14px;
-    margin-bottom: 22px;
+    width: 85%;
+    background: rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 26px;
     display: flex;
     justify-content: space-around;
+    align-items: center;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
 }
-/* body.theme-pastel .modal-score-summary override removed */
 
 .summary-item {
     display: flex;
     flex-direction: column;
+    align-items: center;
+}
+
+.summary-divider {
+    width: 1px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .summary-item .label {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+    text-transform: uppercase;
 }
 
 .summary-item .value {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: 26px;
+    font-weight: 900;
     color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
 }
-/* body.theme-pastel .summary-item .value override removed */
 
 .modal-actions {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 10px;
 }
 
 .primary-btn {
-    width: 100%;
+    width: 220px;
     background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-alt) 100%);
     border: none;
     color: #ffffff;
     font-family: var(--font-primary);
     font-weight: 700;
     font-size: 16px;
-    padding: 12px 0;
+    padding: 14px 24px;
     border-radius: 25px;
     cursor: pointer;
     box-shadow: 0 4px 0 darken(var(--color-accent), 15%), 0 6px 12px var(--shadow-color);
@@ -1033,14 +1126,14 @@ body.theme-pastel .objective-desc {
 }
 
 .secondary-btn {
-    width: 100%;
+    width: 220px;
     background: var(--btn-bg);
     border: 2px solid var(--btn-border);
     color: var(--text-secondary);
     font-family: var(--font-primary);
     font-weight: 700;
     font-size: 15px;
-    padding: 12px 0;
+    padding: 12px 24px;
     border-radius: 25px;
     cursor: pointer;
     transition: transform 0.1s ease;
@@ -1048,6 +1141,31 @@ body.theme-pastel .objective-desc {
 
 .secondary-btn:active {
     transform: scale(0.98);
+}
+
+/* Custom modal button overrides to guarantee premium look */
+.gameover-card .primary-btn {
+    background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%) !important;
+    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.35) !important;
+    transition: transform 0.1s ease, filter 0.1s ease;
+}
+.gameover-card .primary-btn:hover {
+    filter: brightness(1.1);
+}
+.gameover-card .primary-btn:active {
+    transform: translateY(2px) scale(0.98);
+}
+
+.success-card .primary-btn {
+    background: linear-gradient(135deg, #2ed573 0%, #7bed9f 100%) !important;
+    box-shadow: 0 4px 15px rgba(46, 213, 115, 0.35) !important;
+    transition: transform 0.1s ease, filter 0.1s ease;
+}
+.success-card .primary-btn:hover {
+    filter: brightness(1.1);
+}
+.success-card .primary-btn:active {
+    transform: translateY(2px) scale(0.98);
 }
 
 /* Theme selector option buttons list */
@@ -1134,4 +1252,60 @@ body.theme-pastel .objective-desc {
     0% { opacity: 1; }
     50% { opacity: 0.3; }
     100% { opacity: 1; }
+}
+
+/* Full-screen drag overlay canvas styling */
+#drag-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks/drags pass through to elements below */
+    z-index: 150; /* Above board and tray slots, below main menu / settings overlays */
+    display: block;
+}
+
+/* Theme Shift Splash Overlay */
+.theme-shift-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 180;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+.theme-shift-overlay.active {
+    opacity: 1;
+}
+
+.theme-shift-text {
+    font-family: 'Lilita One', var(--font-primary), sans-serif;
+    font-size: 54px;
+    font-weight: 900;
+    color: #ffca28; /* Premium golden yellow */
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    text-shadow: 
+        0 0 20px rgba(255, 202, 40, 0.6),
+        0 4px 0 #c79100,
+        0 8px 16px rgba(0, 0, 0, 0.5);
+    transform: scale(0.2);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.34, 1.6, 0.64, 1), opacity 0.3s ease;
+}
+
+.theme-shift-overlay.active .theme-shift-text {
+    transform: scale(1.1);
+    opacity: 1;
 }
