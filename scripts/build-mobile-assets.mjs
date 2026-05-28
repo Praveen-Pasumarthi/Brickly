@@ -8,10 +8,8 @@ const dist = join(root, 'dist');
 const assets = [
   'index.html',
   'style.css',
-  'logo.png',
-  'ingame_logo.png',
   'js',
-  'bgm'
+  'assets'
 ];
 
 await rm(dist, { recursive: true, force: true });

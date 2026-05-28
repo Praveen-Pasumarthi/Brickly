@@ -42,9 +42,9 @@ export class ParticleSystem {
             color,
             scale,
             alpha: 1.0,
-            vy: -1.8, // Float upwards
+            vy: -1.2, // Float upwards slower
             life: 1.0,
-            decay: 0.02
+            decay: 0.008 // Slower decay - text stays visible longer (~2 seconds)
         });
     }
 

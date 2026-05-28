@@ -22,7 +22,7 @@ export class AudioManager {
         }
 
         // BGM using HTMLAudioElement for simple, native playback (no cracking)
-        this.bgmAudio = new Audio('bgm/bgm.wav');
+        this.bgmAudio = new Audio('assets/audio/bgm/bgm.wav');
         this.bgmAudio.loop = true;
         this.bgmAudio.volume = 0.95;
 
@@ -339,15 +339,15 @@ export class AudioManager {
     }
 
     /**
-     * Synthesizes/speaks vocal announcements like Good, Great, Excellent, Amazing, Unbelievable.
+     * Speaks vocal announcements using pre-recorded MP3 clips.
+     * Falls back to SpeechSynthesis for phrases without MP3 files.
      * @param {string} phrase - Word to speak.
      */
     async speak(phrase) {
         if (!this.enabled) return;
-        if (!('speechSynthesis' in window)) return;
 
         const genderMap = {
-            "Good": "male",
+            "Good": "female",
             "Great": "female",
             "Excellent": "female",
             "Wonderful": "male",
@@ -358,6 +358,49 @@ export class AudioManager {
             "Unbelievable": "female"
         };
 
+        const voiceFiles = {
+            "Good":           { female: "assets/audio/female_voices/good.mp3" },
+            "Great":          { female: "assets/audio/female_voices/great.mp3" },
+            "Excellent":      { female: "assets/audio/female_voices/excellent.mp3" },
+            "Wonderful":      { male: "assets/audio/male_voices/wonderful.mp3" },
+            "Amazing":        { female: "assets/audio/female_voices/amazing.mp3" },
+            "Fantastic":      { male: "assets/audio/male_voices/fantastic.mp3" },
+            "Perfect":        { male: "assets/audio/male_voices/perfect.mp3" },
+            "Unbelievable":   { male: "assets/audio/male_voices/unbelievable.mp3" }
+        };
+
+        const gender = genderMap[phrase] || "female";
+
+        // Try pre-recorded MP3 first via Web Audio API
+        const files = voiceFiles[phrase];
+        if (files) {
+            const src = files[gender] || files.male || files.female;
+            if (src) {
+                try {
+                    this.init();
+                    this.resume();
+                    if (this.ctx) {
+                        const response = await fetch(src);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+                        const source = this.ctx.createBufferSource();
+                        source.buffer = audioBuffer;
+                        const voiceGain = this.ctx.createGain();
+                        voiceGain.gain.value = 0.25;
+                        source.connect(voiceGain);
+                        voiceGain.connect(this.masterGain);
+                        source.start(0);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("Pre-recorded voice playback failed:", e);
+                }
+            }
+        }
+
+        // Fallback to SpeechSynthesis for phrases without MP3 (e.g. Marvelous)
+        if (!('speechSynthesis' in window)) return;
+
         const doSpeak = () => {
             try {
                 const utterance = new SpeechSynthesisUtterance(phrase);
@@ -365,12 +408,11 @@ export class AudioManager {
                 utterance.rate = 0.95;
                 utterance.volume = 1.0;
 
-                const targetGender = genderMap[phrase] || "female";
                 const voices = this.voices.length ? this.voices : window.speechSynthesis.getVoices();
                 const enVoices = voices.filter(v => v.lang.startsWith('en'));
 
                 let bestVoice = null;
-                if (targetGender === "female") {
+                if (gender === "female") {
                     bestVoice = enVoices.find(v =>
                         /samantha|victoria|karen|moira|tessa|zira|female/i.test(v.name)
                     );
@@ -389,7 +431,6 @@ export class AudioManager {
 
                 window.speechSynthesis.speak(utterance);
 
-                // Retry once after a short delay if browser dropped the utterance
                 setTimeout(() => {
                     if (window.speechSynthesis.speaking) return;
                     try { window.speechSynthesis.speak(utterance); } catch (_) {}
@@ -399,7 +440,6 @@ export class AudioManager {
             }
         };
 
-        // If something is currently speaking, cancel and wait one tick before speaking
         if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
             window.speechSynthesis.cancel();
             setTimeout(doSpeak, 60);

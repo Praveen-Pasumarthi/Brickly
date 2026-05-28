@@ -128,18 +128,13 @@ function initGame() {
     // 3. Load Saved Settings and High Scores
     const settings = StorageManager.getSettings();
     
-    // Force BGM and SFX ON by default, overriding any previously cached mute state
-    settings.bgm = true;
-    settings.sfx = true;
-    StorageManager.saveSettings(settings);
-
     activeTheme = settings.theme || 'classic';
     activeMenuTheme = settings.menuTheme || 'royal';
     prevTheme = activeTheme;
     transitionProgress = 1.0;
     
-    audio.setSfxEnabled(true);
-    audio.setBgmEnabled(true);
+    audio.setSfxEnabled(settings.sfx !== false);
+    audio.setBgmEnabled(settings.bgm !== false);
     vibrationEnabled = settings.vibration !== false;
     highScore = StorageManager.getHighScore(activeMode);
 
@@ -474,37 +469,24 @@ function attemptBlockPlacement() {
             let vocalMsg = "";
             let msgColor = '#ffd32a';
             
-            // Calculate praise tiers independently to make it more rewarding
-            let comboTier = 0;
-            if (comboStreak === 2) comboTier = 1;
-            else if (comboStreak === 3) comboTier = 2;
-            else if (comboStreak === 4) comboTier = 3;
-            else if (comboStreak === 5) comboTier = 4;
-            else if (comboStreak >= 6) comboTier = 5;
-
-            let multiTier = 0;
-            if (clearedLinesCount === 2) multiTier = 2; // Make 2 lines very rewarding
-            else if (clearedLinesCount === 3) multiTier = 4;
-            else if (clearedLinesCount >= 4) multiTier = 5;
-
-            // Pick the highest achievement tier
-            const finalTier = Math.max(comboTier, multiTier);
-
-            if (finalTier === 1) {
-                vocalMsg = "Good";
-                msgColor = '#7bed9f'; // Mint green
-            } else if (finalTier === 2) {
-                vocalMsg = (multiTier === 2 && comboTier < 2) ? "Wonderful" : "Great";
-                msgColor = '#ff6b81'; // Soft pink
-            } else if (finalTier === 3) {
+            // Combo milestones - only triggers at exact multiples (10, 20, 30...)
+            if (comboStreak >= 20 && comboStreak % 10 === 0) {
+                vocalMsg = "Fantastic";
+                msgColor = '#ee5253';
+            } else if (comboStreak >= 10 && comboStreak % 10 === 0) {
+                vocalMsg = "Perfect";
+                msgColor = '#ff9f43';
+            }
+            // Simultaneous multi-line clears (2+)
+            else if (clearedLinesCount >= 4) {
                 vocalMsg = "Excellent";
-                msgColor = '#ffd32a'; // Gold
-            } else if (finalTier === 4) {
-                vocalMsg = (multiTier === 4 && comboTier < 4) ? "Fantastic" : "Amazing";
-                msgColor = '#ff9f43'; // Orange
-            } else if (finalTier === 5) {
-                vocalMsg = (multiTier === 5 && comboTier < 5) ? "Perfect" : "Unbelievable";
-                msgColor = '#ee5253'; // Red
+                msgColor = '#ffd32a';
+            } else if (clearedLinesCount === 3) {
+                vocalMsg = "Amazing";
+                msgColor = '#ff9f43';
+            } else if (clearedLinesCount === 2) {
+                vocalMsg = "Great";
+                msgColor = '#ff6b81';
             }
             
             if (vocalMsg) {

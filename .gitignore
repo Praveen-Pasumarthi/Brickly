@@ -3,9 +3,22 @@ dist/
 
 android/app/build/
 android/.gradle/
+android/app/google-services.json
 
 ios/App/build/
 ios/App/Pods/
 ios/App/Podfile.lock
+ios/App/App/GoogleService-Info.plist
 
 *.log
+
+# Firebase config (contains API keys)
+**/firebase-config.js
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
