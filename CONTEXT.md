@@ -206,6 +206,10 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 - About button → opens About modal
 - Privacy button → opens Privacy Policy in legal modal
 
+### Main Menu High Score
+- Displayed underneath the game mode buttons inside the `.arcade-layout` container for perfect centering.
+- Styled using a bright gold (`#ffcc00`) color with a glow effect to ensure it contrasts beautifully against all dark menu themes.
+
 ## Theme System
 
 ### Gameplay Themes (18)

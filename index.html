@@ -64,17 +64,20 @@
             <!-- Mode selection cards -->
             <div class="menu-modes-grid arcade-layout">
                 <!-- Primary Play Button -->
-                <button id="btn-play-classic" class="arcade-btn arcade-btn-cyan">
+                <button id="btn-play-classic" class="arcade-btn btn-mode-1">
                     Play Classic
                 </button>
                 <!-- Secondary Play Buttons -->
-                <button id="btn-play-classic-10" class="arcade-btn arcade-btn-magenta">
+                <button id="btn-play-classic-10" class="arcade-btn btn-mode-2">
                     Classic XL
                 </button>
-                <button id="btn-play-blast" class="arcade-btn arcade-btn-magenta">
+                <button id="btn-play-blast" class="arcade-btn btn-mode-3">
                     Blast Mode
                 </button>
-                <button id="btn-play-missions" class="arcade-btn arcade-btn-magenta">
+                <button id="btn-play-endless" class="arcade-btn btn-mode-4">
+                    Endless
+                </button>
+                <button id="btn-play-missions" class="arcade-btn btn-mode-5">
                     Missions
                 </button>
             </div>
@@ -239,11 +242,11 @@
         
         <!-- Full-screen drag overlay canvas -->
         <canvas id="drag-canvas"></canvas>
+    </div>
 
-        <!-- Theme Shift Splash Overlay -->
-        <div id="theme-shift-overlay" class="theme-shift-overlay">
-            <div class="theme-shift-text">EXCELLENT</div>
-        </div>
+    <!-- Theme Shift Splash Overlay (outside app-container to avoid overflow clipping) -->
+    <div id="theme-shift-overlay" class="theme-shift-overlay">
+        <div class="theme-shift-text">EXCELLENT</div>
     </div>
 
 
@@ -255,25 +258,32 @@
                 <button id="btn-settings-close" class="settings-close-btn" aria-label="Close Settings">✕</button>
             </div>
 
-            <!-- Sound / Music / Vibration Toggles -->
-            <div class="settings-toggles-row">
-                <div class="settings-toggle-item" id="toggle-sound">
-                    <div class="settings-toggle-icon" id="settings-sound-icon">
-                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M3,9V15H7L12,20V4L7,9H3M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12Z"/></svg>
+            <!-- Sound / Music / Vibration Controls -->
+            <div class="settings-controls">
+                <!-- Sound Volume Slider -->
+                <div class="settings-slider-row">
+                    <div class="settings-slider-icon" id="settings-sound-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3,9V15H7L12,20V4L7,9H3M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.77 16.5,12Z"/></svg>
                     </div>
-                    <span class="settings-toggle-label">Sound</span>
+                    <input type="range" id="slider-sound" class="settings-slider" min="0" max="100" value="80">
+                    <span class="settings-slider-val" id="val-sound">80%</span>
                 </div>
-                <div class="settings-toggle-item" id="toggle-bgm">
-                    <div class="settings-toggle-icon">
-                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z"/></svg>
+                <!-- Music Volume Slider -->
+                <div class="settings-slider-row">
+                    <div class="settings-slider-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z"/></svg>
                     </div>
-                    <span class="settings-toggle-label">Music</span>
+                    <input type="range" id="slider-music" class="settings-slider" min="0" max="100" value="50">
+                    <span class="settings-slider-val" id="val-music">50%</span>
                 </div>
-                <div class="settings-toggle-item" id="toggle-vibration">
-                    <div class="settings-toggle-icon">
-                        <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M0,15H2V9H0V15M3,17H5V7H3V17M22,9V15H24V9H22M19,17H21V7H19V17M15,5H9A1,1 0 0,0 8,6V18A1,1 0 0,0 9,19H15A1,1 0 0,0 16,18V6A1,1 0 0,0 15,5Z"/></svg>
+                <!-- Vibration Toggle -->
+                <div class="settings-toggle-row">
+                    <div class="settings-toggle-item" id="toggle-vibration">
+                        <div class="settings-toggle-icon">
+                            <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M0,15H2V9H0V15M3,17H5V7H3V17M22,9V15H24V9H22M19,17H21V7H19V17M15,5H9A1,1 0 0,0 8,6V18A1,1 0 0,0 9,19H15A1,1 0 0,0 16,18V6A1,1 0 0,0 15,5Z"/></svg>
+                        </div>
+                        <span class="settings-toggle-label">Vibration</span>
                     </div>
-                    <span class="settings-toggle-label">Vibration</span>
                 </div>
             </div>
 

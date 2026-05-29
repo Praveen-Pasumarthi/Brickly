@@ -104,7 +104,14 @@ export class AudioManager {
     }
 
     setBgmVolume(vol) {
-        this.bgmAudio.volume = Math.max(0, Math.min(1, vol));
+        this.bgmAudio.volume = Math.max(0, Math.min(0.4, vol));
+    }
+
+    setSfxVolume(vol) {
+        if (this.masterGain) {
+            this.masterGain.gain.value = Math.max(0, Math.min(2.5, vol * 2.5));
+        }
+        this.enabled = vol > 0;
     }
 
     startBgm() {

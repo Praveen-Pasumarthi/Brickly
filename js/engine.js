@@ -188,4 +188,95 @@ export class Board {
             this.grid = this.createEmptyGrid();
         }
     }
+
+    /**
+     * Pre-fills the grid using actual game shapes placed randomly.
+     * Leaves strategic gaps for the player's starting tray pieces.
+     * @param {number} fillPercent - Target percentage of cells to fill (20-60, default 50).
+     * @param {Object} shapesDb - The SHAPES database from spawner.js.
+     */
+    prefillGrid(fillPercent = 50, shapesDb = null) {
+        if (!shapesDb) return;
+
+        const totalCells = this.rows * this.cols;
+        const targetFill = Math.floor(totalCells * fillPercent / 100);
+        let filled = 0;
+
+        // Use small-to-medium shapes for pre-filling (2-4 cells)
+        const prefillsShapes = ['SINGLE', 'H_LINE_2', 'V_LINE_2', 'H_LINE_3', 'V_LINE_3', 'SQUARE_2', 'DIAG_2', 'DIAG_2_R1', 'V_L_3', 'V_L_3_R1', 'H_LINE_4', 'V_L_3_R2', 'V_L_3_R3'];
+
+        // Place shapes until we reach the target fill
+        let attempts = 0;
+        const maxAttempts = 500;
+
+        while (filled < targetFill && attempts < maxAttempts) {
+            attempts++;
+
+            // Pick a random shape
+            const shapeKey = prefillsShapes[Math.floor(Math.random() * prefillsShapes.length)];
+            const shape = shapesDb[shapeKey];
+            if (!shape) continue;
+
+            const colorId = Math.floor(Math.random() * 12) + 1;
+            const matrix = shape.matrix;
+            const shapeRows = matrix.length;
+            const shapeCols = matrix[0].length;
+
+            // Pick a random position
+            const startRow = Math.floor(Math.random() * (this.rows - shapeRows + 1));
+            const startCol = Math.floor(Math.random() * (this.cols - shapeCols + 1));
+
+            // Check if placement is valid (all cells empty)
+            let canPlace = true;
+            for (let r = 0; r < shapeRows && canPlace; r++) {
+                for (let c = 0; c < shapeCols && canPlace; c++) {
+                    if (matrix[r][c] !== 0) {
+                        if (this.grid[startRow + r][startCol + c] !== 0) {
+                            canPlace = false;
+                        }
+                    }
+                }
+            }
+
+            if (canPlace) {
+                // Temporarily place and check no full lines are created
+                const placedCells = [];
+                for (let r = 0; r < shapeRows; r++) {
+                    for (let c = 0; c < shapeCols; c++) {
+                        if (matrix[r][c] !== 0) {
+                            this.grid[startRow + r][startCol + c] = colorId;
+                            placedCells.push([startRow + r, startCol + c]);
+                        }
+                    }
+                }
+
+                // Check if any row or column became full
+                let createsFullLine = false;
+                for (const [r, c] of placedCells) {
+                    // Check row
+                    let rowFull = true;
+                    for (let cc = 0; cc < this.cols; cc++) {
+                        if (this.grid[r][cc] === 0) { rowFull = false; break; }
+                    }
+                    if (rowFull) { createsFullLine = true; break; }
+
+                    // Check column
+                    let colFull = true;
+                    for (let rr = 0; rr < this.rows; rr++) {
+                        if (this.grid[rr][c] === 0) { colFull = false; break; }
+                    }
+                    if (colFull) { createsFullLine = true; break; }
+                }
+
+                // If it creates a full line, revert the placement
+                if (createsFullLine) {
+                    for (const [r, c] of placedCells) {
+                        this.grid[r][c] = 0;
+                    }
+                } else {
+                    filled += placedCells.length;
+                }
+            }
+        }
+    }
 }

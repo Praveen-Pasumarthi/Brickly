@@ -5,7 +5,7 @@
  */
 
 import { Board } from './engine.js';
-import { Spawner } from './spawner.js';
+import { Spawner, SHAPES } from './spawner.js';
 import { StorageManager } from './storage.js';
 import { ModeManager, AdventureLevels } from './modes.js';
 import { THEMES, drawThemeBlock } from './themes.js';
@@ -19,6 +19,10 @@ function $(id) { return document.getElementById(id); }
 window.onerror = function(msg, src, line, col, err) {
     console.error('[Brickly] Runtime error:', msg, 'at', src, line + ':' + col, err);
     document.body.classList.add('menu-active');
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:#fff;padding:12px;font-size:12px;font-family:monospace;word-break:break-all;';
+    errDiv.textContent = 'ERROR: ' + msg + ' at line ' + line;
+    document.body.appendChild(errDiv);
     return false;
 };
 
@@ -37,6 +41,12 @@ let gamePaused = false;      // Pause combo timer when settings opened mid-game
 const COMBO_WINDOW_MS = 10000;
 let lastFrameTime = 0;     // For deltaTime computation in renderLoop
 let placementCount = 0;    // Number of blocks placed in Blast mode
+
+// Prefill wave animation state
+let prefillAnimActive = false;
+let prefillAnimRow = 0;    // Current row being revealed (bottom to top)
+let prefillAnimTimer = 0;
+const PREFILL_ANIM_SPEED = 30; // ms per row reveal
 
 let activeMode = 'classic'; // 'classic', 'missions', 'blast'
 let activeTheme = 'indigo'; // default skin: dark blue with gold+purple blocks
@@ -98,6 +108,10 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
         console.error('[Brickly] initGame crashed:', err);
         document.body.classList.add('menu-active');
+        const errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:#fff;padding:12px;font-size:12px;font-family:monospace;word-break:break-all;';
+        errDiv.textContent = 'ERROR: ' + err.message;
+        document.body.appendChild(errDiv);
     }
 });
 
@@ -137,6 +151,19 @@ function initGame() {
     audio.setSfxEnabled(settings.sfx !== false);
     audio.setBgmEnabled(settings.bgm !== false);
     vibrationEnabled = settings.vibration !== false;
+    
+    // Restore volume levels
+    if (settings.sfxVolume !== undefined) {
+        audio.setSfxVolume(settings.sfxVolume / 100);
+    } else {
+        audio.setSfxVolume(settings.sfx !== false ? 0.8 : 0);
+    }
+    if (settings.bgmVolume !== undefined) {
+        audio.setBgmVolume(settings.bgmVolume / 100);
+    } else {
+        audio.setBgmVolume(settings.bgm !== false ? 0.5 : 0);
+    }
+    
     highScore = StorageManager.getHighScore(activeMode);
 
     applyTheme(activeTheme);
@@ -625,7 +652,7 @@ function attemptBlockPlacement() {
         const refilled = spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
 
         // 6. High Score check (Classic & Classic 10x10 mode)
-        if (activeMode === 'classic' || activeMode === 'classic_10') {
+        if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'endless') {
             if (score > highScore) {
                 highScore = score;
                 StorageManager.saveHighScore(highScore, activeMode);
@@ -674,10 +701,30 @@ function cleanupDragState() {
 }
 
 // --- Drawing / Render Loop ---
+
+function startPrefillAnimation() {
+    prefillAnimActive = true;
+    prefillAnimRow = board.rows; // Start from bottom (all rows hidden)
+    prefillAnimTimer = 0;
+}
+
 function renderLoop(now) {
     // Compute deltaTime for smooth timer updates
     const deltaMs = now - (lastFrameTime || now);
     lastFrameTime = now;
+
+    // Tick prefill wave animation (bottom to top, row by row)
+    if (prefillAnimActive) {
+        prefillAnimTimer += deltaMs;
+        if (prefillAnimTimer >= PREFILL_ANIM_SPEED) {
+            prefillAnimTimer -= PREFILL_ANIM_SPEED;
+            prefillAnimRow--;
+            if (prefillAnimRow < 0) {
+                prefillAnimActive = false;
+                prefillAnimRow = 0;
+            }
+        }
+    }
 
     // Tick combo countdown window (paused when settings are open mid-game)
     if (comboTimerActive && !gamePaused) {
@@ -695,7 +742,7 @@ function renderLoop(now) {
     // Update theme transition using time-based easing (smoothstep, ~1.25 s)
     if (transitionProgress < 1.0) {
         const elapsed = now - transitionStartTime;
-        const raw = Math.min(elapsed / 1250, 1.0);          // 1250 ms total
+        const raw = Math.min(elapsed / 350, 1.0);          // 350 ms total — fast transition
         // smoothstep: 3t²-2t³  (ease-in-out)
         transitionProgress = raw * raw * (3 - 2 * raw);
     }
@@ -758,7 +805,10 @@ function drawBoardGrid() {
             const cy = boardOffsetY + r * cellSize;
             const cellValue = board.grid[r][c];
 
-            if (cellValue > 0) {
+            // During prefill animation, hide blocks in rows not yet revealed
+            const rowVisible = !prefillAnimActive || r >= prefillAnimRow;
+
+            if (cellValue > 0 && rowVisible) {
                 // Occupied Cell
                 drawThemeBlock(ctx, cx, cy, cellSize, cellSize, cellValue, theme);
 
@@ -769,7 +819,7 @@ function drawBoardGrid() {
                         drawBombOverlay(cx, cy, cellSize, bomb.timer);
                     }
                 }
-            } else {
+            } else if (rowVisible) {
                 // Empty Cell
                 ctx.save();
                 ctx.fillStyle = theme.colors.cellEmpty;
@@ -1072,15 +1122,20 @@ export function selectMode(modeName) {
     try {
         audio.unlock();
         const settings = StorageManager.getSettings();
-        if (settings.bgm !== false) {
+        const savedVol = settings.bgmVolume !== undefined ? settings.bgmVolume : 50;
+        if (settings.bgm !== false && savedVol > 0) {
             audio.setBgmEnabled(true);
+        } else {
+            audio.setBgmEnabled(false);
         }
     } catch (err) {
         console.warn('[Brickly] audio unlock failed:', err);
     }
     
     // Lower BGM volume during gameplay to make SFX more audible
-    audio.setBgmVolume(0.15);
+    const savedBgmVol = StorageManager.getSettings().bgmVolume;
+    const menuBgmVol = savedBgmVol !== undefined ? savedBgmVol / 100 : 0.5;
+    audio.setBgmVolume(Math.max(0.05, menuBgmVol * 0.3));
     
     activeMode = modeName;
     
@@ -1148,9 +1203,17 @@ function startNewGame() {
 
     if (activeMode === 'classic') {
         board.reset(null, 8, 8);
+        board.prefillGrid(50, SHAPES);
         spawner.slots = [null, null, null];
+        startPrefillAnimation();
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
     } else if (activeMode === 'classic_10') {
+        board.reset(null, 10, 10);
+        board.prefillGrid(50, SHAPES);
+        spawner.slots = [null, null, null];
+        startPrefillAnimation();
+        spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
+    } else if (activeMode === 'endless') {
         board.reset(null, 10, 10);
         spawner.slots = [null, null, null];
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
@@ -1158,6 +1221,7 @@ function startNewGame() {
         loadMissionLevel(missionLevel);
     } else if (activeMode === 'blast') {
         board.reset(null, 8, 8);
+        board.prefillGrid(50, SHAPES);
         spawner.slots = [null, null, null];
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
         // Spawn 2 initial bombs with staggered timers so they don't detonate at the same time.
@@ -1249,7 +1313,8 @@ function updateHUD() {
         classic: 'Classic (8x8)',
         classic_10: 'Classic 10x10',
         missions: `Missions Lvl ${missionLevel}`,
-        blast: 'Blast Mode'
+        blast: 'Blast Mode',
+        endless: 'Endless (10x10)'
     };
     const modeLabel = $('active-mode-label');
     if (modeLabel) modeLabel.innerText = modeNames[activeMode] || 'Classic Mode';
@@ -1257,7 +1322,7 @@ function updateHUD() {
     // Toggle specific HUD panels
     const modeHud = $('mode-specific-hud');
 
-    if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'blast') {
+    if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'blast' || activeMode === 'endless') {
         if (modeHud) modeHud.classList.add('hidden');
     } else if (activeMode === 'missions') {
         if (modeHud) modeHud.classList.remove('hidden');
@@ -1365,11 +1430,13 @@ function setupUIBindings() {
     const btnClassic = $('btn-play-classic');
     const btnClassic10 = $('btn-play-classic-10');
     const btnBlast = $('btn-play-blast');
+    const btnEndless = $('btn-play-endless');
 
     if (btnMissions) btnMissions.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('missions'); });
     if (btnClassic) btnClassic.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('classic'); });
     if (btnClassic10) btnClassic10.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('classic_10'); });
     if (btnBlast) btnBlast.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('blast'); });
+    if (btnEndless) btnEndless.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('endless'); });
 
     // About button in main menu footer
     const btnMenuAbout = $('btn-menu-about');
@@ -1443,7 +1510,7 @@ function setupUIBindings() {
         btnHome.addEventListener('click', () => {
             triggerHaptic('light');
             saveCurrentGameState();
-            audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1480,7 +1547,7 @@ function setupUIBindings() {
             triggerHaptic('light');
             const overlay = $('success-overlay');
             if (overlay) overlay.classList.add('hidden');
-            audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1511,25 +1578,102 @@ function setupUIBindings() {
         });
     }
 
-    // Settings modal: Sound toggle
-    const toggleSound = $('toggle-sound');
-    if (toggleSound) {
-        toggleSound.addEventListener('click', () => {
-            triggerHaptic('light');
-            audio.setSfxEnabled(!audio.enabled);
+    // Settings modal: Sound slider
+    const sliderSound = $('slider-sound');
+    const valSound = $('val-sound');
+    const iconSound = $('settings-sound-icon');
+    let sfxMuted = false;
+    let sfxLastVol = 80;
+    if (sliderSound) {
+        sliderSound.addEventListener('input', () => {
+            const vol = parseInt(sliderSound.value);
+            audio.setSfxVolume(vol / 100);
+            sfxMuted = vol === 0;
+            if (valSound) valSound.textContent = vol + '%';
+            if (iconSound) iconSound.classList.toggle('muted', vol === 0);
             saveSettingsState();
-            updateSoundIcons();
+        });
+    }
+    if (iconSound) {
+        iconSound.addEventListener('click', () => {
+            triggerHaptic('light');
+            if (sfxMuted || (sliderSound && parseInt(sliderSound.value) === 0)) {
+                // Unmute — restore previous volume
+                const restore = sfxLastVol || 80;
+                if (sliderSound) sliderSound.value = restore;
+                audio.setSfxVolume(restore / 100);
+                sfxMuted = false;
+                if (valSound) valSound.textContent = restore + '%';
+                if (iconSound) iconSound.classList.remove('muted');
+            } else {
+                // Mute
+                sfxLastVol = sliderSound ? parseInt(sliderSound.value) : 80;
+                if (sliderSound) sliderSound.value = 0;
+                audio.setSfxVolume(0);
+                sfxMuted = true;
+                if (valSound) valSound.textContent = '0%';
+                if (iconSound) iconSound.classList.add('muted');
+            }
+            saveSettingsState();
         });
     }
 
-    // Settings modal: BGM toggle
-    const toggleBgm = $('toggle-bgm');
-    if (toggleBgm) {
-        toggleBgm.addEventListener('click', () => {
+    // Settings modal: Music slider
+    const sliderMusic = $('slider-music');
+    const valMusic = $('val-music');
+    const iconMusic = document.querySelectorAll('.settings-slider-icon')[1];
+    let bgmMuted = false;
+    let bgmLastVol = 50;
+    if (sliderMusic) {
+        sliderMusic.addEventListener('input', () => {
+            const vol = parseInt(sliderMusic.value);
+            audio.setBgmVolume(vol / 100);
+            bgmMuted = vol === 0;
+            if (vol > 0) {
+                audio.bgmEnabled = true;
+                audio.unlock();
+                audio.startBgm();
+            }
+            if (valMusic) valMusic.textContent = vol + '%';
+            if (iconMusic) iconMusic.classList.toggle('muted', vol === 0);
+            saveSettingsState();
+        });
+    }
+    if (iconMusic) {
+        iconMusic.addEventListener('click', () => {
             triggerHaptic('light');
-            audio.setBgmEnabled(!audio.bgmEnabled);
+            if (bgmMuted || (sliderMusic && parseInt(sliderMusic.value) === 0)) {
+                // Unmute — restore previous volume
+                const restore = bgmLastVol || 50;
+                if (sliderMusic) sliderMusic.value = restore;
+                audio.setBgmVolume(restore / 100);
+                audio.bgmEnabled = true;
+                audio.unlock();
+                audio.startBgm();
+                bgmMuted = false;
+                if (valMusic) valMusic.textContent = restore + '%';
+                if (iconMusic) iconMusic.classList.remove('muted');
+            } else {
+                // Mute
+                bgmLastVol = sliderMusic ? parseInt(sliderMusic.value) : 50;
+                if (sliderMusic) sliderMusic.value = 0;
+                audio.setBgmVolume(0);
+                bgmMuted = true;
+                if (valMusic) valMusic.textContent = '0%';
+                if (iconMusic) iconMusic.classList.add('muted');
+            }
+            saveSettingsState();
+        });
+    }
+
+    // Settings modal: Vibration toggle
+    const toggleVibration = $('toggle-vibration');
+    if (toggleVibration) {
+        toggleVibration.addEventListener('click', () => {
+            vibrationEnabled = !vibrationEnabled;
             saveSettingsState();
             updateSoundIcons();
+            if (vibrationEnabled) triggerHaptic('light');
         });
     }
 
@@ -1588,7 +1732,7 @@ function setupUIBindings() {
             audio.playTap();
             closeSettings();
             saveCurrentGameState();
-            audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1665,6 +1809,26 @@ function closeLegal() {
 // --- Settings Modal Open/Close ---
 function openSettings() {
     updateSoundIcons();
+    
+    // Sync sliders with stored settings
+    const settings = StorageManager.getSettings();
+    const sfxVol = settings.sfxVolume !== undefined ? settings.sfxVolume : (settings.sfx !== false ? 80 : 0);
+    const bgmVol = settings.bgmVolume !== undefined ? settings.bgmVolume : (settings.bgm !== false ? 50 : 0);
+
+    const sliderSound = $('slider-sound');
+    const valSound = $('val-sound');
+    const iconSound = $('settings-sound-icon');
+    const sliderMusic = $('slider-music');
+    const valMusic = $('val-music');
+    const iconMusic = document.querySelectorAll('.settings-slider-icon')[1];
+
+    if (sliderSound) sliderSound.value = sfxVol;
+    if (valSound) valSound.textContent = sfxVol + '%';
+    if (iconSound) iconSound.classList.toggle('muted', sfxVol === 0);
+
+    if (sliderMusic) sliderMusic.value = bgmVol;
+    if (valMusic) valMusic.textContent = bgmVol + '%';
+    if (iconMusic) iconMusic.classList.toggle('muted', bgmVol === 0);
     
     const isMenu = document.body.classList.contains('menu-active');
     
@@ -1786,7 +1950,13 @@ function triggerThemeChange(isGameplay = false) {
 
 function applyTheme(themeId) {
     const menuActive = document.body.classList.contains('menu-active');
-    document.body.className = ''; // Reset theme classes
+    // Remove only old theme classes, keep everything else
+    const classes = Array.from(document.body.classList);
+    classes.forEach(cls => {
+        if (cls.startsWith('theme-') && cls !== `theme-${themeId}`) {
+            document.body.classList.remove(cls);
+        }
+    });
     if (menuActive) document.body.classList.add('menu-active');
     document.body.classList.add(`theme-${themeId}`);
 }
@@ -1844,22 +2014,32 @@ function triggerHaptic(type = 'light') {
 
 function updateSoundIcons() {
     const soundIcon = $('settings-sound-icon');
-    if (soundIcon) soundIcon.classList.toggle('off', !audio.enabled);
+    const sliderSound = $('slider-sound');
+    const sfxVol = sliderSound ? parseInt(sliderSound.value) : (audio.enabled ? 80 : 0);
+    if (soundIcon) soundIcon.classList.toggle('muted', sfxVol === 0);
 
-    const bgmIcon = $('toggle-bgm')?.querySelector('.settings-toggle-icon');
-    if (bgmIcon) bgmIcon.classList.toggle('off', !audio.bgmEnabled);
+    const bgmIcon = document.querySelectorAll('.settings-slider-icon')[1];
+    const sliderMusic = $('slider-music');
+    const bgmVol = sliderMusic ? parseInt(sliderMusic.value) : 50;
+    if (bgmIcon) bgmIcon.classList.toggle('muted', bgmVol === 0);
 
     const vibrationIcon = $('toggle-vibration')?.querySelector('.settings-toggle-icon');
     if (vibrationIcon) vibrationIcon.classList.toggle('off', !vibrationEnabled);
 }
 
 function saveSettingsState() {
+    const sliderSound = $('slider-sound');
+    const sliderMusic = $('slider-music');
+    const sfxVol = sliderSound ? parseInt(sliderSound.value) : (audio.enabled ? 80 : 0);
+    const bgmVol = sliderMusic ? parseInt(sliderMusic.value) : 50;
     StorageManager.saveSettings({
         theme: activeTheme,
         menuTheme: activeMenuTheme,
         sfx: audio.enabled,
         bgm: audio.bgmEnabled,
-        vibration: vibrationEnabled
+        vibration: vibrationEnabled,
+        sfxVolume: sfxVol,
+        bgmVolume: bgmVol
     });
 }
 

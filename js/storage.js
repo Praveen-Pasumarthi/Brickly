@@ -183,7 +183,7 @@ export class StorageManager {
      * @returns {Object}
      */
     static getSettings() {
-        const defaultSettings = { sfx: true, bgm: true, vibration: true, theme: 'neon', menuTheme: 'royal' };
+        const defaultSettings = { sfx: true, bgm: true, vibration: true, theme: 'neon', menuTheme: 'royal', sfxVolume: 80, bgmVolume: 50 };
         if (!this.isAvailable()) return defaultSettings;
         try {
             const settingsStr = localStorage.getItem(STORAGE_KEYS.SETTINGS);
