@@ -46,7 +46,7 @@ const transitionDuration = 75; // ~1.25 s at 60 fps
 let transitionStartTime = 0;   // performance.now() when transition began
 let vibrationEnabled = true;
 
-const MENU_THEMES = ['royal', 'neon', 'twilight', 'teal'];
+const MENU_THEMES = ['royal', 'neon', 'twilight', 'teal', 'obsidian', 'violet', 'rose', 'emerald', 'chrome', 'crimson'];
 let activeMenuTheme = 'royal';
 
 // Mode Specific States
@@ -1366,16 +1366,17 @@ function setupUIBindings() {
     const btnClassic10 = $('btn-play-classic-10');
     const btnBlast = $('btn-play-blast');
 
-    if (btnMissions) btnMissions.addEventListener('click', () => { triggerHaptic('light'); selectMode('missions'); });
-    if (btnClassic) btnClassic.addEventListener('click', () => { triggerHaptic('light'); selectMode('classic'); });
-    if (btnClassic10) btnClassic10.addEventListener('click', () => { triggerHaptic('light'); selectMode('classic_10'); });
-    if (btnBlast) btnBlast.addEventListener('click', () => { triggerHaptic('light'); selectMode('blast'); });
+    if (btnMissions) btnMissions.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('missions'); });
+    if (btnClassic) btnClassic.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('classic'); });
+    if (btnClassic10) btnClassic10.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('classic_10'); });
+    if (btnBlast) btnBlast.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('blast'); });
 
     // About button in main menu footer
     const btnMenuAbout = $('btn-menu-about');
     if (btnMenuAbout) {
         btnMenuAbout.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             openAbout();
         });
     }
@@ -1385,7 +1386,8 @@ function setupUIBindings() {
     if (btnMenuPrivacy) {
         btnMenuPrivacy.addEventListener('click', () => {
             triggerHaptic('light');
-            openUrl('legal/privacy.html');
+            audio.playTap();
+            openLegal('Privacy Policy', 'legal/privacy.html');
         });
     }
 
@@ -1394,6 +1396,7 @@ function setupUIBindings() {
     if (btnAboutClose) {
         btnAboutClose.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             closeAbout();
         });
     }
@@ -1411,7 +1414,26 @@ function setupUIBindings() {
     if (btnAboutPrivacy) {
         btnAboutPrivacy.addEventListener('click', () => {
             triggerHaptic('light');
-            openUrl('legal/privacy.html');
+            audio.playTap();
+            openLegal('Privacy Policy', 'legal/privacy.html');
+        });
+    }
+
+    // Legal modal: close button
+    const btnLegalClose = $('btn-legal-close');
+    if (btnLegalClose) {
+        btnLegalClose.addEventListener('click', () => {
+            triggerHaptic('light');
+            audio.playTap();
+            closeLegal();
+        });
+    }
+
+    // Legal modal: backdrop tap to close
+    const legalOverlay = $('legal-overlay');
+    if (legalOverlay) {
+        legalOverlay.addEventListener('click', (e) => {
+            if (e.target === legalOverlay) closeLegal();
         });
     }
 
@@ -1468,66 +1490,24 @@ function setupUIBindings() {
 
     // Settings gear button — open the settings modal
     const btnMenuSettings = $('btn-menu-settings');
-    if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => { triggerHaptic('light'); openSettings(); });
+    if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); openSettings(); });
 
     const btnGameSettings = $('btn-game-settings');
-    if (btnGameSettings) btnGameSettings.addEventListener('click', () => { triggerHaptic('light'); openSettings(); });
+    if (btnGameSettings) btnGameSettings.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); openSettings(); });
 
     // Settings modal: close X button
     const btnSettingsClose = $('btn-settings-close');
-    if (btnSettingsClose) btnSettingsClose.addEventListener('click', () => { triggerHaptic('light'); closeSettings(); });
+    if (btnSettingsClose) btnSettingsClose.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); closeSettings(); });
 
     // Settings modal: Rate Us
     const btnSettingsRate = $('btn-settings-rate');
     if (btnSettingsRate) {
         btnSettingsRate.addEventListener('click', () => {
             triggerHaptic('light');
-            const isAndroid = /android/i.test(navigator.userAgent);
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            audio.playTap();
             const appId = 'com.brickly.game';
-            const url = isAndroid
-                ? `market://details?id=${appId}`
-                : isIOS
-                    ? `itms-apps://itunes.apple.com/app/id000000000` // Replace with real App Store ID when published
-                    : `https://play.google.com/store/apps/details?id=${appId}`;
-            openUrl(url);
-        });
-    }
-
-    // Settings modal: Feedback
-    const btnSettingsFeedback = $('btn-settings-feedback');
-    if (btnSettingsFeedback) {
-        btnSettingsFeedback.addEventListener('click', () => {
-            triggerHaptic('light');
-            const subject = encodeURIComponent('Brickly - Feedback');
-            const body = encodeURIComponent('Hi, I have some feedback about Brickly:\n\n');
-            window.open(`mailto:brickly.game@gmail.com?subject=${subject}&body=${body}`, '_blank');
-        });
-    }
-
-    // Settings modal: Privacy Policy
-    const btnSettingsPrivacy = $('btn-settings-privacy');
-    if (btnSettingsPrivacy) {
-        btnSettingsPrivacy.addEventListener('click', () => {
-            triggerHaptic('light');
-            openUrl('legal/privacy.html');
-        });
-    }
-
-    // Settings modal: Terms of Service
-    const btnSettingsTerms = $('btn-settings-terms');
-    if (btnSettingsTerms) {
-        btnSettingsTerms.addEventListener('click', () => {
-            triggerHaptic('light');
-            openUrl('legal/terms.html');
-        });
-    }
-
-    // Settings modal: backdrop tap to close
-    const settingsOverlay = $('settings-overlay');
-    if (settingsOverlay) {
-        settingsOverlay.addEventListener('click', (e) => {
-            if (e.target === settingsOverlay) closeSettings();
+            const url = `https://play.google.com/store/apps/details?id=${appId}`;
+            window.open(url, '_blank');
         });
     }
 
@@ -1553,14 +1533,40 @@ function setupUIBindings() {
         });
     }
 
-    // Settings modal: Vibration toggle
-    const toggleVibration = $('toggle-vibration');
-    if (toggleVibration) {
-        toggleVibration.addEventListener('click', () => {
-            vibrationEnabled = !vibrationEnabled;
-            saveSettingsState();
-            updateSoundIcons();
-            if (vibrationEnabled) triggerHaptic('light');
+    // Settings modal: Feedback
+    const btnSettingsFeedback = $('btn-settings-feedback');
+    if (btnSettingsFeedback) {
+        btnSettingsFeedback.addEventListener('click', () => {
+            triggerHaptic('light');
+            const subject = encodeURIComponent('Brickly - Feedback');
+            const body = encodeURIComponent('Hi, I have some feedback about Brickly:\n\n');
+            window.open(`mailto:brickly.game@gmail.com?subject=${subject}&body=${body}`, '_blank');
+        });
+    }
+
+    // Settings modal: Privacy Policy
+    const btnSettingsPrivacy = $('btn-settings-privacy');
+    if (btnSettingsPrivacy) {
+        btnSettingsPrivacy.addEventListener('click', () => {
+            triggerHaptic('light');
+            openLegal('Privacy Policy', 'legal/privacy.html');
+        });
+    }
+
+    // Settings modal: Terms of Service
+    const btnSettingsTerms = $('btn-settings-terms');
+    if (btnSettingsTerms) {
+        btnSettingsTerms.addEventListener('click', () => {
+            triggerHaptic('light');
+            openLegal('Terms of Service', 'legal/terms.html');
+        });
+    }
+
+    // Settings modal: backdrop tap to close
+    const settingsOverlay = $('settings-overlay');
+    if (settingsOverlay) {
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) closeSettings();
         });
     }
 
@@ -1569,6 +1575,7 @@ function setupUIBindings() {
     if (btnSettingsResume) {
         btnSettingsResume.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             closeSettings();
         });
     }
@@ -1578,6 +1585,7 @@ function setupUIBindings() {
     if (btnSettingsHome) {
         btnSettingsHome.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             closeSettings();
             saveCurrentGameState();
             audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
@@ -1592,6 +1600,7 @@ function setupUIBindings() {
     if (btnSettingsRestart) {
         btnSettingsRestart.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             closeSettings();
             startNewGame();
         });
@@ -1602,6 +1611,7 @@ function setupUIBindings() {
     if (btnSettingsTheme) {
         btnSettingsTheme.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             triggerThemeChange(false);
             const label = $('game-theme-label');
             if (label) label.innerText = 'Skin: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1);
@@ -1613,6 +1623,7 @@ function setupUIBindings() {
     if (btnSettingsMenuTheme) {
         btnSettingsMenuTheme.addEventListener('click', () => {
             triggerHaptic('light');
+            audio.playTap();
             let idx = MENU_THEMES.indexOf(activeMenuTheme);
             idx = (idx + 1) % MENU_THEMES.length;
             activeMenuTheme = MENU_THEMES[idx];
@@ -1632,6 +1643,23 @@ function openUrl(url) {
     } else {
         window.open(url, '_blank');
     }
+}
+
+// --- Open Legal Page in Modal ---
+function openLegal(title, file) {
+    const overlay = $('legal-overlay');
+    const iframe = $('legal-iframe');
+    const titleEl = $('legal-title');
+    if (titleEl) titleEl.textContent = title;
+    if (iframe) iframe.src = file;
+    if (overlay) overlay.classList.remove('hidden');
+}
+
+function closeLegal() {
+    const overlay = $('legal-overlay');
+    const iframe = $('legal-iframe');
+    if (iframe) iframe.src = '';
+    if (overlay) overlay.classList.add('hidden');
 }
 
 // --- Settings Modal Open/Close ---

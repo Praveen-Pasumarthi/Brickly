@@ -340,6 +340,12 @@ body.menu-active {
 .sb-4 { width: 90px;  height: 90px;  background: #f5a623; top: 70%;  right: 8%;   animation-delay: 0.7s; animation-duration: 12s; }
 .sb-5 { width: 40px;  height: 40px;  background: #6c63ff; top: 40%;  left: 70%;   animation-delay: 3.5s; animation-duration: 8s;  }
 .sb-6 { width: 70px;  height: 70px;  background: #ff6584; top: 80%;  left: 25%;   animation-delay: 1.8s; animation-duration: 13s; }
+.sb-7 { width: 35px;  height: 35px;  background: #00d2ff; top: 25%;  left: 45%;   animation-delay: 4.0s; animation-duration: 9s;  }
+.sb-8 { width: 55px;  height: 55px;  background: #ff4757; top: 60%;  right: 25%;  animation-delay: 2.8s; animation-duration: 11s; }
+.sb-9 { width: 45px;  height: 45px;  background: #a855f7; top: 5%;   right: 35%;  animation-delay: 1.0s; animation-duration: 10s; }
+.sb-10 { width: 65px; height: 65px;  background: #22d3ee; bottom: 15%; left: 15%;  animation-delay: 3.2s; animation-duration: 12s; }
+.sb-11 { width: 30px; height: 30px;  background: #f97316; top: 35%;  left: 30%;   animation-delay: 0.5s; animation-duration: 8s;  }
+.sb-12 { width: 75px; height: 75px;  background: #8b5cf6; bottom: 25%; right: 15%; animation-delay: 2.0s; animation-duration: 14s; }
 
 @keyframes splashFloat {
     0%, 100% { transform: translateY(0px) rotate(0deg); }
@@ -448,7 +454,12 @@ body.menu-active {
     position: absolute;
     border-radius: 16px;
     opacity: 0.045;
-    animation: splashFloat 10s ease-in-out infinite;
+    animation: ambFade 8s ease-in-out infinite;
+}
+
+@keyframes ambFade {
+    0%, 100% { opacity: 0.045; transform: scale(1); }
+    50%      { opacity: 0.08;  transform: scale(1.05); }
 }
 
 .amb-1 { width: 100px; height: 100px; background: #32D5D6; bottom: 35%; left: -20px;  animation-delay: 0s; animation-duration: 13s; }
@@ -539,6 +550,24 @@ body.menu-active {
 #main-menu-overlay.menu-theme-teal {
     background: linear-gradient(180deg, #005C66 0%, #021114 100%);
 }
+#main-menu-overlay.menu-theme-obsidian {
+    background: linear-gradient(180deg, #0A0A0A 0%, #111111 100%);
+}
+#main-menu-overlay.menu-theme-violet {
+    background: linear-gradient(180deg, #1A0033 0%, #4B0082 100%);
+}
+#main-menu-overlay.menu-theme-rose {
+    background: linear-gradient(180deg, #0D0008 0%, #2D0018 100%);
+}
+#main-menu-overlay.menu-theme-emerald {
+    background: linear-gradient(180deg, #001A1A 0%, #004D33 100%);
+}
+#main-menu-overlay.menu-theme-chrome {
+    background: linear-gradient(180deg, #0C0C1D 0%, #1B2838 100%);
+}
+#main-menu-overlay.menu-theme-crimson {
+    background: linear-gradient(180deg, #4A0000 0%, #1A0000 100%);
+}
 
 .arcade-layout {
     display: flex;
@@ -552,42 +581,60 @@ body.menu-active {
 .arcade-btn {
     width: 220px;
     height: 52px;
-    border-radius: 50px;
-    border: 2px solid #F8D96D;
+    border-radius: 16px;
+    border: none;
     font-family: var(--font-primary);
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 700;
     color: #ffffff;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 2px 12px rgba(248, 217, 109, 0.4);
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    position: relative;
+    overflow: hidden;
+}
+.arcade-btn::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 16px 16px 0 0;
+    pointer-events: none;
 }
 
 .arcade-btn:active {
-    transform: scale(0.95);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 2px 12px rgba(248, 217, 109, 0.6);
+    transform: scale(0.96);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
 
 .arcade-btn-cyan {
-    background: linear-gradient(180deg, #32D5D6 0%, #206AE6 100%);
+    background: linear-gradient(160deg, #38BDF8 0%, #2563EB 100%);
+    border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
 .arcade-btn-magenta {
-    background: linear-gradient(180deg, #FF458A 0%, #901657 100%);
+    background: linear-gradient(160deg, #F472B6 0%, #A21CAF 100%);
+    border: 1px solid rgba(244, 114, 182, 0.3);
 }
 
 .arcade-high-score {
-    margin-top: 40px;
+    margin-top: 32px;
     font-family: var(--font-primary);
-    font-size: 15px;
-    font-weight: 700;
-    color: #F8D96D;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 1px;
+    text-transform: uppercase;
     text-align: center;
+}
+.arcade-high-score span {
+    color: #F8D96D;
+    font-weight: 800;
 }
 
 .arcade-settings-btn {
@@ -598,19 +645,34 @@ body.menu-active {
     height: 48px;
     border-radius: 14px;
     background: linear-gradient(180deg, #6243FA 0%, #351C97 100%);
-    border: 2px solid #9D84FF;
+    border: 2px solid rgba(255,255,255,0.2);
     color: white;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.15);
     cursor: pointer;
     z-index: 10;
-    transition: transform 0.1s ease;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 .arcade-settings-btn:active {
     transform: scale(0.9);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
+
+/* Per-theme settings button colors */
+.menu-theme-royal .arcade-settings-btn    { background: linear-gradient(135deg, #32D5D6 0%, #206AE6 100%); border-color: rgba(255,255,255,0.25); }
+.menu-theme-neon .arcade-settings-btn     { background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%); border-color: rgba(255,255,255,0.2); }
+.menu-theme-twilight .arcade-settings-btn { background: linear-gradient(135deg, #C084FC 0%, #7C3AED 100%); border-color: rgba(255,255,255,0.2); }
+.menu-theme-teal .arcade-settings-btn     { background: linear-gradient(135deg, #2DD4BF 0%, #0D9488 100%); border-color: rgba(255,255,255,0.2); }
+.menu-theme-obsidian .arcade-settings-btn { background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%); border-color: rgba(255,255,255,0.15); }
+.menu-theme-violet .arcade-settings-btn   { background: linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%); border-color: rgba(255,255,255,0.2); }
+.menu-theme-rose .arcade-settings-btn     { background: linear-gradient(135deg, #FB7185 0%, #E11D48 100%); border-color: rgba(255,255,255,0.2); }
+.menu-theme-emerald .arcade-settings-btn  { background: linear-gradient(135deg, #34D399 0%, #059669 100%); border-color: rgba(255,255,255,0.2); }
+.menu-theme-chrome .arcade-settings-btn   { background: linear-gradient(135deg, #94A3B8 0%, #475569 100%); border-color: rgba(255,255,255,0.15); }
+.menu-theme-crimson .arcade-settings-btn  { background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%); border-color: rgba(255,255,255,0.2); }
 
 /* Icon */
 .mode-card-icon {
@@ -1735,4 +1797,14 @@ body.theme-pastel .objective-desc {
     border-top: 1px solid rgba(255,255,255,0.08);
     width: 100%;
     text-align: center;
+}
+
+/* ── Legal Modal (Privacy / Terms iframe) ───────────────────────────────── */
+#legal-overlay .settings-card {
+    max-height: 80vh;
+}
+
+#legal-iframe {
+    background: #fff;
+    border-radius: 12px;
 }

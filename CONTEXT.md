@@ -102,6 +102,8 @@ Uses `Haptics.vibrate({ duration })` instead of `Haptics.impact()` — the impac
 
 ### BGM (`js/audio.js`)
 - **Active track:** `assets/audio/bgm/gaming_music.mp3` (from Pixabay)
+- **Artist:** ViacheslavStarostin
+- **Track name:** "Gaming Game Video Game Music"
 - **License:** Pixabay Content License (free for commercial use, no attribution required)
 - **Playback:** HTMLAudioElement, looped
 - **Volume levels:**
@@ -188,21 +190,43 @@ Accessible from main menu (gear icon) and in-game (gear icon). Shows/hides butto
   - Piece dragging is blocked (`pointerdown` handler checks `gamePaused`)
 
 ### About Modal
-- Brickly logo, version, description
-- Developer credit
-- Music credit: "Gaming" from Pixabay (Pixabay Content License)
-- Privacy Policy link
-- Copyright notice
+- Brickly logo, version (v0.1.0), description
+- Developer: Pasumarthi Venkata Praveen
+- Music: "Gaming Game Video Game Music" by ViacheslavStarostin from Pixabay (Pixabay Content License)
+- Privacy Policy link (opens in legal modal)
+- Copyright: © 2026 Brickly
+
+### Legal Modals (Privacy / Terms)
+Privacy Policy and Terms of Service open as **in-app modal overlays** with an iframe, NOT as external pages. This provides a close button (✕) and backdrop tap to dismiss.
+- Content loaded from `legal/privacy.html` and `legal/terms.html`
+- Files are copied to `dist/legal/` during build
 
 ### Main Menu Footer
 - Version number (`v0.1.0`)
-- About button
-- Privacy button
+- About button → opens About modal
+- Privacy button → opens Privacy Policy in legal modal
 
 ## Theme System
-- 18 themes defined in `themes.js` with color palettes
+
+### Gameplay Themes (18)
+- Defined in `themes.js` with color palettes
 - Theme shifts every 15 block placements (instant, no overlay)
 - Theme shift triggers heavy haptic feedback
+
+### Menu Background Themes (10)
+Cycled via Settings → Menu Theme button. Each applies a gradient to `#main-menu-overlay`:
+- **Royal** — Deep Blue → Dark Navy
+- **Neon** — Purple → Dark Violet
+- **Twilight** — Deep Purple → Navy
+- **Teal** — Teal → Dark Teal
+- **Obsidian** — Black → Rich Black (Dark Luxury)
+- **Violet** — Deep Purple → Electric Indigo (Neon Gaming)
+- **Rose** — Near Black → Dark Crimson (Dark Luxury)
+- **Emerald** — Deep Teal → Vivid Green (Neon Gaming)
+- **Chrome** — Dark Slate → Steel Blue (Dark Luxury)
+- **Crimson** — Deep Red → Dark Red
+
+Each theme also colors the settings gear button and ambient floating blocks with a matching gradient. Menu theme persists via LocalStorage.
 
 ## Build Process
 - Web: Serve root directory directly (index.html is entry point)
@@ -221,7 +245,7 @@ Accessible from main menu (gear icon) and in-game (gear icon). Shows/hides butto
 
 ## Capacitor Plugins
 - `@capacitor/haptics` — Haptic feedback via `window.Capacitor.Plugins.Haptics`
-- `@capacitor/browser` — In-app browser for Privacy, Terms, Rate Us links via `window.Capacitor.Plugins.Browser`
+- `@capacitor/browser` — In-app browser for external URLs via `window.Capacitor.Plugins.Browser`
 - `@capacitor-community/text-to-speech` — Voice announcements
 
 ### URL Helper (`game.js`)
@@ -235,6 +259,12 @@ function openUrl(url) {
     }
 }
 ```
+
+**Important:** `openUrl()` only works with http/https URLs. Do NOT use it for `mailto:`, `market://`, or `itms-apps://` schemes — these will crash. Use `window.open()` directly for those.
+
+Rate Us and Feedback buttons use `window.open()` directly:
+- Rate Us: opens Google Play Store URL via `window.open()`
+- Feedback: opens `mailto:` link via `window.open()`
 
 ## Settings Persistence
 Sound, Music, and vibration settings are saved to LocalStorage via `StorageManager.saveSettings()` and restored on startup.
@@ -272,5 +302,7 @@ npm install firebase @capacitor-firebase/authentication @capacitor-firebase/fire
 ```
 
 ## Pending TODOs
+- Create a new email ID `brickly.game@gmail.com` for feedback and contact purposes
 - Replace placeholder App Store ID with real ID when published
 - Firebase integration (see above)
+- **Theme Textures:** Add subtle tileable pattern textures (marble, carbon fiber, linen, etc.) behind the game grid during theme transitions. User will download textures to `assets/images/textures/` — wire them into `themes.js` and canvas rendering with fade-in transitions

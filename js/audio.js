@@ -151,6 +151,35 @@ export class AudioManager {
     }
 
     /**
+     * Plays a short, subtle UI tap sound for menu buttons.
+     */
+    playTap() {
+        if (!this.enabled) return;
+        this.init();
+        this.resume();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.03);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.06);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    }
+
+    /**
      * Plays a satisfying mechanical grid placement thud.
      */
     playPlace() {
