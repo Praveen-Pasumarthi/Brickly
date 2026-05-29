@@ -7,7 +7,7 @@ Brickly is a premium block puzzle game (Tetris/1010-style) built as a single-pag
 ```
 Brickly/
 ├── index.html                    # Single-page app entry point
-├── style.css                     # All UI styling (1626 lines)
+├── style.css                     # All UI styling
 ├── package.json                  # Capacitor + dependencies
 ├── capacitor.config.json         # Mobile app config (appId: com.brickly.game)
 ├── MOBILE.md                     # Build instructions
@@ -19,7 +19,8 @@ Brickly/
 │   │   └── ingame_logo.png       # In-game logo
 │   └── audio/
 │       ├── bgm/                  # Background music
-│       │   ├── bgm.wav           # Active BGM (seamless loop)
+│       │   ├── gaming_music.mp3  # Active BGM (from Pixabay, CC0 license)
+│       │   ├── bgm.wav           # Original BGM (unused)
 │       │   ├── original_synth.wav
 │       │   └── Glass_Garden_Paths.mp3
 │       ├── male_voices/          # Male voice clips
@@ -34,7 +35,7 @@ Brickly/
 │           └── great.mp3
 │
 ├── js/                           # Core game source code
-│   ├── game.js                   # Main orchestrator, game loop, UI bindings (1792 lines)
+│   ├── game.js                   # Main orchestrator, game loop, UI bindings
 │   ├── engine.js                 # Board grid matrix, placement validation, line clearing (191 lines)
 │   ├── spawner.js                # Shape database, weighted spawning, tray management (1239 lines)
 │   ├── audio.js                  # Web Audio API synthesis + voice playback (447 lines)
@@ -53,17 +54,66 @@ Brickly/
 │   ├── rename.js
 │   └── rename_packages.js
 │
+├── legal/                        # Legal pages (included in dist/ build)
+│   ├── privacy.html              # Privacy Policy page
+│   └── terms.html                # Terms of Service page
+│
 ├── android/                      # Native Android project (Capacitor)
 └── ios/                          # Native iOS project (Capacitor)
 ```
 
+## Haptic Feedback System (`js/game.js`)
+
+### Plugin Access
+Capacitor 8 does NOT have `window.Capacitor.registerPlugin`. The Haptics plugin is auto-registered at `window.Capacitor.Plugins.Haptics`.
+
+```javascript
+let _hapticsPlugin = undefined;
+function getHaptics() {
+    if (_hapticsPlugin === undefined) {
+        _hapticsPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics)
+            ? window.Capacitor.Plugins.Haptics
+            : null;
+    }
+    if (_hapticsPlugin === null && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+        _hapticsPlugin = window.Capacitor.Plugins.Haptics;
+    }
+    return _hapticsPlugin;
+}
+```
+
+### Haptic Durations
+Uses `Haptics.vibrate({ duration })` instead of `Haptics.impact()` — the impact method produces vibrations too short to perceive on many Android devices.
+
+| Type | Duration | When Triggered |
+|------|----------|----------------|
+| light | 50ms | Piece pickup, snap, menu button taps |
+| medium | 70ms | Normal block placement |
+| heavy | 100ms | Line clear, theme shift |
+| double | 60ms x2 (100ms gap) | Perfect placement |
+
+### Web Fallback
+`navigator.vibrate()` is used as fallback (works in Android Chrome, NOT on iOS Safari).
+
+### Vibration Toggle
+`vibrationEnabled` boolean, persisted to LocalStorage. Controls all haptic feedback.
+
 ## Audio System Architecture
 
+### BGM (`js/audio.js`)
+- **Active track:** `assets/audio/bgm/gaming_music.mp3` (from Pixabay)
+- **License:** Pixabay Content License (free for commercial use, no attribution required)
+- **Playback:** HTMLAudioElement, looped
+- **Volume levels:**
+  - Default/startup: 0.20
+  - Gameplay: 0.15
+  - Main Menu: 0.20
+
 ### Voice System (`js/audio.js`)
-The `AudioManager` class handles all audio. The `speak()` method (lines 341-446) plays pre-recorded MP3 clips using Web Audio API for line-clear praise announcements.
+The `speak()` method plays pre-recorded MP3 clips for line-clear praise announcements.
 
 #### Voice Phrase Mapping
-Phrases are triggered from `js/game.js` lines 469-487 when lines are cleared or combos are reached:
+Phrases are triggered from `js/game.js` when lines are cleared or combos are reached:
 
 | Trigger | Phrase | Condition | Voice Gender | MP3 File |
 |---|---|---|---|---|
@@ -76,57 +126,36 @@ Phrases are triggered from `js/game.js` lines 469-487 when lines are cleared or 
 
 Unused voices: `good.mp3`, `wonderful.mp3`
 
-#### Gender Map (`audio.js` lines 349-358)
-```javascript
-const genderMap = {
-    "Good": "female",  // Only female_voices/good.mp3 exists
-    "Great": "female",
-    "Excellent": "female",
-    "Wonderful": "male",
-    "Amazing": "female",
-    "Fantastic": "male",
-    "Perfect": "male",
-    "Marvelous": "female",  // No MP3 exists - falls back to SpeechSynthesis
-    "Unbelievable": "female"
-};
-```
-
-#### Voice File Map (`audio.js` lines 361-370)
-```javascript
-const voiceFiles = {
-    "Good":         { female: "assets/audio/female_voices/good.mp3" },
-    "Great":        { female: "assets/audio/female_voices/great.mp3" },
-    "Excellent":    { female: "assets/audio/female_voices/excellent.mp3" },
-    "Wonderful":    { male: "assets/audio/male_voices/wonderful.mp3" },
-    "Amazing":      { female: "assets/audio/female_voices/amazing.mp3" },
-    "Fantastic":    { male: "assets/audio/male_voices/fantastic.mp3" },
-    "Perfect":      { male: "assets/audio/male_voices/perfect.mp3" },
-    "Unbelievable": { male: "assets/audio/male_voices/unbelievable.mp3" }
-};
-```
-
-#### Voice Playback Implementation
-The `speak()` method uses Web Audio API to play MP3 files:
-1. Initializes AudioContext and resumes if suspended
-2. Fetches the MP3 file via `fetch()`
-3. Decodes audio data via `this.ctx.decodeAudioData()`
-4. Creates a `BufferSource`, routes through a `voiceGain` node (0.25 volume), then to `masterGain`
-5. Falls back to SpeechSynthesis for phrases without MP3 (e.g. "Marvelous")
-
 ### Floating Text System (`js/particles.js`)
-The `addFloatingText()` method (lines 37-49) displays reward messages:
-- `decay: 0.008` — text stays visible ~2 seconds
-- `vy: -1.2` — slow upward float
+The `addFloatingText()` method displays reward messages on the canvas:
+- `decay: 0.006` — text stays visible ~2.5 seconds
+- `vy: -0.7` — slow upward float
+- Base font size: `16 * scale` pixels
+- Combo text scale: `0.7 + (comboStreak * 0.05)` (starts smaller, grows slower)
 - Special styling for praise words (gold sunblast + gradient text)
 
 ### Line Clearing Flow
-1. After placing a block shape, `board.checkFullLines()` is called (game.js:442)
-2. Combo streak increments if lines cleared (game.js:446)
-3. Score calculated: `clearedLinesCount * 100 * comboStreak + streakBonus` (game.js:452-453)
-4. Particle effects spawned along cleared rows/columns (game.js:470)
-5. `audio.playClear(comboStreak)` plays arpeggio sound (game.js:471)
-6. Voice announcement triggered based on achievement tier (game.js:473-517)
-7. `board.clearLines(rows, cols)` zeros out cells (game.js:544)
+1. After placing a block shape, `board.checkFullLines()` is called
+2. Combo streak increments if lines cleared
+3. Score calculated: `clearedLinesCount * 75 * comboStreak + streakBonus`
+   - `streakBonus = (comboStreak - 1) * 100` (for combo streak > 1)
+4. Particle effects spawned along cleared rows/columns
+5. `audio.playClear(comboStreak)` plays arpeggio sound
+6. Voice announcement triggered based on achievement tier
+7. `board.clearLines(rows, cols)` zeros out cells
+
+### Score System
+| Source | Points |
+|--------|--------|
+| Per block placed | +1 |
+| Perfect spot bonus | +20 |
+| 1 line cleared | 75 |
+| 2 lines cleared | 150 |
+| 3 lines cleared | 225 |
+| 4 lines cleared | 300 |
+| Combo x2 (1 line) | 250 |
+| Combo x3 (1 line) | 425 |
+| Board clear bonus | 300 |
 
 ### SFX (Synthesized Sounds)
 - `playDragStart()` - High-frequency tick on drag start
@@ -135,10 +164,51 @@ The `addFloatingText()` method (lines 37-49) displays reward messages:
 - `playGameOver()` - Descending minor arpeggio
 - `playLevelWin()` - Uplifting sweeping major arpeggio
 
+## Settings & Pause System
+
+### Settings Modal
+Accessible from main menu (gear icon) and in-game (gear icon). Shows/hides buttons based on context:
+
+**Main Menu Mode:**
+- Sound toggle, Music toggle, Vibration toggle
+- Menu Theme button
+- Rate Us, Feedback, Privacy Policy, Terms of Service buttons
+
+**In-Game Mode (Pauses game):**
+- Sound toggle, Music toggle, Vibration toggle
+- Resume button (top of actions)
+- Home, Restart, Change Skin buttons
+- Rate Us, Feedback, Privacy, Terms are hidden
+
+### Pause System (`gamePaused` state)
+- `openSettings()` sets `gamePaused = true` during gameplay
+- `closeSettings()` sets `gamePaused = false`
+- When paused:
+  - Combo timer countdown is frozen
+  - Piece dragging is blocked (`pointerdown` handler checks `gamePaused`)
+
+### About Modal
+- Brickly logo, version, description
+- Developer credit
+- Music credit: "Gaming" from Pixabay (Pixabay Content License)
+- Privacy Policy link
+- Copyright notice
+
+### Main Menu Footer
+- Version number (`v0.1.0`)
+- About button
+- Privacy button
+
+## Theme System
+- 18 themes defined in `themes.js` with color palettes
+- Theme shifts every 15 block placements (instant, no overlay)
+- Theme shift triggers heavy haptic feedback
+
 ## Build Process
 - Web: Serve root directory directly (index.html is entry point)
-- Mobile: Run `node scripts/build-mobile-assets.mjs` then `npx cap sync`
-- The build script copies `assets/` to `dist/`
+- Mobile: Run `npm run build` then `npx cap sync`
+- The build script copies `assets/`, `js/`, `index.html`, `style.css`, `legal/` to `dist/`
+- Capacitor config: `webDir: "dist"`
 
 ## Key Conventions
 - All game state managed in `game.js` (orchestrator pattern)
@@ -146,9 +216,28 @@ The `addFloatingText()` method (lines 37-49) displays reward messages:
 - Themes defined in `themes.js` with color palettes
 - LocalStorage persistence via `storage.js` (settings, high scores, game state)
 - No framework dependencies - vanilla JS with ES modules
+- No bundler - bare specifiers like `import { Haptics } from '@capacitor/haptics'` do NOT work
+- Capacitor plugins accessed via `window.Capacitor.Plugins.*` (not `registerPlugin()`)
+
+## Capacitor Plugins
+- `@capacitor/haptics` — Haptic feedback via `window.Capacitor.Plugins.Haptics`
+- `@capacitor/browser` — In-app browser for Privacy, Terms, Rate Us links via `window.Capacitor.Plugins.Browser`
+- `@capacitor-community/text-to-speech` — Voice announcements
+
+### URL Helper (`game.js`)
+External links use a helper function that opens in Capacitor's in-app browser (with back/close button) on device, or falls back to `window.open` in browser:
+```javascript
+function openUrl(url) {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+        window.Capacitor.Plugins.Browser.open({ url });
+    } else {
+        window.open(url, '_blank');
+    }
+}
+```
 
 ## Settings Persistence
-Sound, BGM, and vibration settings are saved to LocalStorage via `StorageManager.saveSettings()` and restored on startup. The `saveSettingsState()` function (game.js:1710) saves current toggle states, and initialization reads them back with `settings.sfx !== false` defaults.
+Sound, Music, and vibration settings are saved to LocalStorage via `StorageManager.saveSettings()` and restored on startup.
 
 ## Firebase Integration (In Progress)
 
@@ -181,3 +270,7 @@ Once user provides `firebaseConfig`:
 ```bash
 npm install firebase @capacitor-firebase/authentication @capacitor-firebase/firestore
 ```
+
+## Pending TODOs
+- Replace placeholder App Store ID with real ID when published
+- Firebase integration (see above)

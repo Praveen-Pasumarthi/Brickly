@@ -9,7 +9,8 @@ const assets = [
   'index.html',
   'style.css',
   'js',
-  'assets'
+  'assets',
+  'legal'
 ];
 
 await rm(dist, { recursive: true, force: true });

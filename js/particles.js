@@ -42,9 +42,9 @@ export class ParticleSystem {
             color,
             scale,
             alpha: 1.0,
-            vy: -1.2, // Float upwards slower
+            vy: -0.7, // Float upwards slowly
             life: 1.0,
-            decay: 0.008 // Slower decay - text stays visible longer (~2 seconds)
+            decay: 0.006 // Slow decay - text stays visible longer (~2.5 seconds)
         });
     }
 
@@ -505,7 +505,7 @@ export class ParticleSystem {
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
                 ctx.shadowBlur = 6;
                 
-                const size = Math.round(20 * t.scale);
+                const size = Math.round(16 * t.scale);
                 ctx.font = `bold ${size}px 'Outfit', 'Inter', system-ui, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';

@@ -33,6 +33,7 @@ let highScore = 0;
 let comboStreak = 0;       // Sequential line-clear combo counter
 let comboTimerMs = 0;      // Milliseconds remaining in the 10-second combo window
 let comboTimerActive = false;
+let gamePaused = false;      // Pause combo timer when settings opened mid-game
 const COMBO_WINDOW_MS = 10000;
 let lastFrameTime = 0;     // For deltaTime computation in renderLoop
 let placementCount = 0;    // Number of blocks placed in Blast mode
@@ -232,7 +233,7 @@ function setupDragEvents() {
     
     slots.forEach(slot => {
         slot.addEventListener('pointerdown', (e) => {
-            if (isDragging) return;
+            if (isDragging || gamePaused) return;
             const slotIndex = parseInt(slot.dataset.slot, 10);
             
             // Check if slot has active shape
@@ -409,7 +410,7 @@ function attemptBlockPlacement() {
         // Check if placed in the target spot in the background (perfect spot)
         let targetSpotBonus = 0;
         if (draggedShape.targetSpot && hoverRow === draggedShape.targetSpot.r && hoverCol === draggedShape.targetSpot.c) {
-            targetSpotBonus = 30; // Small score boost
+            targetSpotBonus = 20; // Small score boost
             score += targetSpotBonus;
             hasPerfectSpot = true;
             
@@ -444,8 +445,8 @@ function attemptBlockPlacement() {
             hasClearedLines = true;
             
             // Score Math: Cleared count * 100 * comboStreak + streak bonus
-            const streakBonus = comboStreak > 1 ? (comboStreak - 1) * 200 : 0;
-            const pointsGained = clearedLinesCount * 100 * comboStreak + streakBonus;
+            const streakBonus = comboStreak > 1 ? (comboStreak - 1) * 100 : 0;
+            const pointsGained = clearedLinesCount * 75 * comboStreak + streakBonus;
             score += pointsGained;
 
             // Spawn floating reward text
@@ -459,7 +460,7 @@ function attemptBlockPlacement() {
             } else if (clearedLinesCount > 1) {
                 floatMsg += ` (Multi x${clearedLinesCount}!)`;
             }
-            particles.addFloatingText(floatMsg, textX, textY, getActiveThemeConfig().colors.textPrimary, 1.0 + (comboStreak * 0.12));
+            particles.addFloatingText(floatMsg, textX, textY, getActiveThemeConfig().colors.textPrimary, 0.7 + (comboStreak * 0.05));
 
             // Trigger sparkles and explosions
             particles.spawnLineClearParticles(rows, cols, boardLayout, getActiveThemeConfig());
@@ -538,7 +539,7 @@ function attemptBlockPlacement() {
             }
 
             if (boardIsEmpty) {
-                const clearBonus = 500; // Large reward
+                const clearBonus = 300; // Board clear reward
                 score += clearBonus;
                 
                 const centerX = boardOffsetX + (cellSize * board.cols) / 2;
@@ -678,8 +679,8 @@ function renderLoop(now) {
     const deltaMs = now - (lastFrameTime || now);
     lastFrameTime = now;
 
-    // Tick combo countdown window
-    if (comboTimerActive) {
+    // Tick combo countdown window (paused when settings are open mid-game)
+    if (comboTimerActive && !gamePaused) {
         comboTimerMs -= deltaMs;
         if (comboTimerMs <= 0) {
             comboTimerMs = 0;
@@ -1079,7 +1080,7 @@ export function selectMode(modeName) {
     }
     
     // Lower BGM volume during gameplay to make SFX more audible
-    audio.setBgmVolume(0.45);
+    audio.setBgmVolume(0.15);
     
     activeMode = modeName;
     
@@ -1365,17 +1366,62 @@ function setupUIBindings() {
     const btnClassic10 = $('btn-play-classic-10');
     const btnBlast = $('btn-play-blast');
 
-    if (btnMissions) btnMissions.addEventListener('click', () => selectMode('missions'));
-    if (btnClassic) btnClassic.addEventListener('click', () => selectMode('classic'));
-    if (btnClassic10) btnClassic10.addEventListener('click', () => selectMode('classic_10'));
-    if (btnBlast) btnBlast.addEventListener('click', () => selectMode('blast'));
+    if (btnMissions) btnMissions.addEventListener('click', () => { triggerHaptic('light'); selectMode('missions'); });
+    if (btnClassic) btnClassic.addEventListener('click', () => { triggerHaptic('light'); selectMode('classic'); });
+    if (btnClassic10) btnClassic10.addEventListener('click', () => { triggerHaptic('light'); selectMode('classic_10'); });
+    if (btnBlast) btnBlast.addEventListener('click', () => { triggerHaptic('light'); selectMode('blast'); });
+
+    // About button in main menu footer
+    const btnMenuAbout = $('btn-menu-about');
+    if (btnMenuAbout) {
+        btnMenuAbout.addEventListener('click', () => {
+            triggerHaptic('light');
+            openAbout();
+        });
+    }
+
+    // Privacy Policy button in main menu footer
+    const btnMenuPrivacy = $('btn-menu-privacy');
+    if (btnMenuPrivacy) {
+        btnMenuPrivacy.addEventListener('click', () => {
+            triggerHaptic('light');
+            openUrl('legal/privacy.html');
+        });
+    }
+
+    // About modal: close button
+    const btnAboutClose = $('btn-about-close');
+    if (btnAboutClose) {
+        btnAboutClose.addEventListener('click', () => {
+            triggerHaptic('light');
+            closeAbout();
+        });
+    }
+
+    // About modal: backdrop tap to close
+    const aboutOverlay = $('about-overlay');
+    if (aboutOverlay) {
+        aboutOverlay.addEventListener('click', (e) => {
+            if (e.target === aboutOverlay) closeAbout();
+        });
+    }
+
+    // About modal: Privacy Policy link
+    const btnAboutPrivacy = $('btn-about-privacy');
+    if (btnAboutPrivacy) {
+        btnAboutPrivacy.addEventListener('click', () => {
+            triggerHaptic('light');
+            openUrl('legal/privacy.html');
+        });
+    }
 
     // Home button in HUD
     const btnHome = $('btn-home');
     if (btnHome) {
         btnHome.addEventListener('click', () => {
+            triggerHaptic('light');
             saveCurrentGameState();
-            audio.setBgmVolume(0.95); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1387,6 +1433,7 @@ function setupUIBindings() {
     const btnRestart = $('btn-restart');
     if (btnRestart) {
         btnRestart.addEventListener('click', () => {
+            triggerHaptic('light');
             const overlay = $('gameover-overlay');
             if (overlay) overlay.classList.add('hidden');
             startNewGame();
@@ -1397,6 +1444,7 @@ function setupUIBindings() {
     const btnNextLevel = $('btn-next-level');
     if (btnNextLevel) {
         btnNextLevel.addEventListener('click', () => {
+            triggerHaptic('light');
             const overlay = $('success-overlay');
             if (overlay) overlay.classList.add('hidden');
             startNewGame();
@@ -1407,9 +1455,10 @@ function setupUIBindings() {
     const btnSuccessClose = $('btn-success-close');
     if (btnSuccessClose) {
         btnSuccessClose.addEventListener('click', () => {
+            triggerHaptic('light');
             const overlay = $('success-overlay');
             if (overlay) overlay.classList.add('hidden');
-            audio.setBgmVolume(0.95); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1419,14 +1468,60 @@ function setupUIBindings() {
 
     // Settings gear button — open the settings modal
     const btnMenuSettings = $('btn-menu-settings');
-    if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => openSettings());
+    if (btnMenuSettings) btnMenuSettings.addEventListener('click', () => { triggerHaptic('light'); openSettings(); });
 
     const btnGameSettings = $('btn-game-settings');
-    if (btnGameSettings) btnGameSettings.addEventListener('click', () => openSettings());
+    if (btnGameSettings) btnGameSettings.addEventListener('click', () => { triggerHaptic('light'); openSettings(); });
 
     // Settings modal: close X button
     const btnSettingsClose = $('btn-settings-close');
-    if (btnSettingsClose) btnSettingsClose.addEventListener('click', closeSettings);
+    if (btnSettingsClose) btnSettingsClose.addEventListener('click', () => { triggerHaptic('light'); closeSettings(); });
+
+    // Settings modal: Rate Us
+    const btnSettingsRate = $('btn-settings-rate');
+    if (btnSettingsRate) {
+        btnSettingsRate.addEventListener('click', () => {
+            triggerHaptic('light');
+            const isAndroid = /android/i.test(navigator.userAgent);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const appId = 'com.brickly.game';
+            const url = isAndroid
+                ? `market://details?id=${appId}`
+                : isIOS
+                    ? `itms-apps://itunes.apple.com/app/id000000000` // Replace with real App Store ID when published
+                    : `https://play.google.com/store/apps/details?id=${appId}`;
+            openUrl(url);
+        });
+    }
+
+    // Settings modal: Feedback
+    const btnSettingsFeedback = $('btn-settings-feedback');
+    if (btnSettingsFeedback) {
+        btnSettingsFeedback.addEventListener('click', () => {
+            triggerHaptic('light');
+            const subject = encodeURIComponent('Brickly - Feedback');
+            const body = encodeURIComponent('Hi, I have some feedback about Brickly:\n\n');
+            window.open(`mailto:brickly.game@gmail.com?subject=${subject}&body=${body}`, '_blank');
+        });
+    }
+
+    // Settings modal: Privacy Policy
+    const btnSettingsPrivacy = $('btn-settings-privacy');
+    if (btnSettingsPrivacy) {
+        btnSettingsPrivacy.addEventListener('click', () => {
+            triggerHaptic('light');
+            openUrl('legal/privacy.html');
+        });
+    }
+
+    // Settings modal: Terms of Service
+    const btnSettingsTerms = $('btn-settings-terms');
+    if (btnSettingsTerms) {
+        btnSettingsTerms.addEventListener('click', () => {
+            triggerHaptic('light');
+            openUrl('legal/terms.html');
+        });
+    }
 
     // Settings modal: backdrop tap to close
     const settingsOverlay = $('settings-overlay');
@@ -1440,6 +1535,7 @@ function setupUIBindings() {
     const toggleSound = $('toggle-sound');
     if (toggleSound) {
         toggleSound.addEventListener('click', () => {
+            triggerHaptic('light');
             audio.setSfxEnabled(!audio.enabled);
             saveSettingsState();
             updateSoundIcons();
@@ -1450,6 +1546,7 @@ function setupUIBindings() {
     const toggleBgm = $('toggle-bgm');
     if (toggleBgm) {
         toggleBgm.addEventListener('click', () => {
+            triggerHaptic('light');
             audio.setBgmEnabled(!audio.bgmEnabled);
             saveSettingsState();
             updateSoundIcons();
@@ -1467,13 +1564,23 @@ function setupUIBindings() {
         });
     }
 
+    // Settings modal: Resume button (only visible during gameplay pause)
+    const btnSettingsResume = $('btn-settings-resume');
+    if (btnSettingsResume) {
+        btnSettingsResume.addEventListener('click', () => {
+            triggerHaptic('light');
+            closeSettings();
+        });
+    }
+
     // Settings modal: Home button
     const btnSettingsHome = $('btn-settings-home');
     if (btnSettingsHome) {
         btnSettingsHome.addEventListener('click', () => {
+            triggerHaptic('light');
             closeSettings();
             saveCurrentGameState();
-            audio.setBgmVolume(0.95); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(0.2); // Restore BGM volume for Main Menu
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -1484,6 +1591,7 @@ function setupUIBindings() {
     const btnSettingsRestart = $('btn-settings-restart');
     if (btnSettingsRestart) {
         btnSettingsRestart.addEventListener('click', () => {
+            triggerHaptic('light');
             closeSettings();
             startNewGame();
         });
@@ -1493,6 +1601,7 @@ function setupUIBindings() {
     const btnSettingsTheme = $('btn-settings-theme');
     if (btnSettingsTheme) {
         btnSettingsTheme.addEventListener('click', () => {
+            triggerHaptic('light');
             triggerThemeChange(false);
             const label = $('game-theme-label');
             if (label) label.innerText = 'Skin: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1);
@@ -1503,6 +1612,7 @@ function setupUIBindings() {
     const btnSettingsMenuTheme = $('btn-settings-menu-theme');
     if (btnSettingsMenuTheme) {
         btnSettingsMenuTheme.addEventListener('click', () => {
+            triggerHaptic('light');
             let idx = MENU_THEMES.indexOf(activeMenuTheme);
             idx = (idx + 1) % MENU_THEMES.length;
             activeMenuTheme = MENU_THEMES[idx];
@@ -1515,27 +1625,48 @@ function setupUIBindings() {
     }
 }
 
+// --- Open URL (Capacitor in-app browser with fallback) ---
+function openUrl(url) {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+        window.Capacitor.Plugins.Browser.open({ url });
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
 // --- Settings Modal Open/Close ---
 function openSettings() {
     updateSoundIcons();
     
     const isMenu = document.body.classList.contains('menu-active');
     
+    const btnResume = $('btn-settings-resume');
     const btnHome = $('btn-settings-home');
     const btnRestart = $('btn-settings-restart');
     const btnTheme = $('btn-settings-theme');
     const btnMenuBg = $('btn-settings-menu-theme');
+    const btnRate = $('btn-settings-rate');
+    const btnFeedback = $('btn-settings-feedback');
+    const btnPrivacy = $('btn-settings-privacy');
+    const btnTerms = $('btn-settings-terms');
     
     if (isMenu) {
+        if (btnResume) btnResume.style.display = 'none';
         if (btnHome) btnHome.style.display = 'none';
         if (btnRestart) btnRestart.style.display = 'none';
         if (btnTheme) btnTheme.style.display = 'none';
+        if (btnRate) btnRate.style.display = 'flex';
+        if (btnFeedback) btnFeedback.style.display = 'flex';
+        if (btnPrivacy) btnPrivacy.style.display = 'flex';
+        if (btnTerms) btnTerms.style.display = 'flex';
         if (btnMenuBg) {
             btnMenuBg.style.display = 'flex';
             const label = $('menu-theme-label');
             if (label) label.innerText = 'Theme: ' + activeMenuTheme.charAt(0).toUpperCase() + activeMenuTheme.slice(1);
         }
     } else {
+        gamePaused = true;
+        if (btnResume) btnResume.style.display = 'flex';
         if (btnHome) btnHome.style.display = 'flex';
         if (btnRestart) btnRestart.style.display = 'flex';
         if (btnTheme) {
@@ -1544,6 +1675,10 @@ function openSettings() {
             if (label) label.innerText = 'Skin: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1);
         }
         if (btnMenuBg) btnMenuBg.style.display = 'none';
+        if (btnRate) btnRate.style.display = 'none';
+        if (btnFeedback) btnFeedback.style.display = 'none';
+        if (btnPrivacy) btnPrivacy.style.display = 'none';
+        if (btnTerms) btnTerms.style.display = 'none';
     }
 
     const overlay = $('settings-overlay');
@@ -1551,7 +1686,19 @@ function openSettings() {
 }
 
 function closeSettings() {
+    gamePaused = false;
     const overlay = $('settings-overlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+// --- About Modal Open/Close ---
+function openAbout() {
+    const overlay = $('about-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+}
+
+function closeAbout() {
+    const overlay = $('about-overlay');
     if (overlay) overlay.classList.add('hidden');
 }
 
@@ -1601,42 +1748,12 @@ function triggerThemeChange(isGameplay = false) {
     
     triggerHaptic('heavy');
     
-    const overlay = $('theme-shift-overlay');
-    if (isGameplay && overlay) {
-        overlay.classList.add('active');
-        
-        const praises = ["Excellent", "Good", "Wonderful", "Amazing", "Fantastic", "Marvelous", "Perfect"];
-        const praise = praises[Math.floor(Math.random() * praises.length)];
-        
-        const textEl = overlay.querySelector('.theme-shift-text');
-        if (textEl) textEl.innerText = praise.toUpperCase();
-        
-        if (audio && typeof audio.speak === 'function') {
-            audio.speak(praise);
-        }
-        
-        // Change the theme in the background after 400ms (when overlay is fully blurred and visible)
-        setTimeout(() => {
-            prevTheme = activeTheme;
-            activeTheme = nextTheme;
-            transitionProgress = 0.0;
-            transitionStartTime = performance.now();
-            applyTheme(activeTheme);
-            saveSettingsState();
-            
-            // Fade out the splash after another 700ms (total 1.1s display time)
-            setTimeout(() => {
-                overlay.classList.remove('active');
-            }, 700);
-        }, 400);
-    } else {
-        prevTheme = activeTheme;
-        activeTheme = nextTheme;
-        transitionProgress = 0.0;
-        transitionStartTime = performance.now();
-        applyTheme(activeTheme);
-        saveSettingsState();
-    }
+    prevTheme = activeTheme;
+    activeTheme = nextTheme;
+    transitionProgress = 0.0;
+    transitionStartTime = performance.now();
+    applyTheme(activeTheme);
+    saveSettingsState();
 }
 
 function applyTheme(themeId) {
@@ -1653,44 +1770,47 @@ function applyMenuTheme(themeId) {
     overlay.classList.add(`menu-theme-${themeId}`);
 }
 
-async function triggerHaptic(type = 'light') {
+// Cache the Haptics plugin proxy at module level
+let _hapticsPlugin = undefined;
+function getHaptics() {
+    if (_hapticsPlugin === undefined) {
+        _hapticsPlugin = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics)
+            ? window.Capacitor.Plugins.Haptics
+            : null;
+    }
+    // If still null, retry once (plugin may not have been ready on first call)
+    if (_hapticsPlugin === null && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+        _hapticsPlugin = window.Capacitor.Plugins.Haptics;
+    }
+    return _hapticsPlugin;
+}
+
+function triggerHaptic(type = 'light') {
     if (!vibrationEnabled) return;
 
-    // 1. Try native Capacitor Haptics first (works on physical devices)
-    try {
-        if (window.Capacitor && window.Capacitor.registerPlugin) {
-            // Capacitor 3+ requires registering the plugin proxy directly
-            const Haptics = window.Capacitor.registerPlugin('Haptics');
-            if (type === 'light') {
-                await Haptics.impact({ style: 'LIGHT' });
-            } else if (type === 'medium') {
-                await Haptics.impact({ style: 'MEDIUM' });
-            } else if (type === 'heavy') {
-                await Haptics.impact({ style: 'HEAVY' });
-            } else if (type === 'double') {
-                await Haptics.impact({ style: 'MEDIUM' });
-                setTimeout(async () => { await Haptics.impact({ style: 'MEDIUM' }); }, 150);
+    // 1. Capacitor native haptics (works on both iOS + Android devices)
+    const Haptics = getHaptics();
+    if (Haptics) {
+        try {
+            if (type === 'double') {
+                Haptics.vibrate({ duration: 60 });
+                setTimeout(() => { try { Haptics.vibrate({ duration: 60 }); } catch(_) {} }, 100);
+            } else {
+                const duration = type === 'light' ? 50 : type === 'heavy' ? 100 : 70;
+                Haptics.vibrate({ duration });
             }
-            return; // Exit if native haptics succeeded
-        }
-    } catch (e) {
-        console.warn("Capacitor Haptics error:", e);
+            return;
+        } catch (e) {}
     }
 
-    // 2. Fallback to standard web vibration API
-    if (!('vibrate' in navigator)) return;
-    try {
-        if (type === 'light') {
-            navigator.vibrate(10);
-        } else if (type === 'medium') {
-            navigator.vibrate(22);
-        } else if (type === 'heavy') {
-            navigator.vibrate(50);
-        } else if (type === 'double') {
-            navigator.vibrate([20, 30, 20]);
-        }
-    } catch (e) {
-        console.warn("Haptic feedback vibration error:", e);
+    // 2. Web Vibration API fallback (Android Chrome only — iOS Safari does NOT support this)
+    if ('vibrate' in navigator) {
+        try {
+            if (type === 'light') navigator.vibrate(50);
+            else if (type === 'medium') navigator.vibrate(70);
+            else if (type === 'heavy') navigator.vibrate(100);
+            else if (type === 'double') navigator.vibrate([60, 100, 60]);
+        } catch (e) {}
     }
 }
 

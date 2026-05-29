@@ -22,9 +22,9 @@ export class AudioManager {
         }
 
         // BGM using HTMLAudioElement for simple, native playback (no cracking)
-        this.bgmAudio = new Audio('assets/audio/bgm/bgm.wav');
+        this.bgmAudio = new Audio('assets/audio/bgm/gaming_music.mp3');
         this.bgmAudio.loop = true;
-        this.bgmAudio.volume = 0.95;
+        this.bgmAudio.volume = 0.2;
 
         // Auto-pause audio engine when app is minimized or backgrounded
         document.addEventListener('visibilitychange', () => {
