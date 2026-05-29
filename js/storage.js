@@ -14,6 +14,8 @@ const STORAGE_KEYS = {
     SETTINGS: 'brickly_settings'
 };
 
+import { Auth, DB } from './firebase.js';
+
 export class StorageManager {
     /**
      * Checks if LocalStorage is available on the platform/webview.
@@ -42,6 +44,9 @@ export class StorageManager {
         const currentHigh = this.getHighScore(mode);
         if (score > currentHigh) {
             localStorage.setItem(key, score.toString());
+            if (Auth.currentUser) {
+                DB.saveHighScore(Auth.currentUser.uid, mode, score);
+            }
             return score;
         }
         return currentHigh;
@@ -102,6 +107,9 @@ export class StorageManager {
     static saveAdventureProgress(level) {
         if (!this.isAvailable()) return;
         localStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, level.toString());
+        if (Auth.currentUser) {
+            DB.saveProgress(Auth.currentUser.uid, level);
+        }
     }
 
     /**
@@ -176,6 +184,9 @@ export class StorageManager {
     static saveSettings(settings) {
         if (!this.isAvailable()) return;
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+        if (Auth.currentUser) {
+            DB.saveSettings(Auth.currentUser.uid, settings);
+        }
     }
 
     /**

@@ -11,6 +11,7 @@ import { ModeManager, AdventureLevels } from './modes.js';
 import { THEMES, drawThemeBlock } from './themes.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
+import { Auth, DB } from './firebase.js';
 
 // --- Null-safe DOM helper ---
 function $(id) { return document.getElementById(id); }
@@ -99,9 +100,20 @@ let previewClearedLines = { rows: [], cols: [] };
 window.addEventListener('DOMContentLoaded', () => {
     // Dismiss splash after loading bar animation completes (~2.4s total)
     const splashEl = document.getElementById('splash-screen');
+    const onboardEl = document.getElementById('onboarding-screen');
+    const hasOnboarded = localStorage.getItem('brickly_has_onboarded') === 'true';
+
     if (splashEl) {
         setTimeout(() => {
             splashEl.classList.add('splash-out');
+            
+            // Intercept with Onboarding screen if not logged in and hasn't explicitly skipped
+            if (!Auth.currentUser && !hasOnboarded) {
+                onboardEl.classList.remove('hidden');
+                // Ensure it sits on top of the main menu
+                onboardEl.style.zIndex = '500';
+            }
+
             setTimeout(() => splashEl.classList.add('splash-gone'), 580);
         }, 2200); // matches splashLoad animation (0.6s delay + 1.8s duration = 2.4s)
     }
@@ -1458,6 +1470,79 @@ function triggerVictory() {
 
 // --- Menu UI Event Bindings ---
 function setupUIBindings() {
+    // --- Onboarding Logic ---
+    const onboardEl = document.getElementById('onboarding-screen');
+    const btnOnboardGoogle = document.getElementById('btn-onboard-google');
+    const btnOnboardGuest = document.getElementById('btn-onboard-guest');
+
+    if (btnOnboardGoogle) {
+        btnOnboardGoogle.addEventListener('click', async () => {
+            audio.playTap();
+            try {
+                const user = await Auth.signInWithGoogle();
+                if (user) {
+                    console.log("Logged in via onboarding:", user.displayName);
+                    localStorage.setItem('brickly_has_onboarded', 'true');
+                    onboardEl.classList.add('out');
+                    setTimeout(() => onboardEl.classList.add('hidden'), 500);
+                }
+            } catch (err) {
+                console.error("Onboard Google Login Failed:", err);
+            }
+        });
+    }
+
+    if (btnOnboardGuest) {
+        btnOnboardGuest.addEventListener('click', () => {
+            audio.playTap();
+            localStorage.setItem('brickly_has_onboarded', 'true');
+            onboardEl.classList.add('out');
+            setTimeout(() => onboardEl.classList.add('hidden'), 500);
+        });
+    }
+
+    // Main Menu Buttonsdings
+    const btnLogin = $('btn-settings-login');
+    const btnLogout = $('btn-settings-logout');
+
+    if (btnLogin) {
+        btnLogin.addEventListener('click', async () => {
+            triggerHaptic('light');
+            audio.playTap();
+            try {
+                await Auth.signInWithGoogle();
+                // Close settings automatically after login
+                closeSettings();
+            } catch (e) {
+                console.error("Login failed", e);
+            }
+        });
+    }
+
+    if (btnLogout) {
+        btnLogout.addEventListener('click', async () => {
+            triggerHaptic('light');
+            audio.playTap();
+            const confirmed = window.confirm("Are you sure you want to sign out?\n\nYour progress will no longer be saved to the cloud.");
+            if (!confirmed) return;
+            
+            try {
+                await Auth.signOut();
+            } catch (e) {
+                console.error("Logout failed", e);
+            }
+        });
+    }
+
+    Auth.onAuthStateChanged((user) => {
+        if (user) {
+            if (btnLogin) btnLogin.style.display = 'none';
+            if (btnLogout) btnLogout.style.display = 'flex';
+        } else {
+            if (btnLogin) btnLogin.style.display = 'flex';
+            if (btnLogout) btnLogout.style.display = 'none';
+        }
+    });
     // Play buttons in the Main Menu overlay
     const btnMissions = $('btn-play-missions');
     const btnClassic = $('btn-play-classic');
