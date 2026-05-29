@@ -873,169 +873,213 @@ export class Spawner {
                 return true;
             };
 
+            const isStarterSpawn = (this.spawnCount === 0 && board.starterShapes && board.starterShapes.length === 3);
+
             for (let i = 0; i < 3; i++) {
                 const rng = seed !== null ? this.seededRandom(seed + i) : Math.random;
                 
-                // Determine difficulty tier pool based on spawn count (first 3 trays are gated)
-                // then fall back to score or level-based scaling from tray 3 onward.
-                let tier;
-                if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 0) {
-                    tier = { pool: STARTER_POOL_0 };
-                } else if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 1) {
-                    tier = { pool: STARTER_POOL_1 };
-                } else if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 2) {
-                    tier = { pool: STARTER_POOL_2 };
-                } else if (mode === 'adventure' || mode === 'missions') {
-                    if (levelNum <= 3) tier = SHAPE_TIERS[0];
-                    else if (levelNum <= 6) tier = SHAPE_TIERS[1];
-                    else if (levelNum <= 9) tier = SHAPE_TIERS[2];
-                    else tier = SHAPE_TIERS[3];
+                let selectedKey;
+                let shapePlacements = new Map(); // key: shapeKey, value: array of {r, c, evalScore}
+                
+                if (isStarterSpawn) {
+                    selectedKey = board.starterShapes[i];
                 } else {
-                    tier = SHAPE_TIERS.find(t => score < t.maxScore) || SHAPE_TIERS[SHAPE_TIERS.length - 1];
-                }
-                
-                const isBoard10 = (board.cols >= 10);
-                const pool = tier.pool.filter(item => {
-                    if (!isBoard10) {
-                        // 10x10-only shapes
-                        if (item.key.startsWith('L_7')) return false;
-                        if (item.key.startsWith('BIG_T')) return false;
+                    // Determine difficulty tier pool based on spawn count (first 3 trays are gated)
+                    // then fall back to score or level-based scaling from tray 3 onward.
+                    let tier;
+                    if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 0) {
+                        tier = { pool: STARTER_POOL_0 };
+                    } else if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 1) {
+                        tier = { pool: STARTER_POOL_1 };
+                    } else if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 2) {
+                        tier = { pool: STARTER_POOL_2 };
+                    } else if (mode === 'adventure' || mode === 'missions') {
+                        if (levelNum <= 3) tier = SHAPE_TIERS[0];
+                        else if (levelNum <= 6) tier = SHAPE_TIERS[1];
+                        else if (levelNum <= 9) tier = SHAPE_TIERS[2];
+                        else tier = SHAPE_TIERS[3];
+                    } else {
+                        tier = SHAPE_TIERS.find(t => score < t.maxScore) || SHAPE_TIERS[SHAPE_TIERS.length - 1];
                     }
-                    return true;
-                });
-                
-                // Filter pool: only keep shapes that can fit somewhere on tempGrid
-                const validPool = [];
-                const shapePlacements = new Map(); // key: shapeKey, value: array of {r, c, evalScore}
-                
-                for (const item of pool) {
-                    const baseShape = SHAPES[item.key];
-                    if (!baseShape) continue;
                     
-                    const matrix = baseShape.matrix;
-                    const shapeRows = matrix.length;
-                    const shapeCols = matrix[0].length;
-                    const placements = [];
-                    
-                    // Scan all possible positions on board
-                    for (let r = 0; r <= board.rows - shapeRows; r++) {
-                        for (let c = 0; c <= board.cols - shapeCols; c++) {
-                            if (validateOnTempGrid(matrix, r, c)) {
-                                const evalScore = this.evaluatePlacement(board, tempGrid, matrix, r, c, mode, activeBombs);
-                                placements.push({ r, c, evalScore });
-                            }
+                    // Calculate board density to filter large cluttering shapes if crowded
+                    const totalCells = board.rows * board.cols;
+                    let filledCount = 0;
+                    for (let r = 0; r < board.rows; r++) {
+                        for (let c = 0; c < board.cols; c++) {
+                            if (tempGrid[r][c] > 0) filledCount++;
                         }
                     }
-                    
-                    if (placements.length > 0) {
-                        validPool.push(item);
-                        // Sort placements by tactical score in descending order
-                        placements.sort((a, b) => b.evalScore - a.evalScore);
-                        shapePlacements.set(item.key, placements);
-                    }
-                }
-                
-                // Fallback to full pool if no shape fits on the simulated grid
-                let activePool = validPool.length > 0 ? validPool : pool;
-                
-                if (this.spawnCount === 1 && i === 0 && this.simulatedFirstSpawnGrid) {
-                    const clearingPool = activePool.filter(item => {
-                        const baseShape = SHAPES[item.key];
-                        return baseShape && this.canShapeClearLine(baseShape.matrix, this.simulatedFirstSpawnGrid, board.rows, board.cols);
+                    const activeDensity = filledCount / totalCells;
+                    const isCluttered = activeDensity >= 0.40;
+
+                    const isBoard10 = (board.cols >= 10);
+                    const pool = tier.pool.filter(item => {
+                        if (!isBoard10) {
+                            if (item.key.startsWith('L_7')) return false;
+                            if (item.key.startsWith('BIG_T')) return false;
+                        }
+                        // Density check: filter out bulky pieces if crowded (>= 40% full)
+                        if (isCluttered) {
+                            const largeKeys = ['SQUARE_3', 'RECT_3X2', 'RECT_2X3', 'H_LINE_5', 'V_LINE_5', 
+                                               'CORNER_3', 'CORNER_3_R1', 'CORNER_3_R2', 'CORNER_3_R3',
+                                               'BIG_T', 'BIG_T_R1', 'BIG_T_R2', 'BIG_T_R3',
+                                               'BIG_L', 'BIG_L_R1', 'BIG_L_R2', 'BIG_L_R3',
+                                               'L_7', 'L_7_R1', 'L_7_R2', 'L_7_R3'];
+                            if (largeKeys.includes(item.key)) return false;
+                        }
+                        return true;
                     });
                     
-                    if (clearingPool.length > 0) {
-                        activePool = clearingPool;
-                    }
-                }
-                
-                // ═══════════════════════════════════════════════════════════
-                //  BOARD-INTELLIGENT SELECTION
-                //  Score each shape by its best placement, pick from top
-                // ═══════════════════════════════════════════════════════════
-                
-                // Generous phase: first 8 spawns actively help the player (mirrors evaluatePlacement)
-                const generous = this.spawnCount < 15;
-                
-                // Map each shape to its best placement score
-                const scoredShapes = validPool.map(item => {
-                    const placements = shapePlacements.get(item.key);
-                    const bestScore = placements && placements.length > 0 ? placements[0].evalScore : 0;
+                    // Filter pool: only keep shapes that can fit somewhere on tempGrid
+                    const validPool = [];
                     
-                    // Generous phase: boost smaller shapes (1-4 blocks) for easier early game
-                    let sizeBonus = 1.0;
-                    if (generous) {
+                    for (const item of pool) {
                         const baseShape = SHAPES[item.key];
-                        if (baseShape) {
-                            const blockCount = baseShape.matrix.flat().filter(v => v > 0).length;
-                            if (blockCount <= 2) sizeBonus = 1.4;
-                            else if (blockCount <= 4) sizeBonus = 1.2;
-                            else if (blockCount <= 5) sizeBonus = 1.0;
-                            else sizeBonus = 0.7; // penalize large shapes early
+                        if (!baseShape) continue;
+                        
+                        const matrix = baseShape.matrix;
+                        const shapeRows = matrix.length;
+                        const shapeCols = matrix[0].length;
+                        const placements = [];
+                        
+                        for (let r = 0; r <= board.rows - shapeRows; r++) {
+                            for (let c = 0; c <= board.cols - shapeCols; c++) {
+                                if (validateOnTempGrid(matrix, r, c)) {
+                                    const evalScore = this.evaluatePlacement(board, tempGrid, matrix, r, c, mode, activeBombs);
+                                    placements.push({ r, c, evalScore });
+                                }
+                            }
+                        }
+                        
+                        if (placements.length > 0) {
+                            validPool.push(item);
+                            placements.sort((a, b) => b.evalScore - a.evalScore);
+                            shapePlacements.set(item.key, placements);
                         }
                     }
                     
-                    // Variety penalty: reduce score for recently used shapes
-                    let varietyMultiplier = 1.0;
-                    const recentIdx = this.recentShapes.lastIndexOf(item.key);
-                    if (recentIdx >= 0) {
-                        const recency = this.recentShapes.length - recentIdx;
-                        varietyMultiplier = Math.max(0.2, 1 - (0.2 * (7 - recency)));
+                    let activePool = validPool;
+                    if (validPool.length === 0) {
+                        // Emergency fallback: generate tiny flexible pieces if board is blocked
+                        const emergencyKeys = ['SINGLE', 'H_LINE_2', 'V_LINE_2'];
+                        const emergencyPool = emergencyKeys.map(k => ({ key: k, weight: 10 }));
+                        const emergencyValid = [];
+                        for (const item of emergencyPool) {
+                            const baseShape = SHAPES[item.key];
+                            if (baseShape) {
+                                let fitsAnywhere = false;
+                                for (let r = 0; r <= board.rows - baseShape.matrix.length; r++) {
+                                    for (let c = 0; c <= board.cols - baseShape.matrix[0].length; c++) {
+                                        if (validateOnTempGrid(baseShape.matrix, r, c)) {
+                                            fitsAnywhere = true;
+                                            break;
+                                        }
+                                    }
+                                    if (fitsAnywhere) break;
+                                }
+                                if (fitsAnywhere) {
+                                    emergencyValid.push(item);
+                                    const placements = [];
+                                    for (let r = 0; r <= board.rows - baseShape.matrix.length; r++) {
+                                        for (let c = 0; c <= board.cols - baseShape.matrix[0].length; c++) {
+                                            if (validateOnTempGrid(baseShape.matrix, r, c)) {
+                                                const evalScore = this.evaluatePlacement(board, tempGrid, baseShape.matrix, r, c, mode, activeBombs);
+                                                placements.push({ r, c, evalScore });
+                                            }
+                                        }
+                                    }
+                                    placements.sort((a, b) => b.evalScore - a.evalScore);
+                                    shapePlacements.set(item.key, placements);
+                                }
+                            }
+                        }
+                        activePool = emergencyValid.length > 0 ? emergencyValid : pool;
                     }
                     
-                    // Also penalize same "family" as last shape (e.g., don't give 2 L-shapes in a row)
-                    if (this.recentShapes.length > 0) {
-                        const lastKey = this.recentShapes[this.recentShapes.length - 1];
-                        const lastFamily = lastKey.replace(/_R\d+$/, '').replace(/_\d+$/, '');
-                        const thisFamily = item.key.replace(/_R\d+$/, '').replace(/_\d+$/, '');
-                        if (lastFamily === thisFamily && lastFamily.length > 2) {
-                            varietyMultiplier *= 0.35;
+                    if (this.spawnCount === 1 && i === 0 && this.simulatedFirstSpawnGrid) {
+                        const clearingPool = activePool.filter(item => {
+                            const baseShape = SHAPES[item.key];
+                            return baseShape && this.canShapeClearLine(baseShape.matrix, this.simulatedFirstSpawnGrid, board.rows, board.cols);
+                        });
+                        
+                        if (clearingPool.length > 0) {
+                            activePool = clearingPool;
                         }
                     }
                     
-                    return {
-                        key: item.key,
-                        bestScore: bestScore,
-                        finalScore: bestScore * varietyMultiplier * sizeBonus,
-                        weight: item.weight
-                    };
-                });
-                
-                // Sort by finalScore descending — best-fitting shapes first
-                scoredShapes.sort((a, b) => b.finalScore - a.finalScore);
-                
-                // Pick from the top candidates (top 6 or however many exist)
-                const topN = Math.min(6, scoredShapes.length);
-                const candidates = scoredShapes.slice(0, topN);
-                
-                let selectedKey;
-                if (candidates.length > 0) {
-                    // Score-weighted random pick from candidates
-                    const candidateTotal = candidates.reduce((s, c) => s + Math.max(c.finalScore, 1), 0);
-                    let pick = rng() * candidateTotal;
-                    selectedKey = candidates[0].key;
-                    for (const c of candidates) {
-                        pick -= Math.max(c.finalScore, 1);
-                        if (pick <= 0) {
-                            selectedKey = c.key;
-                            break;
+                    const generous = this.spawnCount < 15;
+                    
+                    const scoredShapes = activePool.map(item => {
+                        const placements = shapePlacements.get(item.key);
+                        const bestScore = placements && placements.length > 0 ? placements[0].evalScore : 0;
+                        
+                        let sizeBonus = 1.0;
+                        if (generous) {
+                            const baseShape = SHAPES[item.key];
+                            if (baseShape) {
+                                const blockCount = baseShape.matrix.flat().filter(v => v > 0).length;
+                                if (blockCount <= 2) sizeBonus = 1.4;
+                                else if (blockCount <= 4) sizeBonus = 1.2;
+                                else if (blockCount <= 5) sizeBonus = 1.0;
+                                else sizeBonus = 0.7;
+                            }
                         }
-                    }
-                } else {
-                    // Fallback: plain weighted random from activePool
-                    const totalWeight = activePool.reduce((sum, item) => sum + item.weight, 0);
-                    let randomVal = rng() * totalWeight;
-                    selectedKey = activePool[0].key;
-                    for (const item of activePool) {
-                        randomVal -= item.weight;
-                        if (randomVal <= 0) {
-                            selectedKey = item.key;
-                            break;
+                        
+                        let varietyMultiplier = 1.0;
+                        const recentIdx = this.recentShapes.lastIndexOf(item.key);
+                        if (recentIdx >= 0) {
+                            const recency = this.recentShapes.length - recentIdx;
+                            varietyMultiplier = Math.max(0.2, 1 - (0.2 * (7 - recency)));
+                        }
+                        
+                        if (this.recentShapes.length > 0) {
+                            const lastKey = this.recentShapes[this.recentShapes.length - 1];
+                            const lastFamily = lastKey.replace(/_R\d+$/, '').replace(/_\d+$/, '');
+                            const thisFamily = item.key.replace(/_R\d+$/, '').replace(/_\d+$/, '');
+                            if (lastFamily === thisFamily && lastFamily.length > 2) {
+                                varietyMultiplier *= 0.35;
+                            }
+                        }
+                        
+                        return {
+                            key: item.key,
+                            bestScore: bestScore,
+                            finalScore: bestScore * varietyMultiplier * sizeBonus,
+                            weight: item.weight
+                        };
+                    });
+                    
+                    scoredShapes.sort((a, b) => b.finalScore - a.finalScore);
+                    
+                    const topN = Math.min(6, scoredShapes.length);
+                    const candidates = scoredShapes.slice(0, topN);
+                    
+                    if (candidates.length > 0) {
+                        const candidateTotal = candidates.reduce((s, c) => s + Math.max(c.finalScore, 1), 0);
+                        let pick = rng() * candidateTotal;
+                        selectedKey = candidates[0].key;
+                        for (const c of candidates) {
+                            pick -= Math.max(c.finalScore, 1);
+                            if (pick <= 0) {
+                                selectedKey = c.key;
+                                break;
+                            }
+                        }
+                    } else {
+                        const totalWeight = activePool.reduce((sum, item) => sum + item.weight, 0);
+                        let randomVal = rng() * totalWeight;
+                        selectedKey = activePool[0].key;
+                        for (const item of activePool) {
+                            randomVal -= item.weight;
+                            if (randomVal <= 0) {
+                                selectedKey = item.key;
+                                break;
+                            }
                         }
                     }
                 }
 
-                // Track for variety
                 this.recentShapes.push(selectedKey);
                 if (this.recentShapes.length > 6) this.recentShapes.shift();
                 
@@ -1047,36 +1091,52 @@ export class Spawner {
                     targetSpot: null
                 };
                 
-                // Assign the highest-scoring (best tactical) placement coordinate as targetSpot
-                let placements = shapePlacements.get(selectedKey);
-                if (!placements || placements.length === 0) {
-                    // Recalculate placements if we had to fall back to the full pool
-                    placements = [];
-                    const matrix = baseShape.matrix;
-                    const shapeRows = matrix.length;
-                    const shapeCols = matrix[0].length;
-                    for (let r = 0; r <= board.rows - shapeRows; r++) {
-                        for (let c = 0; c <= board.cols - shapeCols; c++) {
-                            if (validateOnTempGrid(matrix, r, c)) {
-                                const evalScore = this.evaluatePlacement(board, tempGrid, matrix, r, c, mode, activeBombs);
-                                placements.push({ r, c, evalScore });
-                            }
-                        }
+                let targetSpot = null;
+                if (isStarterSpawn && board.starterPlacements && board.starterPlacements.length === 3) {
+                    const placement = board.starterPlacements[i];
+                    if (placement) {
+                        targetSpot = { r: placement.r, c: placement.c };
                     }
-                    placements.sort((a, b) => b.evalScore - a.evalScore);
                 }
                 
-                if (placements.length > 0) {
-                    // Pick the single best placement coordinate (first in sorted list)
-                    const spot = placements[0];
-                    shape.targetSpot = { r: spot.r, c: spot.c };
-                    
-                    // Simulate placing the shape on the tempGrid
+                if (targetSpot) {
+                    shape.targetSpot = targetSpot;
                     const matrix = baseShape.matrix;
                     for (let r = 0; r < matrix.length; r++) {
                         for (let c = 0; c < matrix[r].length; c++) {
                             if (matrix[r][c] > 0) {
-                                tempGrid[spot.r + r][spot.c + c] = 1;
+                                tempGrid[targetSpot.r + r][targetSpot.c + c] = 1;
+                            }
+                        }
+                    }
+                } else {
+                    let placements = shapePlacements.get(selectedKey);
+                    if (!placements || placements.length === 0) {
+                        placements = [];
+                        const matrix = baseShape.matrix;
+                        const shapeRows = matrix.length;
+                        const shapeCols = matrix[0].length;
+                        for (let r = 0; r <= board.rows - shapeRows; r++) {
+                            for (let c = 0; c <= board.cols - shapeCols; c++) {
+                                if (validateOnTempGrid(matrix, r, c)) {
+                                    const evalScore = this.evaluatePlacement(board, tempGrid, matrix, r, c, mode, activeBombs);
+                                    placements.push({ r, c, evalScore });
+                                }
+                            }
+                        }
+                        placements.sort((a, b) => b.evalScore - a.evalScore);
+                    }
+                    
+                    if (placements.length > 0) {
+                        const spot = placements[0];
+                        shape.targetSpot = { r: spot.r, c: spot.c };
+                        
+                        const matrix = baseShape.matrix;
+                        for (let r = 0; r < matrix.length; r++) {
+                            for (let c = 0; c < matrix[r].length; c++) {
+                                if (matrix[r][c] > 0) {
+                                    tempGrid[spot.r + r][spot.c + c] = 1;
+                                }
                             }
                         }
                     }

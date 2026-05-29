@@ -297,7 +297,6 @@ Sound volume (`sfxVolume`), Music volume (`bgmVolume`), and Vibration (`vibratio
 ### Classic (8x8)
 - Board prefilled to 30% with actual game shapes via `board.prefillGrid(30, SHAPES)`
 - Shape-based fill algorithm places random shapes from a subset, checks no full lines created
-- Prefill wave animation: bottom-to-top row reveal at 30ms per row
 
 ### Classic XL (10x10)
 - Same as Classic but 10x10 board, 30% pre-filled
@@ -307,6 +306,37 @@ Sound volume (`sfxVolume`), Music volume (`bgmVolume`), and Vibration (`vibratio
 
 ### Blast Mode (8x8)
 - 30% pre-filled board, bombs spawn with staggered timers
+
+## Prefill Spring-Reveal Animation (`js/game.js`)
+
+All modes with a pre-filled board (Classic, Classic XL, Blast) use a spring-reveal wave animation on game start, resume, and restart. Endless and Missions modes are excluded.
+
+### Animation Constants
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PREFILL_ANIM_ROW_DELAY` | 80ms | Delay between rows (wave propagation speed) |
+| `PREFILL_ANIM_WAVE_DELAY` | 18ms | Delay between columns (diagonal wave) |
+| `PREFILL_ANIM_ARC_HEIGHT` | 180px | Start position below board |
+| `PREFILL_ANIM_OVERSHOOT` | 25px | Overshoot above final position for bounce |
+| `PREFILL_ANIM_SETTLE_MS` | 450ms | Duration for each cell's spring settle |
+
+### Behavior
+- **Wave direction:** Bottom-left → top-right diagonal propagation
+- **Per-cell trajectory:** Parabolic arc — starts 180px below board, overshoots 25px above final slot, settles at 0
+- **Scale spring:** 0.4 → 1.1 (overshoot) → 1.0 (settle)
+- **Hidden cells:** Cells not yet reached by wave are hidden (`anim.hidden = true`), not drawn as mini blocks
+- **Total duration:** ~1.4s for 8×8, ~1.7s for 10×10
+
+### Trigger Points
+- `startNewGame()` — fresh game start for Classic, Classic XL, Blast
+- `selectMode()` resume path — when loading saved state (except Endless mode)
+- `startNewGame()` on restart — via Settings → Restart button
+
+### Implementation
+- `startPrefillAnimation()` — sets `prefillAnimStartTime` via `performance.now()`, calculates total duration
+- `getCellPrefillAnimProps(r, c)` — returns `{ yOffset, scale, hidden }` per cell based on wave timing
+- `drawBoardGrid()` — applies `ctx.translate/scale` transforms per cell using spring props, skips hidden cells via `continue`
+- `renderLoop` — time-based completion check (`now - startTime > duration`)
 
 ### Missions (500 Levels)
 - **500 adventure levels** with progressive difficulty across 10 rotating objective templates
@@ -325,37 +355,25 @@ Sound volume (`sfxVolume`), Music volume (`bgmVolume`), and Vibration (`vibratio
 - Tray difficulty scales with level number (uses same tier system as adventure mode)
 - Scoring bonus: 100 points per gold block covered by a placed shape
 
-## Firebase Integration (In Progress)
+## Firebase Integration (Complete)
 
-### Current Status
-- User has NOT yet created a Firebase project
-- Apple Sign-In is SKIPPED — using Google Sign-In only
-- Next session: User will provide `firebaseConfig` object after setting up Firebase
+### Setup
+- Firebase project: `brickly-007`
+- Android app: `com.brickly.game` with SHA-1 fingerprint configured
+- Google Sign-In enabled (OAuth client IDs configured)
+- `google-services.json` in `android/app/`
 
-### Setup Steps for User (Pending)
-1. Go to [console.firebase.google.com](https://console.firebase.google.com)
-2. Create project named `brickly`
-3. Add Web app (`</>` icon), nickname `Brickly Web`
-4. Copy the `firebaseConfig` object
-5. Enable **Google** sign-in under Authentication → Sign-in method
-6. Create Firestore Database in test mode
+### Services (`js/firebase.js`)
+- **FirebaseAuthService** — Google Sign-In, sign out, auth state listener
+- **FirestoreService** — Saves/loads settings, progress (unlocked level), and high scores per user
 
-### Implementation Plan
-Once user provides `firebaseConfig`:
-1. Install: `@capacitor-firebase/authentication`, `@capacitor-firebase/firestore`
-2. Integrate Google Sign-In UI into main menu
-3. Set up Firestore schema:
-   - `users/{uid}/highScores` — Classic, Classic XL scores
-   - `users/{uid}/progress` — Adventure level, daily streak
-   - `users/{uid}/settings` — Theme, sound preferences
-4. Add offline sync (Firestore handles this automatically)
-5. Migrate LocalStorage data to Firestore on first sign-in
-6. Update `storage.js` to read/write from Firestore when authenticated, LocalStorage when offline
+### Firestore Schema
+- `users/{uid}/settings/data` — Theme, sound preferences
+- `users/{uid}/progress/data` — Unlocked adventure level, last updated
+- `users/{uid}/highScores/{mode}` — Score per game mode with timestamp
 
-### Dependencies to Install
-```bash
-npm install firebase @capacitor-firebase/authentication @capacitor-firebase/firestore
-```
+### Plugin Access
+Uses `window.Capacitor.Plugins.FirebaseAuthentication` and `window.Capacitor.Plugins.FirebaseFirestore` (not bare imports).
 
 ## Data Backup Strategy
 - **Android Auto Backup**: Enabled via `AndroidManifest.xml` with both legacy (`fullBackupContent`) and modern (`dataExtractionRules`) attributes
@@ -367,8 +385,5 @@ npm install firebase @capacitor-firebase/authentication @capacitor-firebase/fire
 - Until Firebase integration is complete, Auto Backup is the only data persistence mechanism across reinstalls
 
 ## Pending TODOs
-- Create a new email ID `brickly.game@gmail.com` for feedback and contact purposes (currently `praveensssvv@gmail.com` in legal docs)
 - Replace placeholder App Store ID with real ID when published
-- Firebase integration (see above)
-- **Theme Textures:** Add subtle tileable pattern textures (marble, carbon fiber, linen, etc.) behind the game grid during theme transitions. User will download textures to `assets/images/textures/` — wire them into `themes.js` and canvas rendering with fade-in transitions
-- Test all features on physical device: haptic feedback, volume sliders, pre-filled boards, theme transitions, menu themes, Endless mode
+- **Theme Textures:** Add subtle tileable pattern textures (marble, carbon fiber, linen, etc.) to the Tetris blocks/tiles during theme transitions. User will download textures to `assets/images/textures/` — wire them into `themes.js` and canvas rendering with fade-in transitions

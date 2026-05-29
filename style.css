@@ -898,9 +898,12 @@ body.menu-active {
 /* Center Diamond Score frame wrapper */
 #score-wrapper {
     position: absolute;
-    left: 50%;
+    left: 0;
+    right: 0;
     top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
+    margin: 0 auto;
+    width: max-content;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -908,16 +911,19 @@ body.menu-active {
 }
 
 #diamond-score-badge {
-    width: 58px;
-    height: 58px;
-    background: #ffffff;
-    border: 3px solid var(--btn-border);
-    transform: rotate(45deg);
+    min-width: 72px;
+    width: max-content;
+    white-space: nowrap;
+    height: 38px;
+    padding: 0 14px;
+    background: var(--btn-bg);
+    border: 2.5px solid var(--color-accent);
+    border-radius: 19px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    border-radius: 12px;
+    box-shadow: 0 4px 10px var(--shadow-color), 0 0 8px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
     transition:
         background    1.2s cubic-bezier(0.45, 0, 0.55, 1),
         border-color  1.2s cubic-bezier(0.45, 0, 0.55, 1),
@@ -925,17 +931,15 @@ body.menu-active {
 }
 
 #diamond-score-badge span {
-    transform: rotate(-45deg);
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 800;
-    color: var(--text-secondary);
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    letter-spacing: 0.5px;
 }
+
 body.theme-neon #diamond-score-badge {
-    background: #00f6ff;
-    border-color: #ffffff;
-}
-body.theme-neon #diamond-score-badge span {
-    color: #000000;
+    box-shadow: 0 4px 10px var(--shadow-color), 0 0 12px rgba(0, 246, 255, 0.4);
 }
 
 /* ── Combo Countdown Widget ──────────────────────────────────────────────── */

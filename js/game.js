@@ -43,11 +43,22 @@ const COMBO_WINDOW_MS = 10000;
 let lastFrameTime = 0;     // For deltaTime computation in renderLoop
 let placementCount = 0;    // Number of blocks placed in Blast mode
 
-// Prefill wave animation state
+// Prefill spring-reveal animation state
 let prefillAnimActive = false;
-let prefillAnimRow = 0;    // Current row being revealed (bottom to top)
-let prefillAnimTimer = 0;
-const PREFILL_ANIM_SPEED = 30; // ms per row reveal
+let prefillAnimStartTime = 0;
+let prefillAnimDuration = 0;
+const PREFILL_ANIM_WAVE_DELAY = 18;   // ms between columns (diagonal wave)
+const PREFILL_ANIM_ROW_DELAY = 80;   // ms between rows (wave propagation)
+const PREFILL_ANIM_ARC_HEIGHT = 180;  // px below board start position
+const PREFILL_ANIM_OVERSHOOT = 25;    // px above final position for bounce
+const PREFILL_ANIM_SETTLE_MS = 450;   // ms for each cell's spring settle
+
+// Board clear tide wave animation state
+let boardClearAnimActive = false;
+let boardClearAnimTimer = 0;
+let boardClearAnimRow = 0;    // Current row being filled (bottom to top)
+let boardClearAnimStage = 0;  // 0 = inactive, 1 = wave filling, 2 = poof
+const BOARD_CLEAR_ANIM_SPEED = 45; // ms per row in tide wave
 
 let activeMode = 'classic'; // 'classic', 'missions', 'blast'
 let activeTheme = 'indigo'; // default skin: dark blue with gold+purple blocks
@@ -185,8 +196,18 @@ function initGame() {
     applyMenuTheme(activeMenuTheme);
     updateSoundIcons();
 
-    // 4. Initialize layout
+    // 4. Initialize layout and dynamically observe size changes to prevent 0-size canvas issues
     window.addEventListener('resize', handleResize);
+    const container = document.getElementById('canvas-container');
+    if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(() => {
+            try { handleResize(); } catch (err) { console.warn('[Brickly] ResizeObserver handleResize error:', err); }
+        });
+        if (container) resizeObserver.observe(container);
+        document.querySelectorAll('.tray-slot').forEach(slot => {
+            resizeObserver.observe(slot);
+        });
+    }
     handleResize();
 
     // 5. Setup Input Event Listeners (must run even if earlier steps fail)
@@ -222,8 +243,17 @@ function initGame() {
 // --- Layout Handling ---
 function handleResize() {
     const container = document.getElementById('canvas-container');
+    if (!container) return;
     const width = container.clientWidth;
     const height = container.clientHeight;
+
+    if (width <= 0 || height <= 0) {
+        // Layout not ready yet, prevent negative / invalid dimensions
+        cellSize = 0;
+        boardOffsetX = 0;
+        boardOffsetY = 0;
+        return;
+    }
 
     const dpr = window.devicePixelRatio || 1;
     gameCanvas.width = width * dpr;
@@ -292,7 +322,7 @@ function setupDragEvents() {
     
     slots.forEach(slot => {
         slot.addEventListener('pointerdown', (e) => {
-            if (isDragging || gamePaused) return;
+            if (isDragging || gamePaused || boardClearAnimActive) return;
             const slotIndex = parseInt(slot.dataset.slot, 10);
             
             // Check if slot has active shape
@@ -611,29 +641,11 @@ function attemptBlockPlacement() {
                 const clearBonus = 2000; // Board clear reward
                 score += clearBonus;
                 
-                const centerX = boardOffsetX + (cellSize * board.cols) / 2;
-                const centerY = boardOffsetY + (cellSize * board.rows) / 2;
-                
-                // Big "MARVELOUS!" text with theme color
-                particles.addFloatingText('MARVELOUS!', centerX, centerY - 20, theme.colors.textPrimary || '#ffd32a', 1.6);
-                particles.addFloatingText(`+${clearBonus} Board Clear!`, centerX, centerY + 30, '#ffd700', 1.15);
-                
-                // Heavy screen shake for impact
-                particles.triggerShake(20, 8);
-                
-                // Burst particles across the entire board
-                for (let r = 0; r < board.rows; r++) {
-                    for (let c = 0; c < board.cols; c++) {
-                        const bx = boardOffsetX + c * cellSize;
-                        const by = boardOffsetY + r * cellSize;
-                        particles.spawnTileClearParticles(bx, by, cellSize, theme);
-                    }
-                }
-                
-                audio.speak("Unbelievable");
-                
-                // Cycle theme as reward
-                triggerThemeChange(true);
+                // Trigger the tide wave animation
+                boardClearAnimActive = true;
+                boardClearAnimStage = 1;
+                boardClearAnimRow = board.rows;
+                boardClearAnimTimer = 0;
             }
 
         } // no else — combo now resets via timer expiry, not on missed placement
@@ -746,8 +758,49 @@ function cleanupDragState() {
 
 function startPrefillAnimation() {
     prefillAnimActive = true;
-    prefillAnimRow = board.rows; // Start from bottom (all rows hidden)
-    prefillAnimTimer = 0;
+    prefillAnimStartTime = performance.now();
+    // Total duration: last cell (top-right) delay + settle time
+    prefillAnimDuration = ((board.rows - 1) * PREFILL_ANIM_ROW_DELAY) +
+                          ((board.cols - 1) * PREFILL_ANIM_WAVE_DELAY) +
+                          PREFILL_ANIM_SETTLE_MS;
+}
+
+function getCellPrefillAnimProps(r, c) {
+    if (!prefillAnimActive) return { yOffset: 0, scale: 1, hidden: false };
+
+    // Wave timing: bottom-left to top-right diagonal
+    const delay = ((board.rows - 1 - r) * PREFILL_ANIM_ROW_DELAY) +
+                 (c * PREFILL_ANIM_WAVE_DELAY);
+    const elapsed = performance.now() - prefillAnimStartTime - delay;
+
+    // Not yet started — hidden until wave reaches this cell
+    if (elapsed < 0) return { hidden: true };
+
+    // Settled — final position
+    if (elapsed > PREFILL_ANIM_SETTLE_MS) return { yOffset: 0, scale: 1, hidden: false };
+
+    const t = elapsed / PREFILL_ANIM_SETTLE_MS; // 0..1
+
+    // Parabolic arc: -180 → +25 (overshoot) → 0 (settle)
+    let yOffset;
+    if (t < 0.6) {
+        const rise = t / 0.6;
+        yOffset = -PREFILL_ANIM_ARC_HEIGHT +
+                  (PREFILL_ANIM_ARC_HEIGHT + PREFILL_ANIM_OVERSHOOT) * rise;
+    } else {
+        const settle = (t - 0.6) / 0.4;
+        yOffset = PREFILL_ANIM_OVERSHOOT * (1 - settle);
+    }
+
+    // Scale: 0.4 → 1.1 (overshoot) → 1.0 (settle)
+    let scale;
+    if (t < 0.4) {
+        scale = 0.4 + 0.7 * (t / 0.4);
+    } else {
+        scale = 1.1 - 0.1 * ((t - 0.4) / 0.6);
+    }
+
+    return { yOffset, scale, hidden: false };
 }
 
 function renderLoop(now) {
@@ -755,15 +808,56 @@ function renderLoop(now) {
     const deltaMs = now - (lastFrameTime || now);
     lastFrameTime = now;
 
-    // Tick prefill wave animation (bottom to top, row by row)
+    // Tick prefill spring-reveal animation (time-based)
     if (prefillAnimActive) {
-        prefillAnimTimer += deltaMs;
-        if (prefillAnimTimer >= PREFILL_ANIM_SPEED) {
-            prefillAnimTimer -= PREFILL_ANIM_SPEED;
-            prefillAnimRow--;
-            if (prefillAnimRow < 0) {
-                prefillAnimActive = false;
-                prefillAnimRow = 0;
+        if (now - prefillAnimStartTime > prefillAnimDuration) {
+            prefillAnimActive = false;
+        }
+    }
+
+    // Tick board clear tide wave animation
+    if (boardClearAnimActive) {
+        boardClearAnimTimer += deltaMs;
+        if (boardClearAnimStage === 1) {
+            if (boardClearAnimTimer >= BOARD_CLEAR_ANIM_SPEED) {
+                boardClearAnimTimer -= BOARD_CLEAR_ANIM_SPEED;
+                boardClearAnimRow--;
+                if (boardClearAnimRow < 0) {
+                    // Entire board is filled, transition to stage 2: POOF!
+                    boardClearAnimStage = 2;
+                    boardClearAnimTimer = 0;
+                    
+                    // Heavy screen shake for impact
+                    particles.triggerShake(35, 12);
+                    
+                    // Burst particles across the entire board (poof !!)
+                    const theme = THEMES[activeTheme];
+                    for (let r = 0; r < board.rows; r++) {
+                        for (let c = 0; c < board.cols; c++) {
+                            const bx = boardOffsetX + c * cellSize;
+                            const by = boardOffsetY + r * cellSize;
+                            particles.spawnTileClearParticles(bx, by, cellSize, theme);
+                        }
+                    }
+                    
+                    // Trigger visual rewards (MARVELOUS!) at the moment of the poof!
+                    const centerX = boardOffsetX + (cellSize * board.cols) / 2;
+                    const centerY = boardOffsetY + (cellSize * board.rows) / 2;
+                    particles.addFloatingText('MARVELOUS!', centerX, centerY - 20, theme.colors.textPrimary || '#ffd32a', 1.6);
+                    particles.addFloatingText('+2000 Board Clear!', centerX, centerY + 30, '#ffd700', 1.15);
+                    
+                    audio.speak("Unbelievable");
+                    
+                    // Cycle theme as reward
+                    triggerThemeChange(true);
+                }
+            }
+        } else if (boardClearAnimStage === 2) {
+            // Wait 600ms for particles/shake to complete
+            if (boardClearAnimTimer >= 600) {
+                boardClearAnimActive = false;
+                boardClearAnimStage = 0;
+                boardClearAnimTimer = 0;
             }
         }
     }
@@ -845,34 +939,55 @@ function drawBoardGrid() {
         for (let c = 0; c < cols; c++) {
             const cx = boardOffsetX + c * cellSize;
             const cy = boardOffsetY + r * cellSize;
-            const cellValue = board.grid[r][c];
+            let cellValue = board.grid[r][c];
 
-            // During prefill animation, hide blocks in rows not yet revealed
-            const rowVisible = !prefillAnimActive || r >= prefillAnimRow;
+            if (boardClearAnimActive) {
+                if (boardClearAnimStage === 1) {
+                    if (r >= boardClearAnimRow) {
+                        cellValue = ((r + c) % 12) + 1;
+                    } else {
+                        cellValue = 0;
+                    }
+                } else if (boardClearAnimStage === 2) {
+                    cellValue = 0;
+                }
+            }
 
-            if (cellValue > 0 && rowVisible) {
+            // Get spring animation properties for this cell
+            const anim = getCellPrefillAnimProps(r, c);
+
+            // Skip hidden cells (not yet reached by wave)
+            if (anim.hidden) continue;
+
+            ctx.save();
+            // Apply spring transform (translate to cell center, apply offset/scale, translate back)
+            ctx.translate(cx + cellSize / 2, cy + cellSize / 2 + anim.yOffset);
+            ctx.scale(anim.scale, anim.scale);
+            ctx.translate(-cellSize / 2, -cellSize / 2);
+
+            if (cellValue > 0) {
                 // Occupied Cell
-                drawThemeBlock(ctx, cx, cy, cellSize, cellSize, cellValue, theme);
+                drawThemeBlock(ctx, 0, 0, cellSize, cellSize, cellValue, theme);
 
                 // Draw bomb countdown indicator overlay
                 if (cellValue === 14 && activeMode === 'blast') {
                     const bomb = activeBombs.find(b => b.r === r && b.c === c);
                     if (bomb) {
-                        drawBombOverlay(cx, cy, cellSize, bomb.timer);
+                        drawBombOverlay(0, 0, cellSize, bomb.timer);
                     }
                 }
-            } else if (rowVisible) {
+            } else {
                 // Empty Cell
-                ctx.save();
                 ctx.fillStyle = theme.colors.cellEmpty;
                 ctx.strokeStyle = theme.colors.gridLines;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.roundRect(cx + 1.5, cy + 1.5, cellSize - 3, cellSize - 3, cellSize * 0.12);
+                ctx.roundRect(1.5, 1.5, cellSize - 3, cellSize - 3, cellSize * 0.12);
                 ctx.fill();
                 ctx.stroke();
-                ctx.restore();
             }
+
+            ctx.restore();
         }
     }
 }
@@ -1203,6 +1318,11 @@ export function selectMode(modeName, forceNewGame = false) {
             board.reset(savedState.grid);
             spawner.slots = savedState.slots || [null, null, null];
             spawner.spawnCount = savedState.spawnCount !== undefined ? savedState.spawnCount : 2;
+
+            // Safety check: if tray slots are completely empty, refill them to prevent game lock
+            if (spawner.slots.every(s => s === null)) {
+                spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
+            }
             
             // Mode specific restores
             if (activeMode === 'blast') {
@@ -1221,6 +1341,11 @@ export function selectMode(modeName, forceNewGame = false) {
             updateHUD();
             updateTraySlotOpacities();
             resumeOk = true;
+
+            // Trigger spring-reveal animation on resume (except endless mode)
+            if (activeMode !== 'endless') {
+                startPrefillAnimation();
+            }
         } catch (err) {
             console.warn('[Brickly] corrupted save state, starting fresh:', err);
             StorageManager.clearGameState();
@@ -1229,7 +1354,25 @@ export function selectMode(modeName, forceNewGame = false) {
     if (!resumeOk) {
         startNewGame();
     }
+    // Run handleResize immediately to prevent initial flicker if the layout is already reflowed
     try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
+
+    // Defer handleResize to run after the browser has completed layout and style recalculations
+    requestAnimationFrame(() => {
+        try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
+    });
+    setTimeout(() => {
+        try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
+    }, 50);
+    setTimeout(() => {
+        try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
+    }, 150);
+    setTimeout(() => {
+        try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
+    }, 300);
+    setTimeout(() => {
+        try { handleResize(); } catch (err) { console.warn('[Brickly] handleResize error:', err); }
+    }, 600);
 }
 
 function startNewGame() {
@@ -1271,6 +1414,7 @@ function startNewGame() {
         board.reset(null, 8, 8);
         board.prefillGrid(30, SHAPES);
         spawner.slots = [null, null, null];
+        startPrefillAnimation();
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
         // Spawn 2 initial bombs with staggered timers so they don't detonate at the same time.
         // First bomb: 9 moves (urgent threat), Second bomb: 14 moves (gives breathing room).
@@ -1361,7 +1505,14 @@ function updateHUD() {
     const scoreEl = $('score-val');
     const bestEl = $('best-score-val');
     const topEl = $('best-score-top-val');
-    if (scoreEl) scoreEl.innerText = score;
+    if (scoreEl) {
+        scoreEl.innerText = score;
+        if (score.toString().length >= 6) {
+            scoreEl.style.fontSize = '16px';
+        } else {
+            scoreEl.style.fontSize = '';
+        }
+    }
     if (bestEl) bestEl.innerText = highScore;
     if (topEl) topEl.innerText = highScore;
 
