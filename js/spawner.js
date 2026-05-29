@@ -878,13 +878,13 @@ export class Spawner {
                 // Determine difficulty tier pool based on spawn count (first 3 trays are gated)
                 // then fall back to score or level-based scaling from tray 3 onward.
                 let tier;
-                if (mode !== 'adventure' && this.spawnCount === 0) {
+                if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 0) {
                     tier = { pool: STARTER_POOL_0 };
-                } else if (mode !== 'adventure' && this.spawnCount === 1) {
+                } else if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 1) {
                     tier = { pool: STARTER_POOL_1 };
-                } else if (mode !== 'adventure' && this.spawnCount === 2) {
+                } else if (mode !== 'adventure' && mode !== 'missions' && this.spawnCount === 2) {
                     tier = { pool: STARTER_POOL_2 };
-                } else if (mode === 'adventure') {
+                } else if (mode === 'adventure' || mode === 'missions') {
                     if (levelNum <= 3) tier = SHAPE_TIERS[0];
                     else if (levelNum <= 6) tier = SHAPE_TIERS[1];
                     else if (levelNum <= 9) tier = SHAPE_TIERS[2];

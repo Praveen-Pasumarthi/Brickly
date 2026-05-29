@@ -356,6 +356,20 @@
         </div>
     </div>
 
+    <!-- LEVEL SELECT OVERLAY (Missions) -->
+    <div id="level-select-overlay" class="modal-overlay hidden">
+        <div class="level-select-card">
+            <div class="level-select-header">
+                <h2 class="level-select-title">Adventure</h2>
+                <button id="btn-level-select-close" class="settings-close-btn" aria-label="Close Levels">✕</button>
+            </div>
+            <div class="level-select-progress">
+                <span id="level-progress-text">Progress: 0 / 100</span>
+            </div>
+            <div class="level-select-grid" id="level-grid"></div>
+        </div>
+    </div>
+
     <!-- LEGAL MODAL (Privacy / Terms) -->
     <div id="legal-overlay" class="modal-overlay hidden">
         <div class="settings-card" style="padding: 12px; height: 70vh; display: flex; flex-direction: column;">
@@ -385,6 +399,7 @@
             </div>
             <div class="modal-actions">
                 <button id="btn-next-level" class="primary-btn pulse-glow">Next Level</button>
+                <button id="btn-levels-list" class="secondary-btn">Levels</button>
                 <button id="btn-success-close" class="secondary-btn">Close</button>
             </div>
         </div>

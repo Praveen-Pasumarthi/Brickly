@@ -36,13 +36,13 @@ Brickly/
 │
 ├── js/                           # Core game source code
 │   ├── game.js                   # Main orchestrator, game loop, UI bindings
-│   ├── engine.js                 # Board grid matrix, placement validation, line clearing (191 lines)
-│   ├── spawner.js                # Shape database, weighted spawning, tray management (1239 lines)
-│   ├── audio.js                  # Web Audio API synthesis + voice playback (447 lines)
-│   ├── particles.js              # Particle system, floating text, screen shake (520 lines)
-│   ├── themes.js                 # 18 visual themes with color palettes (886 lines)
-│   ├── modes.js                  # 10 adventure levels + Blast Mode bomb logic (279 lines)
-│   └── storage.js                # LocalStorage persistence (195 lines)
+│   ├── engine.js                 # Board grid matrix, placement validation, line clearing
+│   ├── spawner.js                # Shape database, weighted spawning, tray management
+│   ├── audio.js                  # Web Audio API synthesis + voice playback
+│   ├── particles.js              # Particle system, floating text, screen shake
+│   ├── themes.js                 # 18 visual themes with color palettes
+│   ├── modes.js                  # 500 adventure levels + Blast Mode bomb logic
+│   └── storage.js                # LocalStorage persistence
 │
 ├── scripts/                      # Build utilities
 │   ├── build-mobile-assets.mjs   # Copies web assets to dist/
@@ -96,7 +96,7 @@ Uses `Haptics.vibrate({ duration })` instead of `Haptics.impact()` — the impac
 `navigator.vibrate()` is used as fallback (works in Android Chrome, NOT on iOS Safari).
 
 ### Vibration Toggle
-`vibrationEnabled` boolean, persisted to LocalStorage. Controls all haptic feedback.
+`vibrationEnabled` boolean, persisted to LocalStorage. Controls all haptic feedback. Toggle in settings modal uses `.settings-toggle-icon` with `.off` class (red strikethrough line).
 
 ## Audio System Architecture
 
@@ -106,10 +106,11 @@ Uses `Haptics.vibrate({ duration })` instead of `Haptics.impact()` — the impac
 - **Track name:** "Gaming Game Video Game Music"
 - **License:** Pixabay Content License (free for commercial use, no attribution required)
 - **Playback:** HTMLAudioElement, looped
-- **Volume levels:**
-  - Default/startup: 0.20
-  - Gameplay: 0.15
-  - Main Menu: 0.20
+- **Volume cap:** BGM volume capped at 40% max (`Math.min(0.4, vol)` in `setBgmVolume()`)
+- **SFX volume:** Controlled via `masterGain.gain.value` range 0-2.5 (`vol * 2.5` in `setSfxVolume()`)
+- **Volume restored on startup** from `settings.sfxVolume` / `settings.bgmVolume` (0-100 slider values)
+- **Gameplay volume:** slider value × 0.3 (min 0.05) for better SFX audibility
+- **Menu return:** restores exact saved slider volume from settings
 
 ### Voice System (`js/audio.js`)
 The `speak()` method plays pre-recorded MP3 clips for line-clear praise announcements.
@@ -130,8 +131,8 @@ Unused voices: `good.mp3`, `wonderful.mp3`
 
 ### Floating Text System (`js/particles.js`)
 The `addFloatingText()` method displays reward messages on the canvas:
-- `decay: 0.006` — text stays visible ~2.5 seconds
-- `vy: -0.7` — slow upward float
+- `decay: 0.012` — text fades in ~1.2 seconds
+- `vy: -0.9` — moderate upward float
 - Base font size: `16 * scale` pixels
 - Combo text scale: `0.7 + (comboStreak * 0.05)` (starts smaller, grows slower)
 - Special styling for praise words (gold sunblast + gradient text)
@@ -165,6 +166,7 @@ The `addFloatingText()` method displays reward messages on the canvas:
 - `playClear(comboCount)` - Sparkling arpeggio scaling with combo
 - `playGameOver()` - Descending minor arpeggio
 - `playLevelWin()` - Uplifting sweeping major arpeggio
+- `playTap()` - Menu/settings button clicks (mutes with Sound volume slider)
 
 ## Settings & Pause System
 
@@ -172,15 +174,25 @@ The `addFloatingText()` method displays reward messages on the canvas:
 Accessible from main menu (gear icon) and in-game (gear icon). Shows/hides buttons based on context:
 
 **Main Menu Mode:**
-- Sound toggle, Music toggle, Vibration toggle
+- Sound volume slider (icon click toggles mute)
+- Music volume slider (icon click toggles mute)
+- Vibration toggle
 - Menu Theme button
 - Rate Us, Feedback, Privacy Policy, Terms of Service buttons
 
 **In-Game Mode (Pauses game):**
-- Sound toggle, Music toggle, Vibration toggle
+- Sound volume slider, Music volume slider, Vibration toggle
 - Resume button (top of actions)
 - Home, Restart, Change Skin buttons
 - Rate Us, Feedback, Privacy, Terms are hidden
+
+### Volume Sliders
+- `input[type=range]` with values 0-100
+- Icon click mutes/unmutes (remembers last non-zero volume)
+- Muted state: `.settings-slider-icon.muted` class (red strikethrough line)
+- SFX volume stored as `sfxVolume`, BGM as `bgmVolume` in settings
+- Slider thumb: 20px white circle, centered on 5px track via `margin-top: -7.5px`
+- Vibration is still a toggle (`.settings-toggle-icon` with `.off` class)
 
 ### Pause System (`gamePaused` state)
 - `openSettings()` sets `gamePaused = true` during gameplay
@@ -208,17 +220,19 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 
 ### Main Menu High Score
 - Displayed underneath the game mode buttons inside the `.arcade-layout` container for perfect centering.
-- Styled using a bright gold (`#ffcc00`) color with a glow effect to ensure it contrasts beautifully against all dark menu themes.
+- Styled using `var(--btn1-from)` CSS custom property for theme-matching color with `font-weight: 800`.
 
 ## Theme System
 
 ### Gameplay Themes (18)
 - Defined in `themes.js` with color palettes
-- Theme shifts every 15 block placements (instant, no overlay)
+- Theme shifts every 15 block placements (instant, 350ms smooth color interpolation, no overlay)
 - Theme shift triggers heavy haptic feedback
+- Transition: 350ms canvas color interpolation via smoothstep easing (no blur overlay or body bg interpolation)
+- `applyTheme()` selectively removes old theme classes instead of `className=''` to prevent black flash
 
 ### Menu Background Themes (10)
-Cycled via Settings → Menu Theme button. Each applies a gradient to `#main-menu-overlay`:
+Cycled via Settings → Menu Theme button. Each applies a gradient to `#main-menu-overlay` and defines CSS custom properties for button colors:
 - **Royal** — Deep Blue → Dark Navy
 - **Neon** — Purple → Dark Violet
 - **Twilight** — Deep Purple → Navy
@@ -230,7 +244,12 @@ Cycled via Settings → Menu Theme button. Each applies a gradient to `#main-men
 - **Chrome** — Dark Slate → Steel Blue (Dark Luxury)
 - **Crimson** — Deep Red → Dark Red
 
-Each theme also colors the settings gear button and ambient floating blocks with a matching gradient. Menu theme persists via LocalStorage.
+Each theme also colors:
+- Settings gear button (`.menu-theme-* .arcade-settings-btn`)
+- Play buttons via `--btn1-from/to` through `--btn5-from/to` custom props used by `.btn-mode-1` through `.btn-mode-5`
+- High score text color via `var(--btn1-from)`
+- Ambient floating blocks with matching gradient
+- Menu theme persists via LocalStorage
 
 ## Build Process
 - Web: Serve root directory directly (index.html is entry point)
@@ -271,7 +290,40 @@ Rate Us and Feedback buttons use `window.open()` directly:
 - Feedback: opens `mailto:` link via `window.open()`
 
 ## Settings Persistence
-Sound, Music, and vibration settings are saved to LocalStorage via `StorageManager.saveSettings()` and restored on startup.
+Sound volume (`sfxVolume`), Music volume (`bgmVolume`), and Vibration (`vibration`) are saved to LocalStorage via `StorageManager.saveSettings()` and restored on startup. Volume slider values stored as 0-100 integers.
+
+## Game Modes
+
+### Classic (8x8)
+- Board prefilled to 50% with actual game shapes via `board.prefillGrid(50, SHAPES)`
+- Shape-based fill algorithm places random shapes from a subset, checks no full lines created
+- Prefill wave animation: bottom-to-top row reveal at 30ms per row
+
+### Classic XL (10x10)
+- Same as Classic but 10x10 board, 50% pre-filled
+
+### Endless (10x10)
+- Empty board (no prefill), old classic behavior on 10x10 grid
+
+### Blast Mode (8x8)
+- 50% pre-filled board, bombs spawn with staggered timers
+
+### Missions (500 Levels)
+- **500 adventure levels** with progressive difficulty across 10 rotating objective templates
+- First 10 levels hand-crafted with specific grids/names, levels 11-500 procedurally generated
+- **6 objective types**: `scoreTarget` (score points), `linesTarget` (clear N lines), `preFilledTarget` (cover gold blocks), `comboTarget` (reach N× combo streak), `placementsTarget` (place N blocks), `linesOneTurnTarget` (clear N lines in one placement)
+- Levels cycle through 10 templates: pure lines, pure score, gold blocks, combo streak, placements, one-turn clear, score+lines, gold+combo, lines+combo, lines+placements
+- Levels start locked; completing level N unlocks level N+1
+- Clicking Missions opens **Level Select** overlay with premium glass-morphism UI
+  - **Locked** levels: grayed out with lock icon
+  - **Completed** levels: green tint with checkmark, no click
+  - **Current** level: gold glow with pulsing animation, clickable to start
+  - Auto-scrolls to the current level on open
+  - Track progress via `StorageManager.getAdventureProgress()`
+- "Next Level" on victory starts next level directly; "Levels" button returns to Level Select
+- `checkModeVictory()` checks all active objectives; progress bar shows aggregate completion
+- Tray difficulty scales with level number (uses same tier system as adventure mode)
+- Scoring bonus: 100 points per gold block covered by a placed shape
 
 ## Firebase Integration (In Progress)
 
@@ -305,8 +357,18 @@ Once user provides `firebaseConfig`:
 npm install firebase @capacitor-firebase/authentication @capacitor-firebase/firestore
 ```
 
+## Data Backup Strategy
+- **Android Auto Backup**: Enabled via `AndroidManifest.xml` with both legacy (`fullBackupContent`) and modern (`dataExtractionRules`) attributes
+- `backup_rules.xml` (API 24-30): uses `<full-backup-content>` with `<include domain="sharedpref|database|file|root" path="."/>`
+- `data_extraction_rules.xml` (API 31+): uses `<data-extraction-rules>` with `<cloud-backup>` and `<device-transfer>` sections
+- WebView localStorage (stored in `app_webview/Default/Local Storage/leveldb/`) is covered by `<include domain="root" path="app_webview/"/>`
+- On reinstall, Android Auto Backup restores all app data (settings, progress, high scores) automatically
+- iOS iCloud backup is automatic (data stored in Documents directory by default)
+- Until Firebase integration is complete, Auto Backup is the only data persistence mechanism across reinstalls
+
 ## Pending TODOs
-- Create a new email ID `brickly.game@gmail.com` for feedback and contact purposes
+- Create a new email ID `brickly.game@gmail.com` for feedback and contact purposes (currently `praveensssvv@gmail.com` in legal docs)
 - Replace placeholder App Store ID with real ID when published
 - Firebase integration (see above)
 - **Theme Textures:** Add subtle tileable pattern textures (marble, carbon fiber, linen, etc.) behind the game grid during theme transitions. User will download textures to `assets/images/textures/` — wire them into `themes.js` and canvas rendering with fade-in transitions
+- Test all features on physical device: haptic feedback, volume sliders, pre-filled boards, theme transitions, menu themes, Endless mode

@@ -1958,3 +1958,191 @@ body.theme-pastel .objective-desc {
     background: #fff;
     border-radius: 12px;
 }
+
+/* ── Level Select Overlay (Missions) ──────────────────────────────────── */
+#level-select-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.level-select-card {
+    width: 92%;
+    max-width: 520px;
+    max-height: 80vh;
+    background: rgba(12, 16, 30, 0.92);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 24px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow:
+        0 24px 64px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    animation: levelCardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes levelCardIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.level-select-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.level-select-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    font-family: var(--font-primary);
+    letter-spacing: -0.3px;
+}
+
+.level-select-title::before {
+    content: '🎯 ';
+    font-size: 18px;
+}
+
+.level-select-progress {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.4);
+    font-family: var(--font-hud);
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.level-select-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    overflow-y: auto;
+    padding: 4px 4px 8px 4px;
+    flex: 1;
+    scroll-behavior: smooth;
+}
+
+.level-cell {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-primary);
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,0.06);
+    transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    position: relative;
+    gap: 3px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.level-cell:active {
+    transform: scale(0.9);
+}
+
+/* ── Locked ─────────── */
+.level-cell.locked {
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.2);
+    cursor: default;
+    border-color: rgba(255,255,255,0.04);
+}
+
+.level-cell.locked .cell-icon {
+    font-size: 14px;
+    opacity: 0.35;
+    filter: grayscale(1);
+}
+
+.level-cell.locked .cell-number {
+    opacity: 0.35;
+}
+
+.level-cell.locked:hover {
+    background: rgba(255,255,255,0.03);
+    box-shadow: none;
+}
+
+/* ── Completed ──────── */
+.level-cell.completed {
+    background: linear-gradient(145deg, rgba(5, 150, 105, 0.18) 0%, rgba(4, 120, 87, 0.1) 100%);
+    color: #34D399;
+    border-color: rgba(5, 150, 105, 0.2);
+}
+
+.level-cell.completed .cell-number {
+    font-size: 12px;
+    opacity: 0.5;
+}
+
+.level-cell.completed::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%2334D399' opacity='0.6' d='M9,16.17L4.83,12l-1.42,1.41L9,19,21,7l-1.41-1.41L9,16.17z'/%3E%3C/svg%3E") no-repeat center;
+    background-size: 14px;
+}
+
+.level-cell.completed:hover {
+    background: linear-gradient(145deg, rgba(5, 150, 105, 0.25) 0%, rgba(4, 120, 87, 0.15) 100%);
+    border-color: rgba(5, 150, 105, 0.35);
+}
+
+/* ── Current (playable) ── */
+.level-cell.current {
+    background: linear-gradient(145deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
+    color: #FBBF24;
+    border-color: rgba(251, 191, 36, 0.25);
+    box-shadow:
+        0 0 24px rgba(251, 191, 36, 0.08),
+        inset 0 0 20px rgba(251, 191, 36, 0.04);
+    animation: levelCurrentPulse 2.5s ease-in-out infinite;
+}
+
+.level-cell.current:hover {
+    background: linear-gradient(145deg, rgba(251, 191, 36, 0.22) 0%, rgba(245, 158, 11, 0.16) 100%);
+    border-color: rgba(251, 191, 36, 0.4);
+    box-shadow:
+        0 0 32px rgba(251, 191, 36, 0.15),
+        inset 0 0 20px rgba(251, 191, 36, 0.06);
+    transform: scale(1.05);
+}
+
+@keyframes levelCurrentPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.06), inset 0 0 20px rgba(251, 191, 36, 0.02); }
+    50% { box-shadow: 0 0 32px rgba(251, 191, 36, 0.14), inset 0 0 24px rgba(251, 191, 36, 0.05); }
+}
+
+/* Scrollbar */
+.level-select-grid::-webkit-scrollbar {
+    width: 3px;
+}
+
+.level-select-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.level-select-grid::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+}
+
+.level-select-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.18);
+}

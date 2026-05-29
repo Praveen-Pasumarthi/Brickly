@@ -65,6 +65,9 @@ let missionLevel = 1;
 let movesLimit = 0;
 let linesClearedCount = 0;
 let targetGoldBlocksCount = 0;
+let maxComboStreak = 0;     // Highest combo streak achieved this level
+let totalPlacements = 0;    // Total blocks placed this level
+let maxLinesOneTurn = 0;    // Most lines cleared in a single placement
 let activeBombs = []; // [{ r, c, timer }]
 
 // Canvas Scaling & Layout
@@ -452,6 +455,7 @@ function attemptBlockPlacement() {
 
         // Increment placement counters
         placementCount++;
+        totalPlacements++;
 
         // Timely theme change: cycle theme every 15 placements
         if (placementCount > 0 && placementCount % 15 === 0) {
@@ -467,6 +471,8 @@ function attemptBlockPlacement() {
 
         if (clearedLinesCount > 0) {
             comboStreak += 1;
+            if (comboStreak > maxComboStreak) maxComboStreak = comboStreak;
+            if (clearedLinesCount > maxLinesOneTurn) maxLinesOneTurn = clearedLinesCount;
             comboTimerMs = COMBO_WINDOW_MS;   // reset/extend combo window
             comboTimerActive = true;
             hasClearedLines = true;
@@ -1170,6 +1176,9 @@ export function selectMode(modeName) {
                 missionLevel = savedState.missionLevel || 1;
                 movesLimit = savedState.movesLimit || 20;
                 linesClearedCount = savedState.linesClearedCount || 0;
+                maxComboStreak = savedState.maxComboStreak || 0;
+                totalPlacements = savedState.totalPlacements || 0;
+                maxLinesOneTurn = savedState.maxLinesOneTurn || 0;
                 targetGoldBlocksCount = countGoldBlocksRemaining();
             }
 
@@ -1193,6 +1202,9 @@ function startNewGame() {
     comboTimerMs = 0;
     comboTimerActive = false;
     placementCount = 0;
+    maxComboStreak = 0;
+    totalPlacements = 0;
+    maxLinesOneTurn = 0;
     activeBombs = [];
     spawner.spawnCount = 0;
     const dangerBar = $('danger-bar');
@@ -1247,6 +1259,9 @@ function loadMissionLevel(levelNum) {
     movesLimit = levelConfig.movesLimit;
     linesClearedCount = 0;
     targetGoldBlocksCount = countGoldBlocksRemaining();
+    maxComboStreak = 0;
+    totalPlacements = 0;
+    maxLinesOneTurn = 0;
 }
 
 function saveCurrentGameState() {
@@ -1263,6 +1278,9 @@ function saveCurrentGameState() {
         score,
         comboStreak,
         placementCount,
+        maxComboStreak,
+        totalPlacements,
+        maxLinesOneTurn,
         grid: board.grid,
         slots: spawner.slots,
         activeBombs,
@@ -1293,8 +1311,11 @@ function checkModeVictory() {
         const goalClearedBlocks = config.preFilledTarget > 0 ? (targetGoldBlocksCount === 0) : true;
         const goalScore = config.scoreTarget > 0 ? (score >= config.scoreTarget) : true;
         const goalLines = config.linesTarget > 0 ? (linesClearedCount >= config.linesTarget) : true;
+        const goalCombo = config.comboTarget > 0 ? (maxComboStreak >= config.comboTarget) : true;
+        const goalPlacements = config.placementsTarget > 0 ? (totalPlacements >= config.placementsTarget) : true;
+        const goalLinesOneTurn = config.linesOneTurnTarget > 0 ? (maxLinesOneTurn >= config.linesOneTurnTarget) : true;
 
-        return goalClearedBlocks && goalScore && goalLines;
+        return goalClearedBlocks && goalScore && goalLines && goalCombo && goalPlacements && goalLinesOneTurn;
     }
     return false;
 }
@@ -1338,14 +1359,17 @@ function updateHUDObjective() {
     if (activeMode === 'missions') {
         const config = AdventureLevels.find(l => l.levelNumber === missionLevel) || AdventureLevels[0];
         
+        // Build objectives display
+        const parts = [];
+        if (config.scoreTarget > 0) parts.push(`Score ${score}/${config.scoreTarget}`);
+        if (config.linesTarget > 0) parts.push(`Lines ${linesClearedCount}/${config.linesTarget}`);
+        if (config.preFilledTarget > 0) parts.push(`Gold ${targetGoldBlocksCount} left`);
+        if (config.comboTarget > 0) parts.push(`Combo ${maxComboStreak}/${config.comboTarget}`);
+        if (config.placementsTarget > 0) parts.push(`Place ${totalPlacements}/${config.placementsTarget}`);
+        if (config.linesOneTurnTarget > 0) parts.push(`Clear ${maxLinesOneTurn}/${config.linesOneTurnTarget} in 1 go`);
+
         if (objectiveText) {
-            if (config.preFilledTarget > 0) {
-                objectiveText.innerText = `Gold Blocks Remaining: ${targetGoldBlocksCount}`;
-            } else if (config.linesTarget > 0) {
-                objectiveText.innerText = `Lines Cleared: ${linesClearedCount}/${config.linesTarget}`;
-            } else if (config.scoreTarget > 0) {
-                objectiveText.innerText = `Reach: ${score}/${config.scoreTarget} pts`;
-            }
+            objectiveText.innerText = parts.length > 0 ? parts.join(' • ') : 'Complete the level!';
         }
 
         // Show level progression percentage fill
@@ -1353,13 +1377,15 @@ function updateHUDObjective() {
         const progressFill = $('progress-bar-fill');
         if (progressContainer) progressContainer.classList.remove('hidden');
         let percent = 0;
-        if (config.preFilledTarget > 0) {
-            percent = ((config.preFilledTarget - targetGoldBlocksCount) / config.preFilledTarget) * 100;
-        } else if (config.linesTarget > 0) {
-            percent = (linesClearedCount / config.linesTarget) * 100;
-        } else if (config.scoreTarget > 0) {
-            percent = (score / config.scoreTarget) * 100;
-        }
+        let objectives = 0;
+        let progress = 0;
+        if (config.scoreTarget > 0) { objectives++; progress += Math.min(1, score / config.scoreTarget); }
+        if (config.linesTarget > 0) { objectives++; progress += Math.min(1, linesClearedCount / config.linesTarget); }
+        if (config.preFilledTarget > 0) { objectives++; progress += config.preFilledTarget > 0 ? Math.min(1, (config.preFilledTarget - targetGoldBlocksCount) / config.preFilledTarget) : 0; }
+        if (config.comboTarget > 0) { objectives++; progress += Math.min(1, maxComboStreak / config.comboTarget); }
+        if (config.placementsTarget > 0) { objectives++; progress += Math.min(1, totalPlacements / config.placementsTarget); }
+        if (config.linesOneTurnTarget > 0) { objectives++; progress += Math.min(1, maxLinesOneTurn / config.linesOneTurnTarget); }
+        percent = objectives > 0 ? (progress / objectives) * 100 : 0;
         if (progressFill) progressFill.style.width = `${Math.min(100, percent)}%`;
     }
 }
@@ -1412,12 +1438,19 @@ function triggerVictory() {
     if (activeMode === 'missions') {
         const msgEl = $('success-message');
         const nextBtn = $('btn-next-level');
+        const levelsBtn = $('btn-levels-list');
         if (msgEl) msgEl.innerText = `Level ${missionLevel} Completed!`;
-        if (nextBtn) nextBtn.innerText = "Next Level";
+        if (nextBtn) { nextBtn.innerText = "Next Level"; nextBtn.style.display = 'flex'; }
+        if (levelsBtn) levelsBtn.style.display = 'flex';
         
         // Progress unlocked levels
         missionLevel = Math.min(missionLevel + 1, AdventureLevels.length);
         StorageManager.saveAdventureProgress(missionLevel);
+    } else {
+        const nextBtn = $('btn-next-level');
+        const levelsBtn = $('btn-levels-list');
+        if (nextBtn) { nextBtn.innerText = "Continue"; nextBtn.style.display = 'flex'; }
+        if (levelsBtn) levelsBtn.style.display = 'none';
     }
 
     if (successOverlay) successOverlay.classList.remove('hidden');
@@ -1432,7 +1465,7 @@ function setupUIBindings() {
     const btnBlast = $('btn-play-blast');
     const btnEndless = $('btn-play-endless');
 
-    if (btnMissions) btnMissions.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('missions'); });
+    if (btnMissions) btnMissions.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); openLevelSelect(); });
     if (btnClassic) btnClassic.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('classic'); });
     if (btnClassic10) btnClassic10.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('classic_10'); });
     if (btnBlast) btnBlast.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); selectMode('blast'); });
@@ -1540,6 +1573,17 @@ function setupUIBindings() {
         });
     }
 
+    // Levels button on Success Modal (missions only)
+    const btnLevelsList = $('btn-levels-list');
+    if (btnLevelsList) {
+        btnLevelsList.addEventListener('click', () => {
+            triggerHaptic('light');
+            const overlay = $('success-overlay');
+            if (overlay) overlay.classList.add('hidden');
+            openLevelSelect();
+        });
+    }
+
     // Close button on Success Modal
     const btnSuccessClose = $('btn-success-close');
     if (btnSuccessClose) {
@@ -1552,6 +1596,16 @@ function setupUIBindings() {
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
             updateMenuHighScore();
+        });
+    }
+
+    // Level Select close button
+    const btnLevelSelectClose = $('btn-level-select-close');
+    if (btnLevelSelectClose) {
+        btnLevelSelectClose.addEventListener('click', () => {
+            triggerHaptic('light');
+            audio.playTap();
+            closeLevelSelect();
         });
     }
 
@@ -1891,6 +1945,68 @@ function openAbout() {
 
 function closeAbout() {
     const overlay = $('about-overlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+// --- Level Select (Missions) ---
+function openLevelSelect() {
+    const unlockedLevel = StorageManager.getAdventureProgress();
+    const grid = $('level-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (let i = 0; i < AdventureLevels.length; i++) {
+        const lvl = AdventureLevels[i];
+        const levelNum = lvl.levelNumber;
+        const cell = document.createElement('div');
+        cell.className = 'level-cell';
+
+        const numSpan = document.createElement('span');
+        numSpan.className = 'cell-number';
+        numSpan.textContent = levelNum;
+        cell.appendChild(numSpan);
+
+        if (levelNum < unlockedLevel) {
+            cell.classList.add('completed');
+        } else if (levelNum === unlockedLevel) {
+            cell.classList.add('current');
+            cell.addEventListener('click', () => {
+                triggerHaptic('medium');
+                missionLevel = levelNum;
+                closeLevelSelect();
+                selectMode('missions');
+            });
+        } else {
+            cell.classList.add('locked');
+        }
+
+        if (levelNum > unlockedLevel) {
+            const icon = document.createElement('span');
+            icon.className = 'cell-icon';
+            icon.textContent = '🔒';
+            cell.appendChild(icon);
+        }
+
+        grid.appendChild(cell);
+    }
+
+    const progText = $('level-progress-text');
+    if (progText) progText.textContent = `Progress: ${unlockedLevel - 1} / ${AdventureLevels.length}`;
+
+    // Scroll to current level
+    const currentCell = grid.querySelector('.level-cell.current');
+    if (currentCell) {
+        setTimeout(() => {
+            currentCell.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 100);
+    }
+
+    const overlay = $('level-select-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+}
+
+function closeLevelSelect() {
+    const overlay = $('level-select-overlay');
     if (overlay) overlay.classList.add('hidden');
 }
 
