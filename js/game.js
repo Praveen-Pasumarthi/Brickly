@@ -200,6 +200,23 @@ function initGame() {
 
     // 7. Start Render Animation Loop
     requestAnimationFrame(renderLoop);
+
+    // 8. Unlock BGM on first user interaction (Android WebView blocks autoplay without gesture)
+    const unlockBgmOnFirstTouch = () => {
+        const settings = StorageManager.getSettings();
+        const savedVol = settings.bgmVolume !== undefined ? settings.bgmVolume : 50;
+        if (settings.bgm !== false && savedVol > 0) {
+            audio.unlock();
+            audio.setBgmVolume(savedVol / 100);
+        }
+        // Remove all listeners after first trigger — only need one unlock
+        document.removeEventListener('touchstart', unlockBgmOnFirstTouch);
+        document.removeEventListener('click', unlockBgmOnFirstTouch);
+        document.removeEventListener('pointerdown', unlockBgmOnFirstTouch);
+    };
+    document.addEventListener('touchstart', unlockBgmOnFirstTouch, { once: true });
+    document.addEventListener('click', unlockBgmOnFirstTouch, { once: true });
+    document.addEventListener('pointerdown', unlockBgmOnFirstTouch, { once: true });
 }
 
 // --- Layout Handling ---
@@ -440,19 +457,19 @@ function attemptBlockPlacement() {
         audio.playPlace();
         particles.spawnPlacementParticles(hoverRow, hoverCol, matrix, boardLayout, getActiveThemeConfig());
 
-        // Calculate score points for placed blocks count (+1 pt per block)
+        // Calculate score points for placed blocks count (+10 pt per block)
         let blocksCount = 0;
         for (let r = 0; r < matrix.length; r++) {
             for (let c = 0; c < matrix[r].length; c++) {
                 if (matrix[r][c] > 0) blocksCount++;
             }
         }
-        score += blocksCount;
+        score += blocksCount * 10;
 
         // Check if placed in the target spot in the background (perfect spot)
         let targetSpotBonus = 0;
         if (draggedShape.targetSpot && hoverRow === draggedShape.targetSpot.r && hoverCol === draggedShape.targetSpot.c) {
-            targetSpotBonus = 20; // Small score boost
+            targetSpotBonus = 50; // Perfect spot score boost
             score += targetSpotBonus;
             hasPerfectSpot = true;
             
@@ -489,9 +506,16 @@ function attemptBlockPlacement() {
             comboTimerActive = true;
             hasClearedLines = true;
             
-            // Score Math: Cleared count * 100 * comboStreak + streak bonus
-            const streakBonus = comboStreak > 1 ? (comboStreak - 1) * 100 : 0;
-            const pointsGained = clearedLinesCount * 75 * comboStreak + streakBonus;
+            // Score Math
+            let baseLineScore = 0;
+            if (clearedLinesCount === 1) baseLineScore = 150;
+            else if (clearedLinesCount === 2) baseLineScore = 400;
+            else if (clearedLinesCount === 3) baseLineScore = 700;
+            else if (clearedLinesCount === 4) baseLineScore = 1000;
+            else baseLineScore = clearedLinesCount * 250;
+
+            const streakBonus = comboStreak > 1 ? (comboStreak - 1) * 200 + 100 : 0;
+            const pointsGained = baseLineScore * comboStreak + streakBonus;
             score += pointsGained;
 
             // Spawn floating reward text
@@ -584,7 +608,7 @@ function attemptBlockPlacement() {
             }
 
             if (boardIsEmpty) {
-                const clearBonus = 300; // Board clear reward
+                const clearBonus = 2000; // Board clear reward
                 score += clearBonus;
                 
                 const centerX = boardOffsetX + (cellSize * board.cols) / 2;
@@ -1136,7 +1160,7 @@ function drawBombOverlay(x, y, w, countdown) {
 }
 
 // --- Game Logic Controllers ---
-export function selectMode(modeName) {
+export function selectMode(modeName, forceNewGame = false) {
     try {
         audio.unlock();
         const settings = StorageManager.getSettings();
@@ -1168,7 +1192,7 @@ export function selectMode(modeName) {
     const savedState = StorageManager.getGameState();
     
     let resumeOk = false;
-    if (savedState && savedState.mode === activeMode && savedState.grid) {
+    if (!forceNewGame && savedState && savedState.mode === activeMode && savedState.grid) {
         try {
             // Resume game state
             score = savedState.score || 0;
@@ -1227,13 +1251,13 @@ function startNewGame() {
 
     if (activeMode === 'classic') {
         board.reset(null, 8, 8);
-        board.prefillGrid(50, SHAPES);
+        board.prefillGrid(30, SHAPES);
         spawner.slots = [null, null, null];
         startPrefillAnimation();
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
     } else if (activeMode === 'classic_10') {
         board.reset(null, 10, 10);
-        board.prefillGrid(50, SHAPES);
+        board.prefillGrid(30, SHAPES);
         spawner.slots = [null, null, null];
         startPrefillAnimation();
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
@@ -1245,7 +1269,7 @@ function startNewGame() {
         loadMissionLevel(missionLevel);
     } else if (activeMode === 'blast') {
         board.reset(null, 8, 8);
-        board.prefillGrid(50, SHAPES);
+        board.prefillGrid(30, SHAPES);
         spawner.slots = [null, null, null];
         spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
         // Spawn 2 initial bombs with staggered timers so they don't detonate at the same time.
@@ -1355,10 +1379,14 @@ function updateHUD() {
     // Toggle specific HUD panels
     const modeHud = $('mode-specific-hud');
 
+    const btnMissionsLevels = $('btn-missions-levels');
+
     if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'blast' || activeMode === 'endless') {
         if (modeHud) modeHud.classList.add('hidden');
+        if (btnMissionsLevels) btnMissionsLevels.style.display = 'none';
     } else if (activeMode === 'missions') {
         if (modeHud) modeHud.classList.remove('hidden');
+        if (btnMissionsLevels) btnMissionsLevels.style.display = 'flex';
         updateHUDObjective();
     }
 }
@@ -1504,6 +1532,7 @@ function setupUIBindings() {
     // Main Menu Buttonsdings
     const btnLogin = $('btn-settings-login');
     const btnLogout = $('btn-settings-logout');
+    const btnGuest = $('btn-settings-guest');
 
     if (btnLogin) {
         btnLogin.addEventListener('click', async () => {
@@ -1519,12 +1548,56 @@ function setupUIBindings() {
         });
     }
 
+    if (btnGuest) {
+        btnGuest.addEventListener('click', () => {
+            triggerHaptic('light');
+            audio.playTap();
+            closeSettings();
+        });
+    }
+
     if (btnLogout) {
         btnLogout.addEventListener('click', async () => {
             triggerHaptic('light');
             audio.playTap();
-            const confirmed = window.confirm("Are you sure you want to sign out?\n\nYour progress will no longer be saved to the cloud.");
-            if (!confirmed) return;
+            
+            // Show custom confirm dialog
+            const confirmOverlay = $('confirm-overlay');
+            const btnCancel = $('btn-confirm-cancel');
+            const btnOk = $('btn-confirm-ok');
+            
+            if (confirmOverlay && btnCancel && btnOk) {
+                confirmOverlay.classList.remove('hidden');
+                
+                const confirmed = await new Promise(resolve => {
+                    const handleCancel = () => { cleanup(); resolve(false); };
+                    const handleOk = () => { cleanup(); resolve(true); };
+                    
+                    const cleanup = () => {
+                        btnCancel.removeEventListener('click', handleCancel);
+                        btnOk.removeEventListener('click', handleOk);
+                        confirmOverlay.classList.add('hidden');
+                    };
+                    
+                    btnCancel.addEventListener('click', () => {
+                        triggerHaptic('light');
+                        audio.playTap();
+                        handleCancel();
+                    });
+                    
+                    btnOk.addEventListener('click', () => {
+                        triggerHaptic('light');
+                        audio.playTap();
+                        handleOk();
+                    });
+                });
+                
+                if (!confirmed) return;
+            } else {
+                // Fallback if modal elements are missing
+                const confirmed = window.confirm("Are you sure you want to sign out?\n\nYour progress will no longer be saved to the cloud.");
+                if (!confirmed) return;
+            }
             
             try {
                 await Auth.signOut();
@@ -1534,13 +1607,24 @@ function setupUIBindings() {
         });
     }
 
+    const accountUserInfo = $('account-user-info');
     Auth.onAuthStateChanged((user) => {
         if (user) {
             if (btnLogin) btnLogin.style.display = 'none';
+            if (btnGuest) btnGuest.style.display = 'none';
             if (btnLogout) btnLogout.style.display = 'flex';
+            if (accountUserInfo) {
+                accountUserInfo.style.display = 'block';
+                accountUserInfo.textContent = user.displayName || user.email || 'Signed in';
+            }
         } else {
             if (btnLogin) btnLogin.style.display = 'flex';
+            if (btnGuest) btnGuest.style.display = 'flex';
             if (btnLogout) btnLogout.style.display = 'none';
+            if (accountUserInfo) {
+                accountUserInfo.style.display = 'none';
+                accountUserInfo.textContent = '';
+            }
         }
     });
     // Play buttons in the Main Menu overlay
@@ -1700,6 +1784,9 @@ function setupUIBindings() {
 
     const btnGameSettings = $('btn-game-settings');
     if (btnGameSettings) btnGameSettings.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); openSettings(); });
+
+    const btnMissionsLevels = $('btn-missions-levels');
+    if (btnMissionsLevels) btnMissionsLevels.addEventListener('click', () => { triggerHaptic('light'); audio.playTap(); openLevelSelect(); });
 
     // Settings modal: close X button
     const btnSettingsClose = $('btn-settings-close');
@@ -1980,6 +2067,7 @@ function openSettings() {
     const btnFeedback = $('btn-settings-feedback');
     const btnPrivacy = $('btn-settings-privacy');
     const btnTerms = $('btn-settings-terms');
+    const accountBox = $('account-settings-box');
     
     if (isMenu) {
         if (btnResume) btnResume.style.display = 'none';
@@ -1990,6 +2078,7 @@ function openSettings() {
         if (btnFeedback) btnFeedback.style.display = 'flex';
         if (btnPrivacy) btnPrivacy.style.display = 'flex';
         if (btnTerms) btnTerms.style.display = 'flex';
+        if (accountBox) accountBox.style.display = 'block';
         if (btnMenuBg) {
             btnMenuBg.style.display = 'flex';
             const label = $('menu-theme-label');
@@ -2010,6 +2099,7 @@ function openSettings() {
         if (btnFeedback) btnFeedback.style.display = 'none';
         if (btnPrivacy) btnPrivacy.style.display = 'none';
         if (btnTerms) btnTerms.style.display = 'none';
+        if (accountBox) accountBox.style.display = 'none';
     }
 
     const overlay = $('settings-overlay');
@@ -2053,13 +2143,19 @@ function openLevelSelect() {
 
         if (levelNum < unlockedLevel) {
             cell.classList.add('completed');
+            cell.addEventListener('click', () => {
+                triggerHaptic('medium');
+                missionLevel = levelNum;
+                closeLevelSelect();
+                selectMode('missions', true);
+            });
         } else if (levelNum === unlockedLevel) {
             cell.classList.add('current');
             cell.addEventListener('click', () => {
                 triggerHaptic('medium');
                 missionLevel = levelNum;
                 closeLevelSelect();
-                selectMode('missions');
+                selectMode('missions', true);
             });
         } else {
             cell.classList.add('locked');

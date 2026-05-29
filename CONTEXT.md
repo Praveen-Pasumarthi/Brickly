@@ -140,8 +140,8 @@ The `addFloatingText()` method displays reward messages on the canvas:
 ### Line Clearing Flow
 1. After placing a block shape, `board.checkFullLines()` is called
 2. Combo streak increments if lines cleared
-3. Score calculated: `clearedLinesCount * 75 * comboStreak + streakBonus`
-   - `streakBonus = (comboStreak - 1) * 100` (for combo streak > 1)
+3. Score calculated: `baseLineScore * comboStreak + streakBonus`
+   - `streakBonus = (comboStreak > 1) ? (comboStreak - 1) * 200 + 100 : 0`
 4. Particle effects spawned along cleared rows/columns
 5. `audio.playClear(comboStreak)` plays arpeggio sound
 6. Voice announcement triggered based on achievement tier
@@ -150,15 +150,15 @@ The `addFloatingText()` method displays reward messages on the canvas:
 ### Score System
 | Source | Points |
 |--------|--------|
-| Per block placed | +1 |
-| Perfect spot bonus | +20 |
-| 1 line cleared | 75 |
-| 2 lines cleared | 150 |
-| 3 lines cleared | 225 |
-| 4 lines cleared | 300 |
-| Combo x2 (1 line) | 250 |
-| Combo x3 (1 line) | 425 |
-| Board clear bonus | 300 |
+| Per block placed | +10 |
+| Perfect spot bonus | +50 |
+| 1 line cleared | 150 |
+| 2 lines cleared | 400 |
+| 3 lines cleared | 700 |
+| 4 lines cleared | 1000 |
+| Combo x2 (1 line) | 400 |
+| Combo x3 (1 line) | 750 |
+| Board clear bonus | 2000 |
 
 ### SFX (Synthesized Sounds)
 - `playDragStart()` - High-frequency tick on drag start
@@ -295,18 +295,18 @@ Sound volume (`sfxVolume`), Music volume (`bgmVolume`), and Vibration (`vibratio
 ## Game Modes
 
 ### Classic (8x8)
-- Board prefilled to 50% with actual game shapes via `board.prefillGrid(50, SHAPES)`
+- Board prefilled to 30% with actual game shapes via `board.prefillGrid(30, SHAPES)`
 - Shape-based fill algorithm places random shapes from a subset, checks no full lines created
 - Prefill wave animation: bottom-to-top row reveal at 30ms per row
 
 ### Classic XL (10x10)
-- Same as Classic but 10x10 board, 50% pre-filled
+- Same as Classic but 10x10 board, 30% pre-filled
 
 ### Endless (10x10)
 - Empty board (no prefill), old classic behavior on 10x10 grid
 
 ### Blast Mode (8x8)
-- 50% pre-filled board, bombs spawn with staggered timers
+- 30% pre-filled board, bombs spawn with staggered timers
 
 ### Missions (500 Levels)
 - **500 adventure levels** with progressive difficulty across 10 rotating objective templates

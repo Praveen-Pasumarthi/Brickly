@@ -438,65 +438,66 @@ const STARTER_POOL_2 = [
 
 // Spawn weights for different score intervals (difficulty scaling)
 // Balanced so L-shapes don't dominate — squares, rectangles, and corners get fair weight.
+// Thresholds calibrated for the new scoring system (+5/block, 100-500/line, 1000 board clear)
 export const SHAPE_TIERS = [
     {
-        maxScore: 500,
+        maxScore: 2000,
         pool: [
-            { key: 'SINGLE', weight: 12 },
-            { key: 'H_LINE_2', weight: 12 },
-            { key: 'V_LINE_2', weight: 12 },
-            { key: 'DIAG_2', weight: 7 },
-            { key: 'DIAG_2_R1', weight: 7 },
-            { key: 'H_LINE_3', weight: 10 },
-            { key: 'V_LINE_3', weight: 10 },
-            { key: 'V_L_3', weight: 4 },
-            { key: 'V_L_3_R1', weight: 4 },
-            { key: 'V_L_3_R2', weight: 4 },
-            { key: 'V_L_3_R3', weight: 4 },
+            { key: 'SINGLE', weight: 14 },
+            { key: 'H_LINE_2', weight: 14 },
+            { key: 'V_LINE_2', weight: 14 },
+            { key: 'DIAG_2', weight: 8 },
+            { key: 'DIAG_2_R1', weight: 8 },
+            { key: 'H_LINE_3', weight: 12 },
+            { key: 'V_LINE_3', weight: 12 },
+            { key: 'V_L_3', weight: 5 },
+            { key: 'V_L_3_R1', weight: 5 },
+            { key: 'V_L_3_R2', weight: 5 },
+            { key: 'V_L_3_R3', weight: 5 },
             { key: 'DIAG_3', weight: 6 },
             { key: 'DIAG_3_R1', weight: 6 },
-            { key: 'SQUARE_2', weight: 10 },
+            { key: 'SQUARE_2', weight: 12 },
 
             // 4-block lines & shapes
-            { key: 'H_LINE_4', weight: 10 },
-            { key: 'V_LINE_4', weight: 10 },
-            { key: 'T_4', weight: 5 },
-            { key: 'T_4_R1', weight: 5 },
-            { key: 'T_4_R2', weight: 5 },
-            { key: 'T_4_R3', weight: 5 },
-            { key: 'Z_4', weight: 5 },
-            { key: 'Z_4_R1', weight: 5 },
-            { key: 'S_4', weight: 5 },
-            { key: 'S_4_R1', weight: 5 },
+            { key: 'H_LINE_4', weight: 12 },
+            { key: 'V_LINE_4', weight: 12 },
+            { key: 'T_4', weight: 4 },
+            { key: 'T_4_R1', weight: 4 },
+            { key: 'T_4_R2', weight: 4 },
+            { key: 'T_4_R3', weight: 4 },
+            { key: 'Z_4', weight: 3 },
+            { key: 'Z_4_R1', weight: 3 },
+            { key: 'S_4', weight: 3 },
+            { key: 'S_4_R1', weight: 3 },
 
-            // 5-block lines, large corners, 3x3 square, rectangles
-            { key: 'H_LINE_5', weight: 7 },
-            { key: 'V_LINE_5', weight: 7 },
-            { key: 'CORNER_3', weight: 5 },
-            { key: 'CORNER_3_R1', weight: 5 },
-            { key: 'CORNER_3_R2', weight: 5 },
-            { key: 'CORNER_3_R3', weight: 5 },
-            { key: 'BIG_T', weight: 3 },
-            { key: 'BIG_T_R1', weight: 3 },
-            { key: 'BIG_T_R2', weight: 3 },
-            { key: 'BIG_T_R3', weight: 3 },
-            { key: 'BIG_L', weight: 2 },
-            { key: 'BIG_L_R1', weight: 2 },
-            { key: 'BIG_L_R2', weight: 2 },
-            { key: 'BIG_L_R3', weight: 2 },
-            { key: 'SQUARE_3', weight: 10 },
-            { key: 'RECT_3X2', weight: 7 },
-            { key: 'RECT_2X3', weight: 7 },
+            // 5-block lines, large corners, 3x3 square, rectangles — rare at this tier
+            { key: 'H_LINE_5', weight: 5 },
+            { key: 'V_LINE_5', weight: 5 },
+            { key: 'CORNER_3', weight: 2 },
+            { key: 'CORNER_3_R1', weight: 2 },
+            { key: 'CORNER_3_R2', weight: 2 },
+            { key: 'CORNER_3_R3', weight: 2 },
+            { key: 'BIG_T', weight: 1 },
+            { key: 'BIG_T_R1', weight: 1 },
+            { key: 'BIG_T_R2', weight: 1 },
+            { key: 'BIG_T_R3', weight: 1 },
+            { key: 'BIG_L', weight: 1 },
+            { key: 'BIG_L_R1', weight: 1 },
+            { key: 'BIG_L_R2', weight: 1 },
+            { key: 'BIG_L_R3', weight: 1 },
+            { key: 'SQUARE_3', weight: 3 },
+            { key: 'RECT_3X2', weight: 4 },
+            { key: 'RECT_2X3', weight: 4 },
 
             // 7-block giant L shapes (10x10 mode only)
-            { key: 'L_7', weight: 3 },
-            { key: 'L_7_R1', weight: 3 },
-            { key: 'L_7_R2', weight: 3 },
-            { key: 'L_7_R3', weight: 3 }
+            { key: 'L_7', weight: 1 },
+            { key: 'L_7_R1', weight: 1 },
+            { key: 'L_7_R2', weight: 1 },
+            { key: 'L_7_R3', weight: 1 }
         ]
     },
     {
-        maxScore: 1500,
+        maxScore: 6000,
         pool: [
             { key: 'SINGLE', weight: 7 },
             { key: 'H_LINE_2', weight: 8 },
@@ -550,7 +551,7 @@ export const SHAPE_TIERS = [
         ]
     },
     {
-        maxScore: 3000,
+        maxScore: 15000,
         pool: [
             { key: 'SINGLE', weight: 4 },
             { key: 'H_LINE_2', weight: 6 },
@@ -677,7 +678,7 @@ export class Spawner {
         const shapeCols = matrix[0].length;
         
         // Generous phase: first 8 spawns actively help the player
-        const generous = this.spawnCount < 8;
+        const generous = this.spawnCount < 15;
         const clearMultiplier = generous ? 2.5 : 1;
         
         // 1. Simulate the placement
@@ -954,7 +955,7 @@ export class Spawner {
                 // ═══════════════════════════════════════════════════════════
                 
                 // Generous phase: first 8 spawns actively help the player (mirrors evaluatePlacement)
-                const generous = this.spawnCount < 8;
+                const generous = this.spawnCount < 15;
                 
                 // Map each shape to its best placement score
                 const scoredShapes = validPool.map(item => {
