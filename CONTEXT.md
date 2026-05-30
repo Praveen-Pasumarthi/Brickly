@@ -260,6 +260,21 @@ Each theme also colors:
 - The build script copies `assets/`, `js/`, `index.html`, `style.css`, `legal/` to `dist/`
 - Capacitor config: `webDir: "dist"`
 
+## Block Placement Priority (`js/game.js`)
+
+### Pointer Offset
+The dragged shape renders **28px above** the actual pointer position (`pointerY - shapeHeightPx - 28` in `projectDraggedShapePreview()`). This creates a natural "floating above finger" effect but means the pointer Y coordinate can fall over UI elements below the shape.
+
+### Placement Priority in `attemptBlockPlacement()`
+When the user releases a dragged piece, board placement is checked **first** (if `hoverRow`/`hoverCol` are valid). Tray slot interactions (drop back or move to empty slot) only run when there is **no valid board snap**.
+
+**Why this order matters:** On bottom board rows, the 28px pointer offset causes the pointer to fall over the tray slots. Without priority ordering, the tray slot check would trigger first and drop the piece back to its original slot, preventing placement on the bottom rows.
+
+### Tray Slot Interactions (No Valid Board Snap)
+- **Same slot drop:** If pointer is over the original slot → piece drops back
+- **Empty slot move:** If pointer is over a different empty slot → piece moves there
+- **No match:** Falls through to `cleanupDragState()`
+
 ## Key Conventions
 - All game state managed in `game.js` (orchestrator pattern)
 - Board is a 2D matrix in `engine.js` (0 = empty, >0 = filled)
