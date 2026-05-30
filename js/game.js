@@ -244,7 +244,13 @@ function initGame() {
     const settings = StorageManager.getSettings();
     
     activeTheme = settings.theme || 'classic';
+    if (!THEMES[activeTheme]) {
+        activeTheme = 'classic';
+    }
     activeMenuTheme = settings.menuTheme || 'royal';
+    if (!MENU_THEMES.includes(activeMenuTheme)) {
+        activeMenuTheme = 'royal';
+    }
     prevTheme = activeTheme;
     transitionProgress = 1.0;
     
@@ -549,6 +555,34 @@ function calculateGlowPreviews(row, col) {
  * and checks for victory or game over conditions.
  */
 function attemptBlockPlacement() {
+    // Check if pointer is released over any tray slot
+    const slots = document.querySelectorAll('.tray-slot');
+    let targetSlotIndex = -1;
+    for (const slot of slots) {
+        const rect = slot.getBoundingClientRect();
+        if (pointerX >= rect.left && pointerX <= rect.right &&
+            pointerY >= rect.top && pointerY <= rect.bottom) {
+            targetSlotIndex = parseInt(slot.dataset.slot, 10);
+            break;
+        }
+    }
+
+    if (targetSlotIndex >= 0 && draggedShape) {
+        if (targetSlotIndex === draggedSlot) {
+            // Drop back in its original place
+            cleanupDragState();
+            return;
+        } else if (spawner.slots[targetSlotIndex] === null) {
+            // Move shape to the new empty slot
+            spawner.slots[targetSlotIndex] = draggedShape;
+            spawner.slots[draggedSlot] = null;
+            audio.playTap();
+            triggerHaptic('light');
+            cleanupDragState();
+            return;
+        }
+    }
+
     if (hoverRow >= 0 && hoverCol >= 0 && draggedShape) {
         const matrix = draggedShape.matrix;
         const colorId = draggedShape.colorId;
@@ -946,7 +980,7 @@ function renderLoop(now) {
                 particles.triggerShake(35, 12);
                 
                 // Burst particles across the entire board
-                const theme = THEMES[activeTheme];
+                const theme = THEMES[activeTheme] || THEMES['classic'] || Object.values(THEMES)[0];
                 const boardClearStyle = theme.boardClearStyle;
                 const extraParticles = (boardClearStyle === 'blizzard' || boardClearStyle === 'eruption' 
                     || boardClearStyle === 'petal_storm') ? 2 : 1;
@@ -1134,7 +1168,7 @@ function drawBoardGrid() {
                     }
                 }
 
-                drawThemeBlock(ctx, 0, 0, cellSize, cellSize, cellValue, theme);
+                drawThemeBlock(ctx, 0, 0, cellSize, cellSize, cellValue, theme, r, c);
 
                 // Draw overlay visual effects for theme board clear
                 if (boardClearAnimActive && boardClearAnimStage === 1 && clearProgress > 0) {
@@ -1380,7 +1414,7 @@ function drawDraggedShapeOverlay() {
             if (shapeMatrix[r][c] > 0) {
                 const tx = startX + c * dragCellSize;
                 const ty = startY + r * dragCellSize;
-                drawThemeBlock(dragCtx, tx, ty, dragCellSize, dragCellSize, draggedShape.colorId, theme);
+                drawThemeBlock(dragCtx, tx, ty, dragCellSize, dragCellSize, draggedShape.colorId, theme, r, c);
             }
         }
     }
@@ -1388,11 +1422,6 @@ function drawDraggedShapeOverlay() {
 }
 
 function drawTraySlot(slotIndex) {
-    // If dragged slot is active, do not render inside slot tray (transferred to pointer drag)
-    if (isDragging && draggedSlot === slotIndex) {
-        return;
-    }
-
     const canvas = document.getElementById(`tray-canvas-${slotIndex}`);
     if (!canvas) return;
 
@@ -1419,15 +1448,22 @@ function drawTraySlot(slotIndex) {
     const sx = (width - shapeW) / 2;
     const sy = (height - shapeH) / 2;
 
+    slotCtx.save();
+    if (isDragging && draggedSlot === slotIndex) {
+        slotCtx.globalAlpha = 0.25;
+    }
+
     for (let r = 0; r < shapeRows; r++) {
         for (let c = 0; c < shapeCols; c++) {
             if (shapeMatrix[r][c] > 0) {
                 const tx = sx + c * slotCellSize;
                 const ty = sy + r * slotCellSize;
-                drawThemeBlock(slotCtx, tx, ty, slotCellSize, slotCellSize, shape.colorId, theme);
+                drawThemeBlock(slotCtx, tx, ty, slotCellSize, slotCellSize, shape.colorId, theme, r, c);
             }
         }
     }
+
+    slotCtx.restore();
 }
 
 function drawBombOverlay(x, y, w, countdown) {
@@ -2882,21 +2918,30 @@ function lerpColor(strA, strB, t) {
 }
 
 function getActiveThemeConfig() {
-    const targetTheme = THEMES[activeTheme];
+    let targetTheme = THEMES[activeTheme];
+    if (!targetTheme) {
+        targetTheme = THEMES['classic'] || Object.values(THEMES)[0];
+    }
     if (transitionProgress >= 1.0) {
         return targetTheme;
     }
-    const fromTheme = THEMES[prevTheme] || targetTheme;
+    let fromTheme = THEMES[prevTheme] || targetTheme;
+    if (!fromTheme) {
+        fromTheme = targetTheme;
+    }
     const t = transitionProgress;
     const colors = {};
     for (const key in targetTheme.colors) {
-        colors[key] = lerpColor(fromTheme.colors[key], targetTheme.colors[key], t);
+        colors[key] = lerpColor(fromTheme.colors[key] || targetTheme.colors[key], targetTheme.colors[key], t);
     }
     return {
         id: targetTheme.id,
         name: targetTheme.name,
         colors: colors,
         blockStyle: t < 0.5 ? fromTheme.blockStyle : targetTheme.blockStyle,
-        particleStyle: t < 0.5 ? fromTheme.particleStyle : targetTheme.particleStyle
+        particleStyle: t < 0.5 ? fromTheme.particleStyle : targetTheme.particleStyle,
+        transitionProgress: t,
+        prevThemeId: fromTheme.id,
+        activeThemeId: targetTheme.id
     };
 }

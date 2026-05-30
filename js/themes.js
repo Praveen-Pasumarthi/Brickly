@@ -972,12 +972,31 @@ export const THEMES = {
  * @param {number} colorId - Color ID mapping.
  * @param {Object} theme - Active theme configuration object.
  */
-export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
+export function drawThemeBlock(ctx, x, y, w, h, colorId, theme, cellR = 0, cellC = 0) {
     const color = theme.colors[colorId] || '#ffffff';
     const style = theme.blockStyle;
+    const isTextured = style === 'textured';
     
     // Save drawing context state
     ctx.save();
+
+    // Helpers to retrieve border radius and layout insets per style
+    const getRadiusForStyle = (s, bw, bh) => {
+        if (s === 'cushion')  return Math.min(bw, bh) * 0.14;
+        if (s === 'neon')     return Math.min(bw, bh) * 0.15;
+        if (s === 'wood')     return Math.min(bw, bh) * 0.12;
+        if (s === 'gemstone') return Math.min(bw, bh) * 0.08;
+        if (s === 'pastel')   return Math.min(bw, bh) * 0.22;
+        return Math.min(bw, bh) * 0.12;
+    };
+    
+    const getInsetForStyle = (s) => {
+        if (s === 'textured') return 1.5;
+        if (s === 'pastel')   return 2.5;
+        if (s === 'gemstone') return 2;
+        if (s === 'neon')     return 2;
+        return 1.5;
+    };
 
     // Helper: Rounded Rect
     const roundRect = (rx, ry, rw, rh, rad) => {
@@ -991,7 +1010,7 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
     };
 
     if (style === 'cushion') {
-        const radius = Math.min(w, h) * 0.14;
+        const radius = getRadiusForStyle(style, w, h);
         roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
 
         // Fill with linear gradient to give a 3D cushion roll
@@ -1025,6 +1044,88 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
         roundRect(x + inset + 1.5, y + inset + 1.5, innerW * 0.35, innerH * 0.35, innerRad * 0.5);
         ctx.fill();
+
+        // WATERMELON SEEDS OR CHEESE HOLES DRAWING LOGIC
+        if (theme.id === 'watermelon') {
+            // Generate stable pseudo-random seed based on coordinates and colorId
+            const blockSeed = Math.abs(Math.sin(cellR * 12.9898 + cellC * 78.233 + colorId * 437.123) * 43758.5453) % 1;
+            
+            // Draw seeds on ~60% of the blocks randomly
+            if (blockSeed < 0.6) {
+                // Determine how many seeds to draw (1 or 2)
+                const numSeeds = blockSeed < 0.3 ? 1 : 2;
+                
+                ctx.fillStyle = '#141414'; // Dark black/brown seeds
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1;
+                
+                for (let s = 0; s < numSeeds; s++) {
+                    const seedOffset = (blockSeed * (s + 1) * 97.234) % 1;
+                    
+                    // Keep seeds inside the inner raised face bounds
+                    const seedX = x + inset + innerW * 0.2 + (innerW * 0.6) * ((seedOffset * 13) % 1);
+                    const seedY = y + inset + innerH * 0.2 + (innerH * 0.6) * ((seedOffset * 7) % 1);
+                    
+                    // Draw a small rotated elliptical seed shape
+                    ctx.save();
+                    ctx.translate(seedX, seedY);
+                    ctx.rotate(((seedOffset * 360) * Math.PI) / 180);
+                    
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, w * 0.05, w * 0.08, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        } else if (theme.id === 'cheese') {
+            // Cheese holes drawing logic
+            const blockSeed = Math.abs(Math.sin(cellR * 12.9898 + cellC * 78.233 + colorId * 437.123) * 43758.5453) % 1;
+            
+            // Draw cheese holes on ~80% of blocks
+            if (blockSeed < 0.8) {
+                const numHoles = blockSeed < 0.4 ? 1 : 2;
+                for (let hIndex = 0; hIndex < numHoles; hIndex++) {
+                    const holeOffset = (blockSeed * (hIndex + 1) * 83.743) % 1;
+                    
+                    // Position holes
+                    const holeX = x + inset + innerW * 0.15 + (innerW * 0.7) * ((holeOffset * 17) % 1);
+                    const holeY = y + inset + innerH * 0.15 + (innerH * 0.7) * ((holeOffset * 9) % 1);
+                    
+                    // Uneven hole sizes (radius from w*0.06 to w*0.14)
+                    const radius = w * (0.06 + 0.08 * ((holeOffset * 3) % 1));
+                    
+                    // Draw hole with shadow to make it look "carved" into the cheese
+                    ctx.save();
+                    
+                    // Clip to the inner card face to make sure holes don't bleed out
+                    roundRect(x + inset, y + inset, innerW, innerH, innerRad);
+                    ctx.clip();
+                    
+                    // Draw the hole background (slightly darkened color to look like a crater)
+                    ctx.fillStyle = darkenColor(color, -20);
+                    ctx.beginPath();
+                    ctx.arc(holeX, holeY, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Top-left dark inner shadow stroke
+                    ctx.strokeStyle = darkenColor(color, -35);
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.arc(holeX, holeY, radius, Math.PI * 1.0, Math.PI * 1.8);
+                    ctx.stroke();
+                    
+                    // Bottom-right light highlight stroke
+                    ctx.strokeStyle = lightenColor(color, 25);
+                    ctx.lineWidth = 1.0;
+                    ctx.beginPath();
+                    ctx.arc(holeX, holeY, radius, Math.PI * 0.0, Math.PI * 0.8);
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                }
+            }
+        }
 
         // Target / Bomb decor
         if (colorId === 13) {
@@ -1280,68 +1381,96 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
         }
     }
 
-    // Texture overlay — for non-textured themes: subtle pattern over filled block.
-    // For 'textured' style: texture IS the fill at full opacity, border drawn on top.
-    const texEntry = texturePatterns.get(theme.id);
-    if (texEntry && texEntry.image) {
-        const isTextured = style === 'textured';
-        const radius = (() => {
-            if (style === 'cushion')  return Math.min(w, h) * 0.14;
-            if (style === 'neon')     return Math.min(w, h) * 0.15;
-            if (style === 'wood')     return Math.min(w, h) * 0.12;
-            if (style === 'gemstone') return Math.min(w, h) * 0.08;
-            if (style === 'pastel')   return Math.min(w, h) * 0.22;
-            if (isTextured)           return Math.min(w, h) * 0.12;
-            return Math.min(w, h) * 0.12;
-        })();
-        const inset = isTextured ? 1.5 : (style === 'pastel' ? 2.5 : (style === 'gemstone' ? 2 : (style === 'neon' ? 2 : 1.5)));
+    // Texture overlay section — blends texture patterns. Supports smooth crossfading during transitions.
+    const isTransitioning = theme.transitionProgress !== undefined && theme.transitionProgress < 1.0;
 
-        ctx.save();
-        // Textured: inherit parent context alpha (caller controls drag vs board opacity)
-        // Overlay: apply the stored low overlay alpha over the filled base
-        if (!isTextured) ctx.globalAlpha = texEntry.alpha;
+    if (isTransitioning) {
+        const t = theme.transitionProgress;
+        const fromTheme = THEMES[theme.prevThemeId] || THEMES['classic'] || Object.values(THEMES)[0];
+        const toTheme = THEMES[theme.activeThemeId] || THEMES['classic'] || Object.values(THEMES)[0];
         
-        // Clip to the rounded rect of the cell
-        roundRect(x + inset, y + inset, w - inset * 2, h - inset * 2, radius);
-        ctx.clip();
+        const texFrom = texturePatterns.get(theme.prevThemeId);
+        const texTo = texturePatterns.get(theme.activeThemeId);
         
-        // Draw the texture image scaled to fit the cell exactly (avoids coordinate sliding)
-        ctx.drawImage(texEntry.image, x + inset, y + inset, w - inset * 2, h - inset * 2);
-        ctx.restore();
-
-        // For textured blocks: draw border + markers ON TOP of the texture
-        if (isTextured) {
-            ctx.save(); // isolate border drawing so it respects parent alpha
-            const r = Math.min(w, h) * 0.12;
-
-            // Dark cell-separation border (softened for drag preview readability)
-            roundRect(x + 1.5, y + 1.5, w - 3, h - 3, r);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Target spot marker (gold ring)
-            if (colorId === 13) {
-                ctx.beginPath();
-                ctx.arc(x + w / 2, y + h / 2, w * 0.22, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.45)';
-                ctx.fill();
-                ctx.strokeStyle = '#ffe57f';
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
-
-            // Bomb marker (red circle)
-            } else if (colorId === 14) {
-                ctx.beginPath();
-                ctx.arc(x + w / 2, y + h / 2, w * 0.22, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 51, 0, 0.85)';
-                ctx.fill();
-                ctx.strokeStyle = '#ffcc00';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
+        // Draw FROM theme texture (fading out)
+        if (texFrom && texFrom.image) {
+            ctx.save();
+            const styleFrom = fromTheme.blockStyle;
+            const isTexturedFrom = styleFrom === 'textured';
+            const radiusFrom = getRadiusForStyle(styleFrom, w, h);
+            const insetFrom = getInsetForStyle(styleFrom);
+            
+            ctx.globalAlpha = isTexturedFrom ? (1 - t) : (texFrom.alpha * (1 - t));
+            
+            roundRect(x + insetFrom, y + insetFrom, w - insetFrom * 2, h - insetFrom * 2, radiusFrom);
+            ctx.clip();
+            ctx.drawImage(texFrom.image, x + insetFrom, y + insetFrom, w - insetFrom * 2, h - insetFrom * 2);
             ctx.restore();
         }
+        
+        // Draw TO theme texture (fading in)
+        if (texTo && texTo.image) {
+            ctx.save();
+            const styleTo = toTheme.blockStyle;
+            const isTexturedTo = styleTo === 'textured';
+            const radiusTo = getRadiusForStyle(styleTo, w, h);
+            const insetTo = getInsetForStyle(styleTo);
+            
+            ctx.globalAlpha = isTexturedTo ? t : (texTo.alpha * t);
+            
+            roundRect(x + insetTo, y + insetTo, w - insetTo * 2, h - insetTo * 2, radiusTo);
+            ctx.clip();
+            ctx.drawImage(texTo.image, x + insetTo, y + insetTo, w - insetTo * 2, h - insetTo * 2);
+            ctx.restore();
+        }
+    } else {
+        const texEntry = texturePatterns.get(theme.id);
+        if (texEntry && texEntry.image) {
+            const radius = getRadiusForStyle(style, w, h);
+            const inset = getInsetForStyle(style);
+            
+            ctx.save();
+            if (!isTextured) ctx.globalAlpha = texEntry.alpha;
+            
+            roundRect(x + inset, y + inset, w - inset * 2, h - inset * 2, radius);
+            ctx.clip();
+            ctx.drawImage(texEntry.image, x + inset, y + inset, w - inset * 2, h - inset * 2);
+            ctx.restore();
+        }
+    }
+
+    // For textured blocks: draw border + markers ON TOP of the texture
+    if (isTextured) {
+        ctx.save(); // isolate border drawing so it respects parent alpha
+        const r = Math.min(w, h) * 0.12;
+
+        // Dark cell-separation border (softened for drag preview readability)
+        roundRect(x + 1.5, y + 1.5, w - 3, h - 3, r);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Target spot marker (gold ring)
+        if (colorId === 13) {
+            ctx.beginPath();
+            ctx.arc(x + w / 2, y + h / 2, w * 0.22, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.45)';
+            ctx.fill();
+            ctx.strokeStyle = '#ffe57f';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+        // Bomb marker (red circle)
+        } else if (colorId === 14) {
+            ctx.beginPath();
+            ctx.arc(x + w / 2, y + h / 2, w * 0.22, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 51, 0, 0.85)';
+            ctx.fill();
+            ctx.strokeStyle = '#ffcc00';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     ctx.restore();
