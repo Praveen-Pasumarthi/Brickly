@@ -555,34 +555,9 @@ function calculateGlowPreviews(row, col) {
  * and checks for victory or game over conditions.
  */
 function attemptBlockPlacement() {
-    // Check if pointer is released over any tray slot
-    const slots = document.querySelectorAll('.tray-slot');
-    let targetSlotIndex = -1;
-    for (const slot of slots) {
-        const rect = slot.getBoundingClientRect();
-        if (pointerX >= rect.left && pointerX <= rect.right &&
-            pointerY >= rect.top && pointerY <= rect.bottom) {
-            targetSlotIndex = parseInt(slot.dataset.slot, 10);
-            break;
-        }
-    }
-
-    if (targetSlotIndex >= 0 && draggedShape) {
-        if (targetSlotIndex === draggedSlot) {
-            // Drop back in its original place
-            cleanupDragState();
-            return;
-        } else if (spawner.slots[targetSlotIndex] === null) {
-            // Move shape to the new empty slot
-            spawner.slots[targetSlotIndex] = draggedShape;
-            spawner.slots[draggedSlot] = null;
-            audio.playTap();
-            triggerHaptic('light');
-            cleanupDragState();
-            return;
-        }
-    }
-
+    // Board placement takes priority when there's a valid snap position.
+    // This prevents the pointer (which sits 28px below the shape) from
+    // accidentally hitting a tray slot when placing on the bottom rows.
     if (hoverRow >= 0 && hoverCol >= 0 && draggedShape) {
         const matrix = draggedShape.matrix;
         const colorId = draggedShape.colorId;
@@ -873,6 +848,37 @@ function attemptBlockPlacement() {
         // 8. Game Over check (Are there moves left?)
         if (spawner.checkGameOver(board)) {
             triggerGameOver("No valid placement moves left!");
+            cleanupDragState();
+            return;
+        }
+
+        cleanupDragState();
+        return;
+    }
+
+    // No valid board snap — check tray slot interactions (drop back or move to empty slot)
+    const slots = document.querySelectorAll('.tray-slot');
+    let targetSlotIndex = -1;
+    for (const slot of slots) {
+        const rect = slot.getBoundingClientRect();
+        if (pointerX >= rect.left && pointerX <= rect.right &&
+            pointerY >= rect.top && pointerY <= rect.bottom) {
+            targetSlotIndex = parseInt(slot.dataset.slot, 10);
+            break;
+        }
+    }
+
+    if (targetSlotIndex >= 0 && draggedShape) {
+        if (targetSlotIndex === draggedSlot) {
+            // Drop back in its original place
+            cleanupDragState();
+            return;
+        } else if (spawner.slots[targetSlotIndex] === null) {
+            // Move shape to the new empty slot
+            spawner.slots[targetSlotIndex] = draggedShape;
+            spawner.slots[draggedSlot] = null;
+            audio.playTap();
+            triggerHaptic('light');
             cleanupDragState();
             return;
         }
