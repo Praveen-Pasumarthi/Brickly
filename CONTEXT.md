@@ -227,7 +227,7 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 
 ## Theme System
 
-### Gameplay Themes (22)
+### Gameplay Themes (38)
 - Defined in `themes.js` with color palettes
 - Theme shifts every 15 block placements (instant, 350ms smooth color interpolation, no overlay)
 - Theme shift triggers heavy haptic feedback
@@ -465,7 +465,7 @@ All visual feedback enhancements, material-specific clear effects, theme-specifi
 7. **Theme Picker Grid (`js/game.js`, `style.css`, `index.html`)**
    - Replaced the sequential "Change Skin" cycle button with a **bottom-sheet modal** (`#skin-picker-overlay`)
    - Opened via Settings → **Change Skin** button (`btn-settings-theme`)
-   - Displays all 22 themes in a **3-column scrollable grid** of color swatches
+   - Displays all 38 themes in a **3-column scrollable grid** of color swatches
    - Each swatch: theme background color + 2×2 block color dots + theme name label
    - Active theme shows a ✓ badge and white border glow
    - Tap a swatch → theme applies instantly → picker auto-closes after **380ms**
