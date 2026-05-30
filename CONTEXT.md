@@ -40,7 +40,7 @@ Brickly/
 │   ├── spawner.js                # Shape database, weighted spawning, tray management
 │   ├── audio.js                  # Web Audio API synthesis + voice playback
 │   ├── particles.js              # Particle system, floating text, screen shake
-│   ├── themes.js                 # 18 visual themes with color palettes
+│   ├── themes.js                 # 22 visual themes with color palettes
 │   ├── modes.js                  # 500 adventure levels + Blast Mode bomb logic
 │   └── storage.js                # LocalStorage persistence
 │
@@ -141,7 +141,7 @@ The `addFloatingText()` method displays reward messages on the canvas:
 1. After placing a block shape, `board.checkFullLines()` is called
 2. Combo streak increments if lines cleared
 3. Score calculated: `baseLineScore * comboStreak + streakBonus`
-   - `streakBonus = (comboStreak > 1) ? (comboStreak - 1) * 200 + 100 : 0`
+   - `streakBonus = (comboStreak > 1) ? (comboStreak - 1) * 100 + 50 : 0`
 4. Particle effects spawned along cleared rows/columns
 5. `audio.playClear(comboStreak)` plays arpeggio sound
 6. Voice announcement triggered based on achievement tier
@@ -150,15 +150,17 @@ The `addFloatingText()` method displays reward messages on the canvas:
 ### Score System
 | Source | Points |
 |--------|--------|
-| Per block placed | +10 |
-| Perfect spot bonus | +50 |
+| Per block placed | +20 |
+| Perfect spot | +100 |
 | 1 line cleared | 150 |
-| 2 lines cleared | 400 |
-| 3 lines cleared | 700 |
-| 4 lines cleared | 1000 |
-| Combo x2 (1 line) | 400 |
-| Combo x3 (1 line) | 750 |
-| Board clear bonus | 2000 |
+| 2 lines cleared | 300 |
+| 3 lines cleared | 450 |
+| 4 lines cleared | 600 |
+| 5+ lines | N × 150 |
+| Combo x2–x10 | +250 |
+| Combo x11–x20 | +500 |
+| Combo x21–x30 | +750 |
+| Board clear | 2500 |
 
 ### SFX (Synthesized Sounds)
 - `playDragStart()` - High-frequency tick on drag start
@@ -224,7 +226,7 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 
 ## Theme System
 
-### Gameplay Themes (18)
+### Gameplay Themes (22)
 - Defined in `themes.js` with color palettes
 - Theme shifts every 15 block placements (instant, 350ms smooth color interpolation, no overlay)
 - Theme shift triggers heavy haptic feedback
@@ -353,7 +355,7 @@ All modes with a pre-filled board (Classic, Classic XL, Blast) use a spring-reve
 - "Next Level" on victory starts next level directly; "Levels" button returns to Level Select
 - `checkModeVictory()` checks all active objectives; progress bar shows aggregate completion
 - Tray difficulty scales with level number (uses same tier system as adventure mode)
-- Scoring bonus: 100 points per gold block covered by a placed shape
+- Solver evaluation: 100 points per gold block covered by a placed shape (helps spawner select optimal shapes)
 
 ## Firebase Integration (Complete)
 
@@ -384,6 +386,84 @@ Uses `window.Capacitor.Plugins.FirebaseAuthentication` and `window.Capacitor.Plu
 - iOS iCloud backup is automatic (data stored in Documents directory by default)
 - Until Firebase integration is complete, Auto Backup is the only data persistence mechanism across reinstalls
 
-## Pending TODOs
-- Replace placeholder App Store ID with real ID when published
-- **Theme Textures:** Add subtle tileable pattern textures (marble, carbon fiber, linen, etc.) to the Tetris blocks/tiles during theme transitions. User will download textures to `assets/images/textures/` — wire them into `themes.js` and canvas rendering with fade-in transitions
+## Theme Textures
+
+### Texture Assets (`assets/images/textures/`)
+Tileable 128x128 PNG textures from Screaming Brain Studios (CC0/Public Domain license).
+Organized in 8 category subfolders, 20 textures each (160 total):
+
+| Category | Examples | Best Theme Match |
+|----------|----------|------------------|
+| `Brick/` | `Brick_01-128x128.png` through `Brick_20-128x128.png` | New "Brick Wall" theme |
+| `Dirt/` | `Dirt_01-128x128.png` through `Dirt_20-128x128.png` | Earth/nature themes |
+| `Elements/` | `Elements_01-128x128.png` through `Elements_20-128x128.png` | Lava theme (fiery magma) |
+| `Metal/` | `Metal_01-128x128.png` through `Metal_20-128x128.png` | Neon Cyberpunk / Industrial |
+| `Plaster/` | `Plaster_01-128x128.png` through `Plaster_20-128x128.png` | Pastel / Minimalist themes |
+| `Stone/` | `Stone_01-128x128.png` through `Stone_20-128x128.png` | Marble / Earth themes |
+| `Tile/` | `Tile_01-128x128.png` through `Tile_20-128x128.png` | Geometric themes |
+| `Wood/` | `Wood_01-128x128.png` through `Wood_20-128x128.png` | Woodland Classic |
+- Each themed block gets a `CanvasPattern` created from its assigned PNG. To prevent cross-context rendering bottlenecks on mobile WebViews, patterns are lazily created and cached directly on their active drawing context (`ctx._patterns`).
+- Applied at low opacity (0.08–0.15) after base fill in `drawThemeBlock()`.
+- During theme transitions, texture opacity crossfades over 350ms.
+- Textures loaded once at startup using standard, highly-compatible `onload` / `onerror` callbacks, populating a `Map<string, Image>` cache.
+- Color transformations (`lightenColor`, `darkenColor`, `hexToRgbA`) cache pre-computed shades locally (`colorCache`, `rgbaCache`) to completely eliminate regex parsing overhead on every frame.
+- Static empty cells are drawn directly at `(cx + 1.5, cy + 1.5)` without context translation/scaling steps when the spring prefill animation is inactive, saving up to 100 canvas saves/restores per frame.
+- Canvas clearing and gameplay rendering (including board, slots, and drag overlays) are completely bypassed when the main menu is active (`body.menu-active`), bringing menu CPU overhead down to near 0%.
+- Native canvas `shadowBlur` and `shadowColor` properties are completely avoided for regular draw loops (including dragging overlays, snap indicators, neon block styling, bomb timers, and floating texts). Instead, hardware-accelerated **flat offset shadows** and **dual-stroke glowing borders** are used to prevent CPU thread contention and maintain a stable 60 FPS.
+
+### Texture Suitability
+**USEFUL:** Brick (12/20), Metal (12/20), Stone (9/20), Wood (16/20), Elements (10/20), Tile (15/20) — 74 textures
+**EXCLUDED:** Dirt (0/20 — muddy), Plaster (6/20 — bland) — unsuitable for premium puzzle game
+**Note:** Many textures are near-duplicate pairs (e.g., Stone has 10 unique, not 20)
+
+## Completed Features & Pending TODOs
+
+### Completed Features
+
+All visual feedback enhancements, material-specific clear effects, theme-specific animations, and 4 textured themes have been fully implemented:
+
+1. **Theme Clear Styling Mappings (`js/themes.js`)**
+   - Mapped custom `lineClearStyle` and `boardClearStyle` for all 18 themes.
+   
+2. **Material-Specific Particle Physics (`js/particles.js`)**
+   - Configured and implemented custom drawing loops for 7 new particle styles: `brick_chunk`, `fabric_strip`, `thread_seg`, `crack_line`, `dust_cloud`, `molten_drop`, and `splinter`.
+
+3. **Theme-Specific Line Clear Animations (`js/particles.js` & `js/game.js`)**
+   - Added `spawnLineClearEffect(rows, cols, boardLayout, theme)` to map style names to custom particle configurations and trigger the effect, avoiding double-spawning.
+
+4. **Themed Board Clear Animations (`js/game.js`)**
+   - Solved empty-board clear rendering by snapshotted cell-rendering (`boardClearGridSnapshot`).
+   - Extended wave diagonal sweep to `1200ms` (~1.5s total settle time).
+   - Added visual board overlay effects (blizzard, eruption magma glow, and glitch translated shake offsets) and scaled Stage 2 particle explosions based on active theme styles.
+
+5. **4 New Textured Themes (`js/themes.js`, `js/game.js`, `style.css`)**
+   - Added `brickWall`, `industrialMetal`, `slate`, and `volcanic` configurations to `THEMES` and asset `TEXTURE_MAP`.
+   - Wired skin cycling support in `themeKeys` list.
+   - Declared body variables in `style.css` matching accent and UI colors.
+
+6. **Block Camouflage Implementation (`js/themes.js` & `js/game.js`)**
+   - Changed approach for `industrialMetal` and `slate` themes: instead of brightening hex colors, use actual texture images as primary block fill at 90% opacity
+   - Implemented `textured` blockStyle in themes.js with `ctx.clip()` for precise texture rendering
+   - Provides authentic material appearance rather than color overlays
+
+7. **Theme Picker Grid (`js/game.js`, `style.css`, `index.html`)**
+   - Added bottom-sheet modal accessible from Settings → Menu Theme button
+   - Displays all 22 themes in a grid with visual previews
+   - Includes ✓ badge for current theme and auto-close on selection
+   - Features smooth animations and responsive touch handling
+
+8. **Skin Picker Modal Enhancements**
+   - Added skin picker modal to `index.html` with premium glass-morphism UI
+   - Implemented picker styles in `style.css` for consistent visual design
+   - Added `openSkinPicker()` and `closeSkinPicker()` functions in `game.js`
+   - Implemented `buildSkinPickerGrid()` function to dynamically generate theme options
+   - Auto-scrolls to current theme when opened
+   - Persists theme selection via LocalStorage
+
+---
+
+### Pending TODOs
+
+#### TODO: Replace placeholder App Store ID (NOT STARTED — blocked until published)
+* **Files:** `android/app/build.gradle` or `capacitor.config.json`
+* **Action:** When the app is published, replace placeholder ID with the real App Store ID.

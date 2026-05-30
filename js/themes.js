@@ -3,6 +3,10 @@
  * Contains HSL colors mapping, layout themes, and graphics directives for the Canvas renderer.
  */
 
+// Texture pattern registry — populated by game.js at startup
+// Maps theme.id → { pattern: CanvasPattern, alpha: number }
+export const texturePatterns = new Map();
+
 export const THEMES = {
     classic: {
         id: 'classic',
@@ -36,7 +40,9 @@ export const THEMES = {
             14: '#ff3300'  // Bomb (Red warning cushion)
         },
         blockStyle: 'cushion',
-        particleStyle: 'star'
+        particleStyle: 'star',
+        lineClearStyle: 'puff',
+        boardClearStyle: 'fade_sweep'
     },
     neon: {
         id: 'neon',
@@ -71,11 +77,14 @@ export const THEMES = {
             14: '#ff3300'  // Bomb (Neon Red-Orange)
         },
         blockStyle: 'neon',
-        particleStyle: 'glitch'
+        particleStyle: 'glitch',
+        lineClearStyle: 'glitch_zap',
+        boardClearStyle: 'glitch_surge'
     },
     wood: {
         id: 'wood',
         name: 'Woodland Classic',
+        texture: 'Wood/Wood_01-128x128',
         colors: {
             bg: '#1b0e07',
             gridBg: '#2a160b',
@@ -106,7 +115,9 @@ export const THEMES = {
             14: '#9b1c1c'  // Bomb (Charcoal Ember Wood)
         },
         blockStyle: 'wood',
-        particleStyle: 'leaves'
+        particleStyle: 'leaves',
+        lineClearStyle: 'splinter',
+        boardClearStyle: 'timber'
     },
     gems: {
         id: 'gems',
@@ -141,7 +152,9 @@ export const THEMES = {
             14: '#e60026'  // Bomb (Fissured Obsidian Core)
         },
         blockStyle: 'gemstone',
-        particleStyle: 'shard'
+        particleStyle: 'shard',
+        lineClearStyle: 'shatter',
+        boardClearStyle: 'crystal_collapse'
     },
     pastel: {
         id: 'pastel',
@@ -176,7 +189,9 @@ export const THEMES = {
             14: '#f87171'  // Bomb (Pastel Rose-Red)
         },
         blockStyle: 'pastel',
-        particleStyle: 'bubbles'
+        particleStyle: 'bubbles',
+        lineClearStyle: 'pop',
+        boardClearStyle: 'fade_sweep'
     },
     indigo: {
         id: 'indigo',
@@ -211,7 +226,9 @@ export const THEMES = {
             14: '#ff3300'   // Bomb Red
         },
         blockStyle: 'cushion',
-        particleStyle: 'star'
+        particleStyle: 'star',
+        lineClearStyle: 'starpulse',
+        boardClearStyle: 'starwave'
     },
     blush: {
         id: 'blush',
@@ -237,7 +254,9 @@ export const THEMES = {
             13: '#ffd700',             14: '#ff3300'
         },
         blockStyle: 'cushion',
-        particleStyle: 'petal'
+        particleStyle: 'petal',
+        lineClearStyle: 'petalfall',
+        boardClearStyle: 'rosestorm'
     },
     snow: {
         id: 'snow',
@@ -272,7 +291,9 @@ export const THEMES = {
             14: '#cc2222'   // Red Candy Bomb
         },
         blockStyle: 'cushion',
-        particleStyle: 'snowflake'
+        particleStyle: 'snowflake',
+        lineClearStyle: 'flakefall',
+        boardClearStyle: 'blizzard'
     },
     ocean: {
         id: 'ocean',
@@ -307,7 +328,9 @@ export const THEMES = {
             14: '#ff3300'
         },
         blockStyle: 'cushion',
-        particleStyle: 'bubbles'
+        particleStyle: 'bubbles',
+        lineClearStyle: 'bubblerise',
+        boardClearStyle: 'tidal_surge'
     },
     aurora: {
         id: 'aurora',
@@ -342,7 +365,9 @@ export const THEMES = {
             14: '#ff1744'
         },
         blockStyle: 'neon',
-        particleStyle: 'ribbon'
+        particleStyle: 'ribbon',
+        lineClearStyle: 'ribbonflow',
+        boardClearStyle: 'aurora_sweep'
     },
     watermelon: {
         id: 'watermelon',
@@ -366,7 +391,9 @@ export const THEMES = {
             13: '#ffd700', 14: '#ff1744'
         },
         blockStyle: 'cushion',
-        particleStyle: 'seed'
+        particleStyle: 'seed',
+        lineClearStyle: 'seedburst',
+        boardClearStyle: 'seedsplash'
     },
     cheese: {
         id: 'cheese',
@@ -390,7 +417,9 @@ export const THEMES = {
             13: '#ffd700', 14: '#ff5722'
         },
         blockStyle: 'cushion',
-        particleStyle: 'crumb'
+        particleStyle: 'crumb',
+        lineClearStyle: 'crumble',
+        boardClearStyle: 'cheese_collapse'
     },
     crochet: {
         id: 'crochet',
@@ -414,7 +443,9 @@ export const THEMES = {
             13: '#ffd700', 14: '#ef5350'
         },
         blockStyle: 'pastel',
-        particleStyle: 'yarn'
+        particleStyle: 'yarn',
+        lineClearStyle: 'unravel',
+        boardClearStyle: 'unravel_full'
     },
     tropical: {
         id: 'tropical',
@@ -438,11 +469,14 @@ export const THEMES = {
             13: '#ffd700', 14: '#d32f2f'
         },
         blockStyle: 'cushion',
-        particleStyle: 'petal'
+        particleStyle: 'petal',
+        lineClearStyle: 'petalfall',
+        boardClearStyle: 'bloom_burst'
     },
     marble: {
         id: 'marble',
         name: 'Marble',
+        texture: 'Stone/Stone_01-128x128',
         colors: {
             bg: '#263238',
             gridBg: '#1a2327',
@@ -462,11 +496,14 @@ export const THEMES = {
             13: '#ffd700', 14: '#ef5350'
         },
         blockStyle: 'gemstone',
-        particleStyle: 'shard'
+        particleStyle: 'shard',
+        lineClearStyle: 'dustcrack',
+        boardClearStyle: 'stone_collapse'
     },
     lava: {
         id: 'lava',
         name: 'Lava',
+        texture: 'Elements/Elements_01-128x128',
         colors: {
             bg: '#1a0a00',
             gridBg: '#120700',
@@ -486,7 +523,9 @@ export const THEMES = {
             13: '#ffd700', 14: '#ffff00'
         },
         blockStyle: 'neon',
-        particleStyle: 'ember'
+        particleStyle: 'ember',
+        lineClearStyle: 'ember_rise',
+        boardClearStyle: 'eruption'
     },
     sakura: {
         id: 'sakura',
@@ -510,7 +549,9 @@ export const THEMES = {
             13: '#ffd700', 14: '#ff1744'
         },
         blockStyle: 'cushion',
-        particleStyle: 'petal'
+        particleStyle: 'petal',
+        lineClearStyle: 'petalfall',
+        boardClearStyle: 'petal_storm'
     },
     candy: {
         id: 'candy',
@@ -534,7 +575,85 @@ export const THEMES = {
             13: '#ffd700', 14: '#ff1744'
         },
         blockStyle: 'pastel',
-        particleStyle: 'sprinkle'
+        particleStyle: 'sprinkle',
+        lineClearStyle: 'sprinkle_burst',
+        boardClearStyle: 'candy_rain'
+    },
+    brickWall: {
+        id: 'brickWall',
+        name: 'Brick Wall',
+        texture: 'Brick/Brick_15-128x128',
+        colors: {
+            bg: '#2a1510', gridBg: '#1a0d08', gridLines: '#3a2018',
+            cellEmpty: 'rgba(58, 32, 24, 0.4)',
+            textPrimary: '#f5e6d3', textSecondary: '#c4956a',
+            hudBg: 'rgba(26, 13, 8, 0.8)', boardBorder: '#4a2818',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(196, 149, 106, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#8b4513', 2: '#a0522d', 3: '#cd853f', 4: '#6b3410',
+            5: '#b8652a', 6: '#d2a679', 7: '#9c5c2e', 8: '#7a3b12',
+            9: '#8b4513', 10: '#a0522d', 11: '#d2a679', 12: '#6b3410',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'crumb',
+        lineClearStyle: 'crumble', boardClearStyle: 'timber'
+    },
+    industrialMetal: {
+        id: 'industrialMetal',
+        name: 'Industrial Metal',
+        texture: 'Metal/Metal_05-128x128',
+        colors: {
+            bg: '#0a0a0f', gridBg: '#12121a', gridLines: '#1e1e2a',
+            cellEmpty: 'rgba(30, 30, 42, 0.4)',
+            textPrimary: '#c8d0e0', textSecondary: '#7888a8',
+            hudBg: 'rgba(18, 18, 26, 0.85)', boardBorder: '#2a2a3a',
+            shadow: 'rgba(0, 0, 0, 0.6)', glow: 'rgba(120, 136, 168, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#4a5568', 2: '#718096', 3: '#2d3748', 4: '#a0aec0',
+            5: '#3182ce', 6: '#63b3ed', 7: '#2c5282', 8: '#90cdf4',
+            9: '#4a5568', 10: '#718096', 11: '#63b3ed', 12: '#2d3748',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'glitch',
+        lineClearStyle: 'glitch_zap', boardClearStyle: 'glitch_surge'
+    },
+    slate: {
+        id: 'slate',
+        name: 'Slate',
+        texture: 'Stone/Stone_11-128x128',
+        colors: {
+            bg: '#1a1e24', gridBg: '#12151a', gridLines: '#222830',
+            cellEmpty: 'rgba(34, 40, 48, 0.4)',
+            textPrimary: '#d1d5db', textSecondary: '#9ca3af',
+            hudBg: 'rgba(18, 21, 26, 0.82)', boardBorder: '#2a3038',
+            shadow: 'rgba(0, 0, 0, 0.55)', glow: 'rgba(156, 163, 175, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#64748b', 2: '#94a3b8', 3: '#475569', 4: '#334155',
+            5: '#7dd3fc', 6: '#38bdf8', 7: '#0284c7', 8: '#bae6fd',
+            9: '#64748b', 10: '#94a3b8', 11: '#38bdf8', 12: '#475569',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'shatter', boardClearStyle: 'crystal_collapse'
+    },
+    volcanic: {
+        id: 'volcanic',
+        name: 'Volcanic',
+        texture: 'Elements/Elements_05-128x128',
+        colors: {
+            bg: '#0a0200', gridBg: '#120400', gridLines: '#1e0800',
+            cellEmpty: 'rgba(30, 8, 0, 0.4)',
+            textPrimary: '#ffccbc', textSecondary: '#ff8a65',
+            hudBg: 'rgba(18, 4, 0, 0.88)', boardBorder: '#2a0c00',
+            shadow: 'rgba(255, 87, 34, 0.3)', glow: 'rgba(255, 138, 101, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 255, 0, 0.85)',
+            1: '#ff5722', 2: '#ff9800', 3: '#f44336', 4: '#ffc107',
+            5: '#e64a19', 6: '#ef6c00', 7: '#d32f2f', 8: '#ff8f00',
+            9: '#ff5722', 10: '#ff9800', 11: '#f44336', 12: '#ffc107',
+            13: '#ffd700', 14: '#ffff00'
+        },
+        blockStyle: 'textured', particleStyle: 'ember',
+        lineClearStyle: 'ember_rise', boardClearStyle: 'eruption'
     }
 };
 
@@ -626,27 +745,42 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
         ctx.fillStyle = hexToRgbA(color, 0.22);
         ctx.fill();
         
+        // Draw the outer neon glow by stroking wider, semi-transparent paths (hardware-accelerated, zero CPU blur overhead)
+        ctx.strokeStyle = hexToRgbA(color, 0.35);
+        ctx.lineWidth = 6;
+        ctx.stroke();
+
+        ctx.strokeStyle = hexToRgbA(color, 0.15);
+        ctx.lineWidth = 10;
+        ctx.stroke();
+
+        // Sharp inner neon core
         ctx.strokeStyle = color;
         ctx.lineWidth = 2.5;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 8;
         ctx.stroke();
 
         // Inner highlight dot/ring
         if (colorId === 13) {
             // Gold Target: draw inner circle
-            ctx.shadowBlur = 4;
+            ctx.strokeStyle = hexToRgbA(color, 0.3);
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(x + w/2, y + h/2, w * 0.22, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(x + w/2, y + h/2, w * 0.22, 0, Math.PI * 2);
             ctx.stroke();
         } else if (colorId === 14) {
             // Bomb: inner pulse core
-            ctx.shadowColor = theme.colors.bombGlow;
             ctx.beginPath();
             ctx.arc(x + w/2, y + h/2, w * 0.25, 0, Math.PI * 2);
             ctx.fillStyle = '#ffcc00';
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
             ctx.stroke();
         }
 
@@ -808,15 +942,117 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
             ctx.lineWidth = 2;
             ctx.stroke();
         }
+
+    } else if (style === 'textured') {
+        // Textured Block — texture image IS the primary fill (applied below at high alpha).
+        // Here we just establish the block shape + a subtle per-colorId tint so blocks
+        // of the same texture still have visual variety, plus a border for definition.
+        const radius = Math.min(w, h) * 0.12;
+        roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
+
+        // Colored undertone tint (30% opacity) — differentiates block colors within the theme
+        ctx.fillStyle = hexToRgbA(color, 0.30);
+        ctx.fill();
+
+        // Dark border for cell separation
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Inner highlight bevel (top-left edge glow for 3D depth)
+        ctx.strokeStyle = hexToRgbA(lightenColor(color, 22), 0.6);
+        ctx.lineWidth = 1;
+        roundRect(x + 3.5, y + 3.5, w - 7, h - 7, radius - 1);
+        ctx.stroke();
+
+        // Target / Bomb markers
+        if (colorId === 13) {
+            ctx.strokeStyle = '#ffe57f';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(x + w/2, y + h/2, w * 0.2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255,215,0,0.3)';
+            ctx.fill();
+        } else if (colorId === 14) {
+            ctx.fillStyle = '#ff3300';
+            ctx.beginPath();
+            ctx.arc(x + w/2, y + h/2, w * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffcc00';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+    }
+
+    // Texture overlay — apply tileable pattern at low opacity if registered for this theme
+    const texEntry = texturePatterns.get(theme.id);
+    if (texEntry && texEntry.image) {
+        // Cache the pattern on the context object to avoid cross-context issues and recreating it every frame
+        if (!ctx._patterns) {
+            ctx._patterns = new Map();
+        }
+        let pattern = ctx._patterns.get(theme.id);
+        if (!pattern) {
+            try {
+                pattern = ctx.createPattern(texEntry.image, 'repeat');
+                ctx._patterns.set(theme.id, pattern);
+            } catch (e) {
+                console.warn(`[Brickly] Failed to create pattern on context:`, e);
+            }
+        }
+
+        if (pattern) {
+            ctx.save();
+            ctx.globalAlpha = texEntry.alpha;
+            ctx.fillStyle = pattern;
+            // Clip texture to the block shape
+            if (style === 'cushion') {
+                const radius = Math.min(w, h) * 0.14;
+                roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
+            } else if (style === 'neon') {
+                const radius = Math.min(w, h) * 0.15;
+                roundRect(x + 2, y + 2, w - 4, h - 4, radius);
+            } else if (style === 'wood') {
+                const radius = Math.min(w, h) * 0.12;
+                roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
+            } else if (style === 'gemstone') {
+                const radius = Math.min(w, h) * 0.08;
+                roundRect(x + 2, y + 2, w - 4, h - 4, radius);
+            } else if (style === 'pastel') {
+                const radius = Math.min(w, h) * 0.22;
+                roundRect(x + 2.5, y + 2.5, w - 5, h - 5, radius);
+            } else if (style === 'textured') {
+                // For textured blocks, texture IS the fill — use full block area
+                const radius = Math.min(w, h) * 0.12;
+                roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
+            }
+            ctx.clip();
+            ctx.fillRect(x, y, w, h);
+            ctx.restore();
+        }
     }
 
     ctx.restore();
 }
 
+const colorCache = new Map();
+const rgbaCache = new Map();
+
 /**
- * Converts Hex string to RGBA with alpha.
+ * Converts Hex string to RGBA with alpha (cached version).
  */
 function hexToRgbA(hex, alpha = 1) {
+    const key = `${hex}_${alpha}`;
+    let cached = rgbaCache.get(key);
+    if (!cached) {
+        cached = hexToRgbAUncached(hex, alpha);
+        rgbaCache.set(key, cached);
+    }
+    return cached;
+}
+
+function hexToRgbAUncached(hex, alpha = 1) {
     if (!hex) return 'rgba(255, 255, 255, 1)';
     hex = hex.trim();
     if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
@@ -836,9 +1072,19 @@ function hexToRgbA(hex, alpha = 1) {
 }
 
 /**
- * Returns a lighter shade of a color (supports HEX and RGB/RGBA).
+ * Returns a lighter shade of a color (supports HEX and RGB/RGBA) (cached version).
  */
 function lightenColor(colorStr, percent) {
+    const key = `${colorStr}_${percent}`;
+    let cached = colorCache.get(key);
+    if (!cached) {
+        cached = lightenColorUncached(colorStr, percent);
+        colorCache.set(key, cached);
+    }
+    return cached;
+}
+
+function lightenColorUncached(colorStr, percent) {
     if (!colorStr) return '#ffffff';
     colorStr = colorStr.trim();
     

@@ -36,9 +36,9 @@ function generateHandCraftedLevels() {
         {
             levelNumber: 3,
             name: "Combo Training",
-            description: "Score 400 points in 24 moves.",
+            description: "Score 200 points in 24 moves.",
             movesLimit: 24,
-            scoreTarget: 400,
+            scoreTarget: 200,
             linesTarget: 0,
             preFilledTarget: 0,
             grid: emptyGrid()
@@ -76,9 +76,9 @@ function generateHandCraftedLevels() {
         {
             levelNumber: 7,
             name: "Score Attack",
-            description: "Score 1000 points in 34 moves.",
+            description: "Score 500 points in 34 moves.",
             movesLimit: 34,
-            scoreTarget: 1000,
+            scoreTarget: 500,
             linesTarget: 0,
             preFilledTarget: 0,
             grid: emptyGrid()
@@ -115,9 +115,9 @@ function generateHandCraftedLevels() {
         {
             levelNumber: 10,
             name: "Obsidian Core",
-            description: "Score 1500 points and clear 12 gold blocks in 40 moves.",
+            description: "Score 750 points and clear 12 gold blocks in 40 moves.",
             movesLimit: 40,
-            scoreTarget: 1500,
+            scoreTarget: 750,
             linesTarget: 0,
             preFilledTarget: 12,
             grid: [[0,0,0,0,0,0,0,0],[0,13,13,0,0,13,13,0],[0,13,13,0,0,13,13,0],[0,0,0,13,13,0,0,0],[0,0,0,13,13,0,0,0],[0,13,13,0,0,13,13,0],[0,13,13,0,0,13,13,0],[0,0,0,0,0,0,0,0]]
@@ -244,8 +244,9 @@ function generateLevels() {
             desc = `Clear ${lines} lines in ${moves} moves.`;
         } else if (cycle === 1) {
             const pts = 150 + Math.floor(i * 9);
-            scoreTarget = pts;
-            desc = `Reach ${pts} points in ${moves} moves.`;
+            const scaledPts = Math.round(pts / 2);
+            scoreTarget = scaledPts;
+            desc = `Reach ${scaledPts} points in ${moves} moves.`;
         } else if (cycle === 2) {
             const gold = Math.min(2 + Math.floor(i * 0.08), 28);
             preFilledTarget = gold;
@@ -275,9 +276,10 @@ function generateLevels() {
         } else if (cycle === 6) {
             const lines = Math.min(3 + Math.floor(i * 0.04), 12);
             const pts = 100 + Math.floor(i * 7);
+            const scaledPts = Math.round(pts / 2);
             linesTarget = lines;
-            scoreTarget = pts;
-            desc = `Clear ${lines} lines & score ${pts} pts in ${moves} moves.`;
+            scoreTarget = scaledPts;
+            desc = `Clear ${lines} lines & score ${scaledPts} pts in ${moves} moves.`;
         } else if (cycle === 7) {
             const gold = Math.min(2 + Math.floor(i * 0.06), 20);
             const combo = Math.min(2 + Math.floor(i * 0.03), 10);

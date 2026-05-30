@@ -6,6 +6,31 @@
     <title>Brickly - Block Puzzle Game</title>
     <meta name="description" content="Brickly — The ultimate premium block puzzle game. Fill the grid, clear the lines, beat your score.">
     <!-- Google Fonts for premium game UI styling -->
+    <!-- Anti-flicker & anti-scroll: lock viewport before ANY external asset loads -->
+    <style>
+        html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+            background: #0f1117;
+            scrollbar-width: none;          /* Firefox */
+            -ms-overflow-style: none;       /* IE/Edge */
+        }
+        html::-webkit-scrollbar { display: none; }   /* Chrome/Safari/WebView */
+        body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+            background: #0f1117;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            position: fixed;                /* Prevents iOS/Android scroll bounce */
+            top: 0; left: 0; right: 0; bottom: 0;
+        }
+        body::-webkit-scrollbar { display: none; }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Outfit:wght@400;500;600;800&family=Inter:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
@@ -382,6 +407,21 @@
                     <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 0 1 2 2v2h-2V4H5v16h9v-2h2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9z"/></svg>
                     Sign Out
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SKIN PICKER OVERLAY -->
+    <div id="skin-picker-overlay" class="modal-overlay hidden" style="z-index: 1800; align-items: flex-end;">
+        <div class="skin-picker-modal">
+            <div class="skin-picker-header">
+                <h2 class="skin-picker-title">Choose Skin</h2>
+                <button id="skin-picker-close" class="skin-picker-close-btn" aria-label="Close skin picker">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg>
+                </button>
+            </div>
+            <div class="skin-picker-grid" id="skin-picker-grid">
+                <!-- Populated dynamically by buildSkinPickerGrid() in game.js -->
             </div>
         </div>
     </div>

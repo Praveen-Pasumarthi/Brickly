@@ -70,7 +70,14 @@ export class ParticleSystem {
             shard:     { count: 11, gravity: 0.10, speed: 3.8, decay: 0.017, rotSpeed: 0.22, sizeMin: 3, sizeMax: 7 },
             ribbon:    { count: 9,  gravity: -0.01,speed: 2.0, decay: 0.011, rotSpeed: 0.10, sizeMin: 5, sizeMax: 10 },
             seed:      { count: 10, gravity: 0.14, speed: 2.8, decay: 0.016, rotSpeed: 0.12, sizeMin: 2, sizeMax: 4 },
-            crumb:     { count: 10, gravity: 0.10, speed: 2.5, decay: 0.015, rotSpeed: 0.14, sizeMin: 2, sizeMax: 5 }
+            crumb:     { count: 10, gravity: 0.10, speed: 2.5, decay: 0.015, rotSpeed: 0.14, sizeMin: 2, sizeMax: 5 },
+            brick_chunk:  { count: 8,  gravity: 0.20, speed: 4.0, decay: 0.022, rotSpeed: 0.30, sizeMin: 3, sizeMax: 6 },
+            fabric_strip: { count: 6,  gravity: 0.01, speed: 2.0, decay: 0.012, rotSpeed: 0.08, sizeMin: 5, sizeMax: 12 },
+            thread_seg:   { count: 10, gravity: -0.01,speed: 1.8, decay: 0.011, rotSpeed: 0.15, sizeMin: 4, sizeMax: 8 },
+            crack_line:   { count: 5,  gravity: 0,    speed: 0.5, decay: 0.015, rotSpeed: 0.05, sizeMin: 6, sizeMax: 14 },
+            dust_cloud:   { count: 12, gravity: -0.03,speed: 1.2, decay: 0.010, rotSpeed: 0.03, sizeMin: 5, sizeMax: 10 },
+            molten_drop:  { count: 10, gravity: 0.18, speed: 3.0, decay: 0.018, rotSpeed: 0.12, sizeMin: 2, sizeMax: 5 },
+            splinter:     { count: 8,  gravity: 0.15, speed: 3.5, decay: 0.020, rotSpeed: 0.25, sizeMin: 3, sizeMax: 7 }
         };
 
         const cfg = configs[type] || configs.sparkles;
@@ -136,6 +143,63 @@ export class ParticleSystem {
                 // Avoid double spawning at row/column intersections
                 if (!rows.includes(r)) {
                     this.spawnTileClearParticles(cx, cy, cellSize, theme);
+                }
+            }
+        });
+    }
+
+    /**
+     * Spawns theme-specific line clear particles.
+     */
+    spawnLineClearEffect(rows, cols, boardLayout, theme) {
+        const style = theme.lineClearStyle;
+        const { x: boardX, y: boardY, cellSize, cols: layoutCols = 8, rows: layoutRows = 8 } = boardLayout;
+
+        // Screen shake intensity increases with line clears
+        const linesCount = rows.length + cols.length;
+        if (linesCount > 1) {
+            this.triggerShake(12 + linesCount * 4, 3 + linesCount * 2.5);
+        }
+
+        // Create a temporary theme override for particle spawning
+        const effectTheme = { ...theme };
+
+        // Override particleStyle based on lineClearStyle
+        const styleToParticle = {
+            'puff': 'bubbles',
+            'glitch_zap': 'glitch',
+            'splinter': 'splinter',
+            'shatter': 'shard',
+            'pop': 'bubbles',
+            'starpulse': 'star',
+            'petalfall': 'petal',
+            'flakefall': 'snowflake',
+            'bubblerise': 'bubbles',
+            'ribbonflow': 'ribbon',
+            'seedburst': 'seed',
+            'crumble': 'crumb',
+            'unravel': 'yarn',
+            'dustcrack': 'crack_line',
+            'ember_rise': 'ember',
+            'sprinkle_burst': 'sprinkle'
+        };
+
+        effectTheme.particleStyle = styleToParticle[style] || theme.particleStyle;
+
+        // Spawn particles along cleared rows/cols using the override style
+        rows.forEach(r => {
+            const cy = boardY + r * cellSize;
+            for (let c = 0; c < layoutCols; c++) {
+                const cx = boardX + c * cellSize;
+                this.spawnTileClearParticles(cx, cy, cellSize, effectTheme);
+            }
+        });
+        cols.forEach(c => {
+            const cx = boardX + c * cellSize;
+            for (let r = 0; r < layoutRows; r++) {
+                const cy = boardY + r * cellSize;
+                if (!rows.includes(r)) {
+                    this.spawnTileClearParticles(cx, cy, cellSize, effectTheme);
                 }
             }
         });
@@ -454,6 +518,80 @@ export class ParticleSystem {
                 ctx.moveTo(0, -p.size);
                 ctx.lineTo(p.size * 0.8, p.size * 0.4);
                 ctx.stroke();
+            } else if (p.type === 'brick_chunk') {
+                // Small rectangular brick fragment
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+            } else if (p.type === 'fabric_strip') {
+                // Long thin wavy fabric strip
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-p.size, 0);
+                ctx.bezierCurveTo(-p.size * 0.3, -p.size * 0.4, p.size * 0.3, p.size * 0.4, p.size, 0);
+                ctx.stroke();
+            } else if (p.type === 'thread_seg') {
+                // Thin curling thread segment
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 1.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 1.5);
+                ctx.stroke();
+                // Trailing loose end
+                const endA = Math.PI * 1.5;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(endA) * p.size * 0.5, Math.sin(endA) * p.size * 0.5);
+                ctx.lineTo(p.size * 0.2, p.size * 0.6);
+                ctx.stroke();
+            } else if (p.type === 'crack_line') {
+                // Jagged lightning/crack path
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = 1.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-p.size, 0);
+                for (let i = 0; i < 4; i++) {
+                    const px = -p.size + (p.size * 2 * (i + 1) / 4);
+                    const py = (Math.random() - 0.5) * p.size * 0.6;
+                    ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+            } else if (p.type === 'dust_cloud') {
+                ctx.globalAlpha = p.alpha * 0.4;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = p.alpha;
+            } else if (p.type === 'molten_drop') {
+                // Teardrop molten lava shape
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.moveTo(0, -p.size * 0.8);
+                ctx.bezierCurveTo(p.size * 0.4, -p.size * 0.2, p.size * 0.3, p.size * 0.4, 0, p.size * 0.8);
+                ctx.bezierCurveTo(-p.size * 0.3, p.size * 0.4, -p.size * 0.4, -p.size * 0.2, 0, -p.size * 0.8);
+                ctx.closePath();
+                ctx.fill();
+                // Hot core
+                ctx.fillStyle = 'rgba(255, 255, 100, 0.5)';
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.type === 'splinter') {
+                // Elongated wood splinter trapezoid
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.moveTo(-p.size * 0.3, -p.size);
+                ctx.lineTo(p.size * 0.3, -p.size);
+                ctx.lineTo(p.size * 0.15, p.size);
+                ctx.lineTo(-p.size * 0.15, p.size);
+                ctx.closePath();
+                ctx.fill();
             }
 
             ctx.restore();
@@ -483,14 +621,12 @@ export class ParticleSystem {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
 
-                // Shadow
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-                ctx.shadowBlur = 10;
-                ctx.shadowOffsetY = 4;
-
-                // White stroke outline
-                ctx.strokeStyle = '#ffffff';
+                // White stroke outline with flat black shadow drawn manually underneath (fast)
                 ctx.lineWidth = 8;
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.strokeText(t.text, t.x + 2, t.y + 3);
+
+                ctx.strokeStyle = '#ffffff';
                 ctx.strokeText(t.text, t.x, t.y);
 
                 // Orange-red to gold linear gradient fill
@@ -501,15 +637,16 @@ export class ParticleSystem {
                 ctx.fillText(t.text, t.x, t.y);
             } else {
                 // Normal score/combo text popups
-                ctx.fillStyle = t.color;
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-                ctx.shadowBlur = 6;
-                
                 const size = Math.round(16 * t.scale);
                 ctx.font = `bold ${size}px 'Outfit', 'Inter', system-ui, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
+                // Draw manual flat drop shadow offset
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillText(t.text, t.x + 1.5, t.y + 1.5);
+
+                ctx.fillStyle = t.color;
                 ctx.fillText(t.text, t.x, t.y);
             }
             ctx.restore();

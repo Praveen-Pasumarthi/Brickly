@@ -438,10 +438,10 @@ const STARTER_POOL_2 = [
 
 // Spawn weights for different score intervals (difficulty scaling)
 // Balanced so L-shapes don't dominate — squares, rectangles, and corners get fair weight.
-// Thresholds calibrated for the new scoring system (+5/block, 100-500/line, 1000 board clear)
+// Thresholds calibrated for the 50%-reduced scoring system (+2.5/block, 50-250/line, 500 board clear evaluation)
 export const SHAPE_TIERS = [
     {
-        maxScore: 2000,
+        maxScore: 1000,
         pool: [
             { key: 'SINGLE', weight: 14 },
             { key: 'H_LINE_2', weight: 14 },
@@ -497,7 +497,7 @@ export const SHAPE_TIERS = [
         ]
     },
     {
-        maxScore: 6000,
+        maxScore: 3000,
         pool: [
             { key: 'SINGLE', weight: 7 },
             { key: 'H_LINE_2', weight: 8 },
@@ -551,7 +551,7 @@ export const SHAPE_TIERS = [
         ]
     },
     {
-        maxScore: 15000,
+        maxScore: 7500,
         pool: [
             { key: 'SINGLE', weight: 4 },
             { key: 'H_LINE_2', weight: 6 },

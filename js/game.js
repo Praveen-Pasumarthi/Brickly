@@ -8,7 +8,7 @@ import { Board } from './engine.js';
 import { Spawner, SHAPES } from './spawner.js';
 import { StorageManager } from './storage.js';
 import { ModeManager, AdventureLevels } from './modes.js';
-import { THEMES, drawThemeBlock } from './themes.js';
+import { THEMES, drawThemeBlock, texturePatterns } from './themes.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
 import { Auth, DB } from './firebase.js';
@@ -53,12 +53,16 @@ const PREFILL_ANIM_ARC_HEIGHT = 180;  // px below board start position
 const PREFILL_ANIM_OVERSHOOT = 25;    // px above final position for bounce
 const PREFILL_ANIM_SETTLE_MS = 450;   // ms for each cell's spring settle
 
-// Board clear tide wave animation state
+// Board clear smooth wave animation state
 let boardClearAnimActive = false;
-let boardClearAnimTimer = 0;
-let boardClearAnimRow = 0;    // Current row being filled (bottom to top)
-let boardClearAnimStage = 0;  // 0 = inactive, 1 = wave filling, 2 = poof
-const BOARD_CLEAR_ANIM_SPEED = 45; // ms per row in tide wave
+let boardClearAnimStartTime = 0;   // performance.now() when animation began
+let boardClearAnimStage = 0;       // 0 = inactive, 1 = wave clearing, 2 = celebration burst
+let boardClearGridSnapshot = null;  // Snapshot of board grid prior to clear
+const BOARD_CLEAR_WAVE_DURATION = 1200;  // ms for the diagonal wave sweep
+const BOARD_CLEAR_CELL_DURATION = 400;  // ms per cell shrink+fade
+const BOARD_CLEAR_ROW_DELAY = 60;       // ms delay between rows (wave propagation)
+const BOARD_CLEAR_COL_DELAY = 25;       // ms delay between columns (diagonal spread)
+const BOARD_CLEAR_SETTLE_DELAY = 300;   // ms post-wave settle before ending
 
 let activeMode = 'classic'; // 'classic', 'missions', 'blast'
 let activeTheme = 'indigo'; // default skin: dark blue with gold+purple blocks
@@ -151,6 +155,35 @@ function updateMenuHighScore() {
     }
 }
 
+// --- Texture Loading System ---
+// Only textures that look visually appealing for a premium puzzle game are used.
+// Dirt/ and Plaster/ categories are excluded — too gritty/bland for colorful blocks.
+const TEXTURE_MAP = {
+    wood:           { file: 'Wood/Wood_01-128x128',         alpha: 0.10 },
+    marble:         { file: 'Stone/Stone_01-128x128',       alpha: 0.08 },
+    lava:           { file: 'Elements/Elements_01-128x128', alpha: 0.12 },
+    brickWall:      { file: 'Brick/Brick_15-128x128',       alpha: 0.90 }, // texture IS the block fill
+    industrialMetal:{ file: 'Metal/Metal_05-128x128',       alpha: 0.45 }, // strong metal overlay on neon
+    slate:          { file: 'Stone/Stone_11-128x128',       alpha: 0.90 }, // texture IS the block fill
+    volcanic:       { file: 'Elements/Elements_05-128x128', alpha: 0.12 },
+};
+
+function loadTextures() {
+    for (const [themeId, texDef] of Object.entries(TEXTURE_MAP)) {
+        const img = new Image();
+        img.onload = () => {
+            texturePatterns.set(themeId, {
+                image: img,
+                alpha: texDef.alpha || 0.12
+            });
+        };
+        img.onerror = (err) => {
+            console.warn(`[Brickly] Failed to load texture for ${themeId}:`, err);
+        };
+        img.src = `assets/images/textures/${texDef.file}.png`;
+    }
+}
+
 function initGame() {
     document.body.classList.add('menu-active');
 
@@ -165,6 +198,31 @@ function initGame() {
     ctx = gameCanvas.getContext('2d');
     dragCanvas = document.getElementById('drag-canvas');
     dragCtx = dragCanvas.getContext('2d');
+
+    // 2b. Load texture images (async, non-blocking)
+    loadTextures();
+
+    // One-time score migration: cut old high scores to 50% of their original values
+    if (localStorage.getItem('brickly_score_migrated_v3') !== 'true') {
+        const hasV2 = localStorage.getItem('brickly_score_migrated_v2') === 'true';
+        const classicHigh = localStorage.getItem('brickly_high_score');
+        if (classicHigh) {
+            const val = parseInt(classicHigh, 10);
+            if (val > 0) {
+                const newVal = hasV2 ? val * 5 : Math.round(val / 2);
+                localStorage.setItem('brickly_high_score', newVal.toString());
+            }
+        }
+        const classic10High = localStorage.getItem('brickly_high_score_10');
+        if (classic10High) {
+            const val = parseInt(classic10High, 10);
+            if (val > 0) {
+                const newVal = hasV2 ? val * 5 : Math.round(val / 2);
+                localStorage.setItem('brickly_high_score_10', newVal.toString());
+            }
+        }
+        localStorage.setItem('brickly_score_migrated_v3', 'true');
+    }
 
     // 3. Load Saved Settings and High Scores
     const settings = StorageManager.getSettings();
@@ -487,19 +545,19 @@ function attemptBlockPlacement() {
         audio.playPlace();
         particles.spawnPlacementParticles(hoverRow, hoverCol, matrix, boardLayout, getActiveThemeConfig());
 
-        // Calculate score points for placed blocks count (+10 pt per block)
+        // Calculate score points for placed blocks count (+20 pt per block)
         let blocksCount = 0;
         for (let r = 0; r < matrix.length; r++) {
             for (let c = 0; c < matrix[r].length; c++) {
                 if (matrix[r][c] > 0) blocksCount++;
             }
         }
-        score += blocksCount * 10;
+        score += blocksCount * 20;
 
         // Check if placed in the target spot in the background (perfect spot)
         let targetSpotBonus = 0;
         if (draggedShape.targetSpot && hoverRow === draggedShape.targetSpot.r && hoverCol === draggedShape.targetSpot.c) {
-            targetSpotBonus = 50; // Perfect spot score boost
+            targetSpotBonus = 100; // Perfect spot score boost
             score += targetSpotBonus;
             hasPerfectSpot = true;
             
@@ -536,16 +594,36 @@ function attemptBlockPlacement() {
             comboTimerActive = true;
             hasClearedLines = true;
             
-            // Score Math
+            // Score Math (calibrated for custom points and combo system)
+            // Base line-clear score (flat reward per placement)
             let baseLineScore = 0;
             if (clearedLinesCount === 1) baseLineScore = 150;
-            else if (clearedLinesCount === 2) baseLineScore = 400;
-            else if (clearedLinesCount === 3) baseLineScore = 700;
-            else if (clearedLinesCount === 4) baseLineScore = 1000;
-            else baseLineScore = clearedLinesCount * 250;
+            else if (clearedLinesCount === 2) baseLineScore = 300;
+            else if (clearedLinesCount === 3) baseLineScore = 450;
+            else if (clearedLinesCount === 4) baseLineScore = 600;
+            else baseLineScore = clearedLinesCount * 150; // 5+ lines: 150 × N
 
-            const streakBonus = comboStreak > 1 ? (comboStreak - 1) * 200 + 100 : 0;
-            const pointsGained = baseLineScore * comboStreak + streakBonus;
+            // Combo Streak Bonus — flat tier system:
+            //   x2–x10  → +250 per combo step  (tier 1)
+            //   x11–x20 → +500 per combo step  (tier 2)
+            //   x21–x30 → +750 per combo step  (tier 3)
+            //   Every 10 more combo levels adds another +250 to the per-step reward.
+            //   Formula: tier = floor((streak - 1) / 10) + 1
+            //            streakBonus = tier * 250
+            let streakBonus = 0;
+            if (comboStreak >= 2) {
+                const comboTier = Math.floor((comboStreak - 1) / 10) + 1;
+                streakBonus = comboTier * 250;
+
+                // Multi-line multiplier: clearing 2+ lines at once during a combo earns extra
+                // 2 lines = 1.5x streak bonus, 3 lines = 2.25x, 4 lines = 3x
+                if (clearedLinesCount >= 2) {
+                    const multiLineMultiplier = 1 + (clearedLinesCount - 1) * 0.75;
+                    streakBonus = Math.round(streakBonus * multiLineMultiplier);
+                }
+            }
+
+            const pointsGained = baseLineScore + streakBonus;
             score += pointsGained;
 
             // Spawn floating reward text
@@ -554,15 +632,18 @@ function attemptBlockPlacement() {
             const textY = boardOffsetY + (hoverRow) * cellSize - 10;
             
             let floatMsg = `+${pointsGained}`;
-            if (comboStreak > 1) {
-                floatMsg += ` (Combo x${comboStreak}! +${streakBonus} Bonus)`;
+            if (comboStreak > 1 && clearedLinesCount > 1) {
+                floatMsg += ` (Combo x${comboStreak} × ${clearedLinesCount} Lines!)`;
+            } else if (comboStreak > 1) {
+                floatMsg += ` (Combo x${comboStreak}! +${streakBonus})`;
             } else if (clearedLinesCount > 1) {
-                floatMsg += ` (Multi x${clearedLinesCount}!)`;
+                floatMsg += ` (${clearedLinesCount} Lines!)`;
             }
-            particles.addFloatingText(floatMsg, textX, textY, getActiveThemeConfig().colors.textPrimary, 0.7 + (comboStreak * 0.05));
+            particles.addFloatingText(floatMsg, textX, textY, getActiveThemeConfig().colors.textPrimary, Math.min(1.2, 0.75 + (comboStreak * 0.05)));
 
             // Trigger sparkles and explosions
-            particles.spawnLineClearParticles(rows, cols, boardLayout, getActiveThemeConfig());
+            const activeThemeConfig = getActiveThemeConfig();
+            particles.spawnLineClearEffect(rows, cols, boardLayout, activeThemeConfig);
             audio.playClear(comboStreak);
 
             // Voice announcement and center text for combo/clears
@@ -622,6 +703,27 @@ function attemptBlockPlacement() {
                 linesClearedCount += clearedLinesCount;
             }
 
+            // Check if this clear will empty the board
+            let willBeEmpty = true;
+            for (let r = 0; r < board.rows; r++) {
+                for (let c = 0; c < board.cols; c++) {
+                    if (board.grid[r][c] > 0) {
+                        if (!rows.includes(r) && !cols.includes(c)) {
+                            willBeEmpty = false;
+                            break;
+                        }
+                    }
+                }
+                if (!willBeEmpty) break;
+            }
+
+            if (willBeEmpty) {
+                // Capture snapshot of the board grid before it is cleared
+                boardClearGridSnapshot = board.grid.map(row => [...row]);
+            } else {
+                boardClearGridSnapshot = null;
+            }
+
             // Execute grid collapse state update
             board.clearLines(rows, cols);
 
@@ -638,14 +740,13 @@ function attemptBlockPlacement() {
             }
 
             if (boardIsEmpty) {
-                const clearBonus = 2000; // Board clear reward
+                const clearBonus = 2500; // Board clear reward
                 score += clearBonus;
                 
-                // Trigger the tide wave animation
+                // Trigger the smooth wave animation
                 boardClearAnimActive = true;
                 boardClearAnimStage = 1;
-                boardClearAnimRow = board.rows;
-                boardClearAnimTimer = 0;
+                boardClearAnimStartTime = performance.now();
             }
 
         } // no else — combo now resets via timer expiry, not on missed placement
@@ -815,23 +916,25 @@ function renderLoop(now) {
         }
     }
 
-    // Tick board clear tide wave animation
+    // Tick board clear smooth wave animation (time-based)
     if (boardClearAnimActive) {
-        boardClearAnimTimer += deltaMs;
+        const now = performance.now();
         if (boardClearAnimStage === 1) {
-            if (boardClearAnimTimer >= BOARD_CLEAR_ANIM_SPEED) {
-                boardClearAnimTimer -= BOARD_CLEAR_ANIM_SPEED;
-                boardClearAnimRow--;
-                if (boardClearAnimRow < 0) {
-                    // Entire board is filled, transition to stage 2: POOF!
-                    boardClearAnimStage = 2;
-                    boardClearAnimTimer = 0;
-                    
-                    // Heavy screen shake for impact
-                    particles.triggerShake(35, 12);
-                    
-                    // Burst particles across the entire board (poof !!)
-                    const theme = THEMES[activeTheme];
+            // Check if wave sweep has completed
+            if (now - boardClearAnimStartTime >= BOARD_CLEAR_WAVE_DURATION) {
+                // Wave complete — transition to stage 2: celebration burst
+                boardClearAnimStage = 2;
+                boardClearAnimStartTime = now;
+                
+                // Heavy screen shake for impact
+                particles.triggerShake(35, 12);
+                
+                // Burst particles across the entire board
+                const theme = THEMES[activeTheme];
+                const boardClearStyle = theme.boardClearStyle;
+                const extraParticles = (boardClearStyle === 'blizzard' || boardClearStyle === 'eruption' 
+                    || boardClearStyle === 'petal_storm') ? 2 : 1;
+                for (let i = 0; i < extraParticles; i++) {
                     for (let r = 0; r < board.rows; r++) {
                         for (let c = 0; c < board.cols; c++) {
                             const bx = boardOffsetX + c * cellSize;
@@ -839,25 +942,24 @@ function renderLoop(now) {
                             particles.spawnTileClearParticles(bx, by, cellSize, theme);
                         }
                     }
-                    
-                    // Trigger visual rewards (MARVELOUS!) at the moment of the poof!
-                    const centerX = boardOffsetX + (cellSize * board.cols) / 2;
-                    const centerY = boardOffsetY + (cellSize * board.rows) / 2;
-                    particles.addFloatingText('MARVELOUS!', centerX, centerY - 20, theme.colors.textPrimary || '#ffd32a', 1.6);
-                    particles.addFloatingText('+2000 Board Clear!', centerX, centerY + 30, '#ffd700', 1.15);
-                    
-                    audio.speak("Unbelievable");
-                    
-                    // Cycle theme as reward
-                    triggerThemeChange(true);
                 }
+                
+                // Trigger visual rewards (MARVELOUS!)
+                const centerX = boardOffsetX + (cellSize * board.cols) / 2;
+                const centerY = boardOffsetY + (cellSize * board.rows) / 2;
+                particles.addFloatingText('MARVELOUS!', centerX, centerY - 20, theme.colors.textPrimary || '#ffd32a', 1.6);
+                particles.addFloatingText('+2000 Board Clear!', centerX, centerY + 30, '#ffd700', 1.15);
+                
+                audio.speak("Unbelievable");
+                
+                // Cycle theme as reward
+                triggerThemeChange(true);
             }
         } else if (boardClearAnimStage === 2) {
-            // Wait 600ms for particles/shake to complete
-            if (boardClearAnimTimer >= 600) {
+            // Short settle delay for particles/shake to be visible
+            if (now - boardClearAnimStartTime >= BOARD_CLEAR_SETTLE_DELAY) {
                 boardClearAnimActive = false;
                 boardClearAnimStage = 0;
-                boardClearAnimTimer = 0;
             }
         }
     }
@@ -886,30 +988,39 @@ function renderLoop(now) {
     // 1. Update particles physics
     particles.update();
 
-    // 2. Clear canvas
-    ctx.clearRect(0, 0, gameCanvas.width / window.devicePixelRatio, gameCanvas.height / window.devicePixelRatio);
+    // 2. Render only if game board is visible (not covered by main menu)
+    const isMenu = document.body.classList.contains('menu-active');
+    if (!isMenu) {
+        // Clear canvas
+        ctx.clearRect(0, 0, gameCanvas.width / window.devicePixelRatio, gameCanvas.height / window.devicePixelRatio);
 
-    // 3. Apply Screen Shake transformation matrix
-    ctx.save();
-    ctx.translate(particles.shakeX, particles.shakeY);
+        // 3. Apply Screen Shake transformation matrix
+        ctx.save();
+        ctx.translate(particles.shakeX, particles.shakeY);
 
-    // 4. Draw Board Grid Lines & Occupied cells
-    drawBoardGrid();
+        // 4. Draw Board Grid Lines & Occupied cells
+        drawBoardGrid();
 
-    // 5. Draw Prospective Snap Glow previews
-    drawSnapPreview();
+        // 5. Draw Prospective Snap Glow previews
+        drawSnapPreview();
 
-    // 6. Draw particles canvas overlays
-    particles.draw(ctx);
+        // 6. Draw particles canvas overlays
+        particles.draw(ctx);
 
-    ctx.restore();
+        ctx.restore();
 
-    // 7. Render Dragging Shape at pointer position
-    drawDraggedShapeOverlay();
+        // 7. Render Dragging Shape at pointer position
+        drawDraggedShapeOverlay();
 
-    // 8. Render Tray Slots
-    for (let i = 0; i < 3; i++) {
-        drawTraySlot(i);
+        // 8. Render Tray Slots
+        for (let i = 0; i < 3; i++) {
+            drawTraySlot(i);
+        }
+    } else {
+        // Clear dragging overlay canvas if active
+        if (dragCtx && dragCanvas) {
+            dragCtx.clearRect(0, 0, dragCanvas.width / window.devicePixelRatio, dragCanvas.height / window.devicePixelRatio);
+        }
     }
 
     // 9. Frame ticker
@@ -939,18 +1050,10 @@ function drawBoardGrid() {
         for (let c = 0; c < cols; c++) {
             const cx = boardOffsetX + c * cellSize;
             const cy = boardOffsetY + r * cellSize;
-            let cellValue = board.grid[r][c];
-
-            if (boardClearAnimActive) {
-                if (boardClearAnimStage === 1) {
-                    if (r >= boardClearAnimRow) {
-                        cellValue = ((r + c) % 12) + 1;
-                    } else {
-                        cellValue = 0;
-                    }
-                } else if (boardClearAnimStage === 2) {
-                    cellValue = 0;
-                }
+            const cellValueOnBoard = board.grid[r][c];
+            let cellValue = cellValueOnBoard;
+            if (boardClearAnimActive && boardClearAnimStage === 1 && boardClearGridSnapshot) {
+                cellValue = boardClearGridSnapshot[r][c];
             }
 
             // Get spring animation properties for this cell
@@ -959,35 +1062,88 @@ function drawBoardGrid() {
             // Skip hidden cells (not yet reached by wave)
             if (anim.hidden) continue;
 
-            ctx.save();
-            // Apply spring transform (translate to cell center, apply offset/scale, translate back)
-            ctx.translate(cx + cellSize / 2, cy + cellSize / 2 + anim.yOffset);
-            ctx.scale(anim.scale, anim.scale);
-            ctx.translate(-cellSize / 2, -cellSize / 2);
+            // Draw the static empty cell background if empty
+            if (cellValueOnBoard === 0) {
+                if (prefillAnimActive) {
+                    ctx.save();
+                    ctx.translate(cx + cellSize / 2, cy + cellSize / 2 + anim.yOffset);
+                    ctx.scale(anim.scale, anim.scale);
+                    ctx.translate(-cellSize / 2, -cellSize / 2);
+                    
+                    ctx.fillStyle = theme.colors.cellEmpty;
+                    ctx.strokeStyle = theme.colors.gridLines;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(1.5, 1.5, cellSize - 3, cellSize - 3, cellSize * 0.12);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = theme.colors.cellEmpty;
+                    ctx.strokeStyle = theme.colors.gridLines;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(cx + 1.5, cy + 1.5, cellSize - 3, cellSize - 3, cellSize * 0.12);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
 
+            // Draw animated blocks
             if (cellValue > 0) {
-                // Occupied Cell
+                ctx.save();
+                ctx.translate(cx + cellSize / 2, cy + cellSize / 2 + anim.yOffset);
+                ctx.scale(anim.scale, anim.scale);
+                ctx.translate(-cellSize / 2, -cellSize / 2);
+
+                let clearProgress = 0;
+                if (boardClearAnimActive && boardClearAnimStage === 1) {
+                    clearProgress = easeOutCubic(getCellClearProgress(r, c, performance.now()));
+                    if (clearProgress > 0) {
+                        const clearScale = 1.0 - (0.7 * clearProgress);  // 1.0 → 0.3
+                        const clearAlpha = 1.0 - clearProgress;          // 1.0 → 0.0
+                        const clearRotation = clearProgress * 0.12;       // subtle tilt
+
+                        ctx.translate(cellSize / 2, cellSize / 2);
+                        ctx.rotate(clearRotation);
+                        ctx.scale(clearScale, clearScale);
+                        ctx.translate(-cellSize / 2, -cellSize / 2);
+                        ctx.globalAlpha = clearAlpha;
+                        
+                        const boardClearStyle = theme.boardClearStyle;
+                        if (boardClearStyle === 'glitch_surge') {
+                            const glitchOffset = (Math.random() - 0.5) * clearProgress * 8;
+                            ctx.translate(glitchOffset, 0);
+                        }
+                    }
+                }
+
                 drawThemeBlock(ctx, 0, 0, cellSize, cellSize, cellValue, theme);
 
-                // Draw bomb countdown indicator overlay
+                // Draw overlay visual effects for theme board clear
+                if (boardClearAnimActive && boardClearAnimStage === 1 && clearProgress > 0) {
+                    const boardClearStyle = theme.boardClearStyle;
+                    if (boardClearStyle === 'crystal_collapse' || boardClearStyle === 'shatter') {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                        ctx.fillRect(0, 0, cellSize * 0.3, cellSize * 0.15);
+                    } else if (boardClearStyle === 'blizzard' || boardClearStyle === 'flakefall') {
+                        ctx.fillStyle = `rgba(255, 255, 255, ${clearProgress * 0.3})`;
+                        ctx.fillRect(0, 0, cellSize, cellSize);
+                    } else if (boardClearStyle === 'eruption' || boardClearStyle === 'ember_rise') {
+                        ctx.fillStyle = `rgba(255, 100, 0, ${clearProgress * 0.25})`;
+                        ctx.fillRect(0, 0, cellSize, cellSize);
+                    }
+                }
+
                 if (cellValue === 14 && activeMode === 'blast') {
                     const bomb = activeBombs.find(b => b.r === r && b.c === c);
                     if (bomb) {
                         drawBombOverlay(0, 0, cellSize, bomb.timer);
                     }
                 }
-            } else {
-                // Empty Cell
-                ctx.fillStyle = theme.colors.cellEmpty;
-                ctx.strokeStyle = theme.colors.gridLines;
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.roundRect(1.5, 1.5, cellSize - 3, cellSize - 3, cellSize * 0.12);
-                ctx.fill();
-                ctx.stroke();
-            }
 
-            ctx.restore();
+                ctx.restore();
+            }
         }
     }
 }
@@ -1037,16 +1193,19 @@ function drawSnapPreview() {
                 ctx.roundRect(cx + inset + 2, cy + inset + 2, cellSize - (inset + 2) * 2, cellSize - (inset + 2) * 2, rad * 0.8);
                 ctx.fill();
 
-                // Bright pulsing border — theme-colored, thick, unmistakable
-                ctx.globalAlpha = 0.65 + pulse * 0.35;
+                // Bright pulsing border — theme-colored, thick, unmistakable (hardware-accelerated, no blur)
+                ctx.globalAlpha = (0.65 + pulse * 0.35) * 0.35;
                 ctx.strokeStyle = blockColor;
-                ctx.lineWidth = 2.5;
-                ctx.shadowColor = blockColor;
-                ctx.shadowBlur = 6;
+                ctx.lineWidth = 6;
                 ctx.beginPath();
                 ctx.roundRect(cx + inset, cy + inset, cellSize - inset * 2, cellSize - inset * 2, rad);
                 ctx.stroke();
-                ctx.shadowBlur = 0;
+
+                ctx.globalAlpha = 0.65 + pulse * 0.35;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.roundRect(cx + inset, cy + inset, cellSize - inset * 2, cellSize - inset * 2, rad);
+                ctx.stroke();
             }
         }
     }
@@ -1082,14 +1241,15 @@ function drawSnapPreview() {
             ctx.fillStyle = grad;
             ctx.fillRect(boardOffsetX, ry + 1, totalW, cellSize - 2);
 
-            // 4-sided border — clipped to board area
-            ctx.globalAlpha = 0.65 + pulse * 0.35;
+            // 4-sided border — clipped to board area (no blur glow)
+            ctx.globalAlpha = (0.65 + pulse * 0.35) * 0.35;
             ctx.strokeStyle = accentColor;
-            ctx.lineWidth = 2.5;
-            ctx.shadowColor = accentColor;
-            ctx.shadowBlur = 10;
+            ctx.lineWidth = 6;
             ctx.strokeRect(boardOffsetX + 1, ry + 1, totalW - 2, cellSize - 2);
-            ctx.shadowBlur = 0;
+
+            ctx.globalAlpha = 0.65 + pulse * 0.35;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(boardOffsetX + 1, ry + 1, totalW - 2, cellSize - 2);
 
             // Inner white border for contrast
             ctx.globalAlpha = 0.4 + pulse * 0.3;
@@ -1123,14 +1283,15 @@ function drawSnapPreview() {
             ctx.fillStyle = grad;
             ctx.fillRect(cx + 1, boardOffsetY, cellSize - 2, totalH);
 
-            // 4-sided border — clipped to board area
-            ctx.globalAlpha = 0.65 + pulse * 0.35;
+            // 4-sided border — clipped to board area (no blur glow)
+            ctx.globalAlpha = (0.65 + pulse * 0.35) * 0.35;
             ctx.strokeStyle = accentColor;
-            ctx.lineWidth = 2.5;
-            ctx.shadowColor = accentColor;
-            ctx.shadowBlur = 10;
+            ctx.lineWidth = 6;
             ctx.strokeRect(cx + 1, boardOffsetY + 1, cellSize - 2, totalH - 2);
-            ctx.shadowBlur = 0;
+
+            ctx.globalAlpha = 0.65 + pulse * 0.35;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(cx + 1, boardOffsetY + 1, cellSize - 2, totalH - 2);
 
             // Inner white border for contrast
             ctx.globalAlpha = 0.4 + pulse * 0.3;
@@ -1176,11 +1337,25 @@ function drawDraggedShapeOverlay() {
     dragCtx.clearRect(0, 0, dragCanvas.width / window.devicePixelRatio, dragCanvas.height / window.devicePixelRatio);
 
     dragCtx.save();
-    dragCtx.shadowColor = 'rgba(0, 0, 0, 0.50)';
-    dragCtx.shadowBlur = 16;
-    dragCtx.shadowOffsetY = 10;
-    dragCtx.globalAlpha = 0.96;
+    
+    // First pass: draw flat offset shadows for all blocks of the dragged shape (infinitely faster than shadowBlur)
+    dragCtx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    const shadowOffset = Math.round(dragCellSize * 0.12);
+    const rad = dragCellSize * 0.14;
+    for (let r = 0; r < shapeRows; r++) {
+        for (let c = 0; c < shapeCols; c++) {
+            if (shapeMatrix[r][c] > 0) {
+                const tx = startX + c * dragCellSize + shadowOffset;
+                const ty = startY + r * dragCellSize + shadowOffset;
+                dragCtx.beginPath();
+                dragCtx.roundRect(tx + 1.5, ty + 1.5, dragCellSize - 3, dragCellSize - 3, rad);
+                dragCtx.fill();
+            }
+        }
+    }
 
+    // Second pass: draw the actual blocks
+    dragCtx.globalAlpha = 0.96;
     for (let r = 0; r < shapeRows; r++) {
         for (let c = 0; c < shapeCols; c++) {
             if (shapeMatrix[r][c] > 0) {
@@ -1250,25 +1425,28 @@ function drawBombOverlay(x, y, w, countdown) {
     ctx.fillStyle = isUrgent ? 'rgba(180,0,0,0.82)' : 'rgba(10,10,10,0.78)';
     ctx.fill();
 
-    // --- Danger ring (outer stroke) ---
+    // --- Danger ring (outer stroke with semi-transparent wider stroke overlay for glow) ---
     ctx.beginPath();
     ctx.arc(cx, cy, bgRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = isUrgent ? 'rgba(255, 34, 34, 0.35)' : 'rgba(255, 136, 0, 0.35)';
+    ctx.lineWidth = w * 0.14;
+    ctx.stroke();
+
     ctx.strokeStyle = isUrgent ? '#ff2222' : '#ff8800';
     ctx.lineWidth = w * 0.07;
-    ctx.shadowColor  = isUrgent ? '#ff0000' : '#ff6600';
-    ctx.shadowBlur   = isUrgent ? 12 : 6;
     ctx.stroke();
 
     // --- Countdown number ---
     const fontSize = Math.round(w * 0.42);
-    ctx.shadowBlur = 0;
     ctx.font = `bold ${fontSize}px Outfit, system-ui, sans-serif`;
-    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // Tight drop-shadow so number is legible on any theme
-    ctx.shadowColor = 'rgba(0,0,0,0.95)';
-    ctx.shadowBlur  = 3;
+    
+    // Manual high-performance flat shadow for the text
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillText(countdown.toString(), cx + 1, cy + fontSize * 0.04 + 1);
+
+    ctx.fillStyle = '#ffffff';
     ctx.fillText(countdown.toString(), cx, cy + fontSize * 0.04);
 
     ctx.restore();
@@ -2127,15 +2305,36 @@ function setupUIBindings() {
         });
     }
 
-    // Settings modal: Change Skin / cycle theme
+    // Settings modal: Change Skin — opens the theme picker grid
     const btnSettingsTheme = $('btn-settings-theme');
     if (btnSettingsTheme) {
         btnSettingsTheme.addEventListener('click', () => {
             triggerHaptic('light');
             audio.playTap();
-            triggerThemeChange(false);
-            const label = $('game-theme-label');
-            if (label) label.innerText = 'Skin: ' + activeTheme.charAt(0).toUpperCase() + activeTheme.slice(1);
+            buildSkinPickerGrid();
+            const overlay = $('skin-picker-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+        });
+    }
+
+    // Skin picker close button
+    const btnSkinPickerClose = $('skin-picker-close');
+    if (btnSkinPickerClose) {
+        btnSkinPickerClose.addEventListener('click', () => {
+            triggerHaptic('light');
+            audio.playTap();
+            const overlay = $('skin-picker-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        });
+    }
+
+    // Tap outside skin picker modal to close
+    const skinPickerOverlay = $('skin-picker-overlay');
+    if (skinPickerOverlay) {
+        skinPickerOverlay.addEventListener('click', (e) => {
+            if (e.target === skinPickerOverlay) {
+                skinPickerOverlay.classList.add('hidden');
+            }
         });
     }
 
@@ -2382,7 +2581,7 @@ function updateComboWidget() {
 
 
 function triggerThemeChange(isGameplay = false) {
-    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese', 'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy'];
+    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese', 'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy', 'brickWall', 'industrialMetal', 'slate', 'volcanic'];
     let nextIndex = (themeKeys.indexOf(activeTheme) + 1) % themeKeys.length;
     const nextTheme = themeKeys[nextIndex];
     
@@ -2394,6 +2593,89 @@ function triggerThemeChange(isGameplay = false) {
     transitionStartTime = performance.now();
     applyTheme(activeTheme);
     saveSettingsState();
+}
+
+/**
+ * Builds (or rebuilds) the skin picker grid with one swatch per theme.
+ * Each swatch shows the theme bg color + 4 block color dots + theme name.
+ * The currently active theme gets a white-border "active" highlight.
+ */
+function buildSkinPickerGrid() {
+    const grid = $('skin-picker-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const themeKeys = [
+        'indigo', 'classic', 'neon', 'wood', 'gems', 'pastel',
+        'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese',
+        'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy',
+        'brickWall', 'industrialMetal', 'slate', 'volcanic'
+    ];
+
+    themeKeys.forEach(key => {
+        const theme = THEMES[key];
+        if (!theme) return;
+
+        const swatch = document.createElement('div');
+        swatch.className = 'skin-swatch' + (key === activeTheme ? ' active' : '');
+        swatch.style.background = theme.colors.bg;
+        swatch.setAttribute('data-theme', key);
+
+        // 2×2 block color dot grid
+        const dotsEl = document.createElement('div');
+        dotsEl.className = 'skin-swatch-dots';
+        [1, 2, 3, 4].forEach(i => {
+            const dot = document.createElement('div');
+            dot.className = 'skin-swatch-dot';
+            dot.style.background = theme.colors[i] || '#fff';
+            dotsEl.appendChild(dot);
+        });
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'skin-swatch-name';
+        nameEl.textContent = theme.name;
+
+        swatch.appendChild(dotsEl);
+        swatch.appendChild(nameEl);
+
+        swatch.addEventListener('click', () => {
+            if (key === activeTheme) {
+                // Already active — just close
+                $('skin-picker-overlay').classList.add('hidden');
+                return;
+            }
+            prevTheme = activeTheme;
+            activeTheme = key;
+            transitionProgress = 0.0;
+            transitionStartTime = performance.now();
+            applyTheme(activeTheme);
+            saveSettingsState();
+            triggerHaptic('medium');
+            audio.playTap();
+
+            // Update active indicator in grid
+            grid.querySelectorAll('.skin-swatch').forEach(el => el.classList.remove('active'));
+            swatch.classList.add('active');
+
+            // Update the label on the Change Skin button
+            const label = $('game-theme-label');
+            if (label) label.innerText = theme.name;
+
+            // Close the picker after a short visual confirmation delay
+            setTimeout(() => {
+                const overlay = $('skin-picker-overlay');
+                if (overlay) overlay.classList.add('hidden');
+            }, 380);
+        });
+
+        grid.appendChild(swatch);
+    });
+
+    // Scroll the active swatch into view
+    const activeSwatch = grid.querySelector('.skin-swatch.active');
+    if (activeSwatch) {
+        setTimeout(() => activeSwatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50);
+    }
 }
 
 function applyTheme(themeId) {
@@ -2489,6 +2771,19 @@ function saveSettingsState() {
         sfxVolume: sfxVol,
         bgmVolume: bgmVol
     });
+}
+
+// --- Easing Functions ---
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+
+// --- Board Clear Wave Helpers ---
+function getCellClearProgress(r, c, now) {
+    if (!boardClearAnimActive || boardClearAnimStage !== 1) return 0;
+    const elapsed = now - boardClearAnimStartTime;
+    const cellDelay = (r * BOARD_CLEAR_ROW_DELAY) + (c * BOARD_CLEAR_COL_DELAY);
+    const raw = (elapsed - cellDelay) / BOARD_CLEAR_CELL_DURATION;
+    return clamp(raw, 0, 1);
 }
 
 // --- Theme Transition Color Interpolators ---
