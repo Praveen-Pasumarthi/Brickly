@@ -652,8 +652,312 @@ export const THEMES = {
             9: '#ff5722', 10: '#ff9800', 11: '#f44336', 12: '#ffc107',
             13: '#ffd700', 14: '#ffff00'
         },
-        blockStyle: 'textured', particleStyle: 'ember',
-        lineClearStyle: 'ember_rise', boardClearStyle: 'eruption'
+        blockStyle: 'volcanic', particleStyle: 'dust_cloud',
+        lineClearStyle: 'dust_puff', boardClearStyle: 'eruption'
+    },
+    brickClassic: {
+        id: 'brickClassic',
+        name: 'Classic Brick',
+        texture: 'Brick/Brick_02-128x128',
+        colors: {
+            bg: '#401e18', gridBg: '#220e0b', gridLines: '#3a1b15',
+            cellEmpty: 'rgba(58, 27, 21, 0.4)',
+            textPrimary: '#f4e6e3', textSecondary: '#dca69a',
+            hudBg: 'rgba(34, 14, 11, 0.8)', boardBorder: '#4e221b',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(220, 166, 154, 0.6)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#b24c3d', 2: '#8c352a', 3: '#cd6555', 4: '#6e271e',
+            5: '#dca69a', 6: '#808080', 7: '#a9a9a9', 8: '#5c2d25',
+            9: '#b24c3d', 10: '#8c352a', 11: '#cd6555', 12: '#6e271e',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'crumb',
+        lineClearStyle: 'crumble', boardClearStyle: 'timber'
+    },
+    muddyDirt: {
+        id: 'muddyDirt',
+        name: 'Earthy Dirt',
+        texture: 'Dirt/Dirt_14-128x128',
+        colors: {
+            bg: '#2b1d0c', gridBg: '#170e05', gridLines: '#2a1b0d',
+            cellEmpty: 'rgba(42, 27, 13, 0.4)',
+            textPrimary: '#eedcc5', textSecondary: '#c5a37d',
+            hudBg: 'rgba(23, 14, 5, 0.82)', boardBorder: '#3d2813',
+            shadow: 'rgba(0, 0, 0, 0.65)', glow: 'rgba(197, 163, 125, 0.55)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#8b5a2b', 2: '#6e473b', 3: '#a0522d', 4: '#556b2f',
+            5: '#8fbc8f', 6: '#cd853f', 7: '#b5a642', 8: '#483c32',
+            9: '#8b5a2b', 10: '#6e473b', 11: '#a0522d', 12: '#556b2f',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'dust_cloud',
+        lineClearStyle: 'dust_puff', boardClearStyle: 'stone_collapse'
+    },
+    heavyMetal: {
+        id: 'heavyMetal',
+        name: 'Heavy Metal',
+        texture: 'Metal/Metal_15-128x128',
+        colors: {
+            bg: '#15181e', gridBg: '#0c0d10', gridLines: '#1d2028',
+            cellEmpty: 'rgba(29, 32, 40, 0.4)',
+            textPrimary: '#d0d5dd', textSecondary: '#8a95a5',
+            hudBg: 'rgba(12, 13, 16, 0.85)', boardBorder: '#2b303b',
+            shadow: 'rgba(0, 0, 0, 0.6)', glow: 'rgba(138, 149, 165, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#708090', 2: '#778899', 3: '#4f5d75', 4: '#dcdcdc',
+            5: '#b0c4de', 6: '#daa520', 7: '#cd7f32', 8: '#3a4454',
+            9: '#708090', 10: '#778899', 11: '#4f5d75', 12: '#daa520',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'glitch',
+        lineClearStyle: 'metal_snap', boardClearStyle: 'glitch_surge'
+    },
+    cobbleStone: {
+        id: 'cobbleStone',
+        name: 'Cobblestone',
+        texture: 'Stone/Stone_18-128x128',
+        colors: {
+            bg: '#1c1e22', gridBg: '#101114', gridLines: '#22252a',
+            cellEmpty: 'rgba(34, 37, 42, 0.4)',
+            textPrimary: '#e2e8f0', textSecondary: '#94a3b8',
+            hudBg: 'rgba(16, 17, 20, 0.82)', boardBorder: '#2e333d',
+            shadow: 'rgba(0, 0, 0, 0.55)', glow: 'rgba(148, 163, 184, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#5c677d', 2: '#334155', 3: '#708090', 4: '#475569',
+            5: '#94a3b8', 6: '#1e293b', 7: '#64748b', 8: '#38bdf8',
+            9: '#5c677d', 10: '#334155', 11: '#708090', 12: '#475569',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'shatter', boardClearStyle: 'stone_collapse'
+    },
+    mahoganyWood: {
+        id: 'mahoganyWood',
+        name: 'Mahogany Wood',
+        texture: 'Wood/Wood_15-128x128',
+        colors: {
+            bg: '#3b1510', gridBg: '#220b08', gridLines: '#3a1712',
+            cellEmpty: 'rgba(58, 23, 18, 0.4)',
+            textPrimary: '#eed9d7', textSecondary: '#c88279',
+            hudBg: 'rgba(34, 11, 8, 0.85)', boardBorder: '#501d16',
+            shadow: 'rgba(0, 0, 0, 0.65)', glow: 'rgba(200, 130, 121, 0.55)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#800000', 2: '#8b4513', 3: '#a0522d', 4: '#5c2d25',
+            5: '#d2b48c', 6: '#cd853f', 7: '#b22222', 8: '#4a150e',
+            9: '#800000', 10: '#8b4513', 11: '#cd853f', 12: '#5c2d25',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'splinter',
+        lineClearStyle: 'splinter', boardClearStyle: 'timber'
+    },
+    driftWood: {
+        id: 'driftWood',
+        name: 'Driftwood',
+        texture: 'Wood/Wood_13-128x128',
+        colors: {
+            bg: '#2c2a27', gridBg: '#1a1917', gridLines: '#2d2b28',
+            cellEmpty: 'rgba(45, 43, 40, 0.4)',
+            textPrimary: '#e5e2dd', textSecondary: '#aba69e',
+            hudBg: 'rgba(26, 25, 23, 0.8)', boardBorder: '#3f3c38',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(171, 166, 158, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#8a7d72', 2: '#6e645a', 3: '#bfae9e', 4: '#524a43',
+            5: '#d3c2b0', 6: '#a39587', 7: '#decbb7', 8: '#3d3732',
+            9: '#8a7d72', 10: '#6e645a', 11: '#bfae9e', 12: '#524a43',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'splinter',
+        lineClearStyle: 'splinter', boardClearStyle: 'timber'
+    },
+    tile01: {
+        id: 'tile01',
+        name: 'Mosaic Tile',
+        texture: 'Tile/Tile_01-128x128',
+        colors: {
+            bg: '#0f3a40', gridBg: '#092125', gridLines: '#154e56',
+            cellEmpty: 'rgba(21, 78, 86, 0.4)',
+            textPrimary: '#e0f7fa', textSecondary: '#80deea',
+            hudBg: 'rgba(9, 33, 37, 0.8)', boardBorder: '#154e56',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(128, 222, 234, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#00838f', 2: '#00acc1', 3: '#0097a7', 4: '#ffd700',
+            5: '#80deea', 6: '#00e5ff', 7: '#006064', 8: '#e0f7fa',
+            9: '#00838f', 10: '#00acc1', 11: '#0097a7', 12: '#006064',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile03: {
+        id: 'tile03',
+        name: 'Terrazzo Tile',
+        texture: 'Tile/Tile_03-128x128',
+        colors: {
+            bg: '#3e2723', gridBg: '#271714', gridLines: '#4e342e',
+            cellEmpty: 'rgba(78, 52, 46, 0.4)',
+            textPrimary: '#efebe9', textSecondary: '#bcaaa4',
+            hudBg: 'rgba(39, 23, 20, 0.8)', boardBorder: '#4e342e',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(188, 170, 164, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#8d6e63', 2: '#a1887f', 3: '#795548', 4: '#6d4c41',
+            5: '#bcaaa4', 6: '#d7ccc8', 7: '#5d4037', 8: '#ffe0b2',
+            9: '#8d6e63', 10: '#a1887f', 11: '#795548', 12: '#5d4037',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile05: {
+        id: 'tile05',
+        name: 'Ceramic Tile',
+        texture: 'Tile/Tile_05-128x128',
+        colors: {
+            bg: '#1b5e20', gridBg: '#0c3814', gridLines: '#2e7d32',
+            cellEmpty: 'rgba(46, 125, 50, 0.4)',
+            textPrimary: '#e8f5e9', textSecondary: '#a5d6a7',
+            hudBg: 'rgba(12, 56, 20, 0.8)', boardBorder: '#2e7d32',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(165, 214, 167, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#4caf50', 2: '#81c784', 3: '#388e3c', 4: '#2e7d32',
+            5: '#a5d6a7', 6: '#c8e6c9', 7: '#1b5e20', 8: '#dcedc8',
+            9: '#4caf50', 10: '#81c784', 11: '#388e3c', 12: '#1b5e20',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile07: {
+        id: 'tile07',
+        name: 'Porcelain Tile',
+        texture: 'Tile/Tile_07-128x128',
+        colors: {
+            bg: '#0d47a1', gridBg: '#082b68', gridLines: '#1565c0',
+            cellEmpty: 'rgba(21, 101, 192, 0.4)',
+            textPrimary: '#e3f2fd', textSecondary: '#90caf9',
+            hudBg: 'rgba(8, 43, 104, 0.8)', boardBorder: '#1565c0',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(144, 202, 249, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#1e88e5', 2: '#64b5f6', 3: '#1565c0', 4: '#0d47a1',
+            5: '#90caf9', 6: '#bbdefb', 7: '#1976d2', 8: '#e0f7fa',
+            9: '#1e88e5', 10: '#64b5f6', 11: '#1565c0', 12: '#0d47a1',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile09: {
+        id: 'tile09',
+        name: 'Tuscan Clay',
+        texture: 'Tile/Tile_09-128x128',
+        colors: {
+            bg: '#4e342e', gridBg: '#2e1c18', gridLines: '#5d4037',
+            cellEmpty: 'rgba(93, 64, 55, 0.4)',
+            textPrimary: '#fbe9e7', textSecondary: '#ffab91',
+            hudBg: 'rgba(46, 28, 24, 0.8)', boardBorder: '#5d4037',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(255, 171, 145, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#d84315', 2: '#e64a19', 3: '#ff7043', 4: '#ff8a65',
+            5: '#ffab91', 6: '#ffb74d', 7: '#bf360c', 8: '#ffe0b2',
+            9: '#d84315', 10: '#e64a19', 11: '#ff7043', 12: '#bf360c',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile11: {
+        id: 'tile11',
+        name: 'Marble Tile',
+        texture: 'Tile/Tile_11-128x128',
+        colors: {
+            bg: '#263238', gridBg: '#1a2327', gridLines: '#37474f',
+            cellEmpty: 'rgba(55, 71, 79, 0.4)',
+            textPrimary: '#eceff1', textSecondary: '#b0bec5',
+            hudBg: 'rgba(26, 35, 39, 0.8)', boardBorder: '#37474f',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(176, 190, 197, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#90a4ae', 2: '#cfd8dc', 3: '#b0bec5', 4: '#78909c',
+            5: '#607d8b', 6: '#455a64', 7: '#eceff1', 8: '#37474f',
+            9: '#90a4ae', 10: '#cfd8dc', 11: '#b0bec5', 12: '#455a64',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile13: {
+        id: 'tile13',
+        name: 'Granite Tile',
+        texture: 'Tile/Tile_13-128x128',
+        colors: {
+            bg: '#212121', gridBg: '#111111', gridLines: '#333333',
+            cellEmpty: 'rgba(51, 51, 51, 0.4)',
+            textPrimary: '#f5f5f5', textSecondary: '#e0e0e0',
+            hudBg: 'rgba(17, 17, 17, 0.85)', boardBorder: '#333333',
+            shadow: 'rgba(0, 0, 0, 0.6)', glow: 'rgba(224, 224, 224, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#9e9e9e', 2: '#e0e0e0', 3: '#bdbdbd', 4: '#757575',
+            5: '#616161', 6: '#424242', 7: '#f5f5f5', 8: '#212121',
+            9: '#9e9e9e', 10: '#e0e0e0', 11: '#bdbdbd', 12: '#424242',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile15: {
+        id: 'tile15',
+        name: 'Slate Tile',
+        texture: 'Tile/Tile_15-128x128',
+        colors: {
+            bg: '#2e3d52', gridBg: '#1c2633', gridLines: '#3d4f66',
+            cellEmpty: 'rgba(61, 79, 102, 0.4)',
+            textPrimary: '#eceff1', textSecondary: '#b0bec5',
+            hudBg: 'rgba(28, 38, 51, 0.8)', boardBorder: '#3d4f66',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(176, 190, 197, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#78909c', 2: '#b0bec5', 3: '#4f5d75', 4: '#3d4f66',
+            5: '#cfd8dc', 6: '#90a4ae', 7: '#2e3d52', 8: '#7dd3fc',
+            9: '#78909c', 10: '#b0bec5', 11: '#4f5d75', 12: '#2e3d52',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile17: {
+        id: 'tile17',
+        name: 'Tuscan Sun',
+        texture: 'Tile/Tile_17-128x128',
+        colors: {
+            bg: '#5c4308', gridBg: '#382803', gridLines: '#73540a',
+            cellEmpty: 'rgba(115, 84, 10, 0.4)',
+            textPrimary: '#fff8e1', textSecondary: '#ffe082',
+            hudBg: 'rgba(56, 40, 3, 0.8)', boardBorder: '#73540a',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(255, 224, 130, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#ffb300', 2: '#ffc107', 3: '#ff8f00', 4: '#ffa000',
+            5: '#ffe082', 6: '#ffca28', 7: '#e65100', 8: '#fffde7',
+            9: '#ffb300', 10: '#ffc107', 11: '#ff8f00', 12: '#e65100',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
+    },
+    tile19: {
+        id: 'tile19',
+        name: 'Spanish Tile',
+        texture: 'Tile/Tile_19-128x128',
+        colors: {
+            bg: '#3e1b0c', gridBg: '#240f05', gridLines: '#522410',
+            cellEmpty: 'rgba(82, 36, 16, 0.4)',
+            textPrimary: '#fbe9e7', textSecondary: '#ffab91',
+            hudBg: 'rgba(36, 15, 5, 0.8)', boardBorder: '#522410',
+            shadow: 'rgba(0, 0, 0, 0.5)', glow: 'rgba(255, 171, 145, 0.5)',
+            goldGlow: 'rgba(255, 215, 0, 0.85)', bombGlow: 'rgba(255, 51, 0, 0.85)',
+            1: '#ff7043', 2: '#00bcd4', 3: '#ff5722', 4: '#ffab91',
+            5: '#00e5ff', 6: '#ff8a65', 7: '#bf360c', 8: '#e0f7fa',
+            9: '#ff7043', 10: '#00bcd4', 11: '#ff5722', 12: '#bf360c',
+            13: '#ffd700', 14: '#ff3300'
+        },
+        blockStyle: 'textured', particleStyle: 'shard',
+        lineClearStyle: 'tile_break', boardClearStyle: 'stone_collapse'
     }
 };
 
@@ -944,91 +1248,98 @@ export function drawThemeBlock(ctx, x, y, w, h, colorId, theme) {
         }
 
     } else if (style === 'textured') {
-        // Textured Block — texture image IS the primary fill (applied below at high alpha).
-        // Here we just establish the block shape + a subtle per-colorId tint so blocks
-        // of the same texture still have visual variety, plus a border for definition.
+        // Textured Block — texture image IS the block.
+        // Nothing drawn here; the texture overlay section below handles everything.
+    } else if (style === 'volcanic') {
         const radius = Math.min(w, h) * 0.12;
         roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
 
-        // Colored undertone tint (30% opacity) — differentiates block colors within the theme
-        ctx.fillStyle = hexToRgbA(color, 0.30);
+        // Fill with solid color gradient
+        const grad = ctx.createLinearGradient(x, y, x, y + h);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, darkenColor(color, -25));
+        ctx.fillStyle = grad;
         ctx.fill();
 
-        // Dark border for cell separation
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+        // Outline is reddish/yellowish/orangeish (block color slightly lightened)
+        ctx.strokeStyle = lightenColor(color, 25);
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Inner highlight bevel (top-left edge glow for 3D depth)
-        ctx.strokeStyle = hexToRgbA(lightenColor(color, 22), 0.6);
-        ctx.lineWidth = 1;
-        roundRect(x + 3.5, y + 3.5, w - 7, h - 7, radius - 1);
-        ctx.stroke();
-
-        // Target / Bomb markers
+        // Target / Bomb decals
         if (colorId === 13) {
-            ctx.strokeStyle = '#ffe57f';
-            ctx.lineWidth = 2.5;
+            ctx.fillStyle = '#ffe57f';
             ctx.beginPath();
-            ctx.arc(x + w/2, y + h/2, w * 0.2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(255,215,0,0.3)';
+            ctx.arc(x + w/2, y + h/2, w * 0.16, 0, Math.PI * 2);
             ctx.fill();
         } else if (colorId === 14) {
-            ctx.fillStyle = '#ff3300';
+            ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.arc(x + w/2, y + h/2, w * 0.2, 0, Math.PI * 2);
+            ctx.arc(x + w/2, y + h/2, w * 0.15, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = '#ffcc00';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
         }
     }
 
-    // Texture overlay — apply tileable pattern at low opacity if registered for this theme
+    // Texture overlay — for non-textured themes: subtle pattern over filled block.
+    // For 'textured' style: texture IS the fill at full opacity, border drawn on top.
     const texEntry = texturePatterns.get(theme.id);
     if (texEntry && texEntry.image) {
-        // Cache the pattern on the context object to avoid cross-context issues and recreating it every frame
-        if (!ctx._patterns) {
-            ctx._patterns = new Map();
-        }
-        let pattern = ctx._patterns.get(theme.id);
-        if (!pattern) {
-            try {
-                pattern = ctx.createPattern(texEntry.image, 'repeat');
-                ctx._patterns.set(theme.id, pattern);
-            } catch (e) {
-                console.warn(`[Brickly] Failed to create pattern on context:`, e);
-            }
-        }
+        const isTextured = style === 'textured';
+        const radius = (() => {
+            if (style === 'cushion')  return Math.min(w, h) * 0.14;
+            if (style === 'neon')     return Math.min(w, h) * 0.15;
+            if (style === 'wood')     return Math.min(w, h) * 0.12;
+            if (style === 'gemstone') return Math.min(w, h) * 0.08;
+            if (style === 'pastel')   return Math.min(w, h) * 0.22;
+            if (isTextured)           return Math.min(w, h) * 0.12;
+            return Math.min(w, h) * 0.12;
+        })();
+        const inset = isTextured ? 1.5 : (style === 'pastel' ? 2.5 : (style === 'gemstone' ? 2 : (style === 'neon' ? 2 : 1.5)));
 
-        if (pattern) {
-            ctx.save();
-            ctx.globalAlpha = texEntry.alpha;
-            ctx.fillStyle = pattern;
-            // Clip texture to the block shape
-            if (style === 'cushion') {
-                const radius = Math.min(w, h) * 0.14;
-                roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
-            } else if (style === 'neon') {
-                const radius = Math.min(w, h) * 0.15;
-                roundRect(x + 2, y + 2, w - 4, h - 4, radius);
-            } else if (style === 'wood') {
-                const radius = Math.min(w, h) * 0.12;
-                roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
-            } else if (style === 'gemstone') {
-                const radius = Math.min(w, h) * 0.08;
-                roundRect(x + 2, y + 2, w - 4, h - 4, radius);
-            } else if (style === 'pastel') {
-                const radius = Math.min(w, h) * 0.22;
-                roundRect(x + 2.5, y + 2.5, w - 5, h - 5, radius);
-            } else if (style === 'textured') {
-                // For textured blocks, texture IS the fill — use full block area
-                const radius = Math.min(w, h) * 0.12;
-                roundRect(x + 1.5, y + 1.5, w - 3, h - 3, radius);
+        ctx.save();
+        // Textured: inherit parent context alpha (caller controls drag vs board opacity)
+        // Overlay: apply the stored low overlay alpha over the filled base
+        if (!isTextured) ctx.globalAlpha = texEntry.alpha;
+        
+        // Clip to the rounded rect of the cell
+        roundRect(x + inset, y + inset, w - inset * 2, h - inset * 2, radius);
+        ctx.clip();
+        
+        // Draw the texture image scaled to fit the cell exactly (avoids coordinate sliding)
+        ctx.drawImage(texEntry.image, x + inset, y + inset, w - inset * 2, h - inset * 2);
+        ctx.restore();
+
+        // For textured blocks: draw border + markers ON TOP of the texture
+        if (isTextured) {
+            ctx.save(); // isolate border drawing so it respects parent alpha
+            const r = Math.min(w, h) * 0.12;
+
+            // Dark cell-separation border (softened for drag preview readability)
+            roundRect(x + 1.5, y + 1.5, w - 3, h - 3, r);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Target spot marker (gold ring)
+            if (colorId === 13) {
+                ctx.beginPath();
+                ctx.arc(x + w / 2, y + h / 2, w * 0.22, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.45)';
+                ctx.fill();
+                ctx.strokeStyle = '#ffe57f';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+            // Bomb marker (red circle)
+            } else if (colorId === 14) {
+                ctx.beginPath();
+                ctx.arc(x + w / 2, y + h / 2, w * 0.22, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 51, 0, 0.85)';
+                ctx.fill();
+                ctx.strokeStyle = '#ffcc00';
+                ctx.lineWidth = 2;
+                ctx.stroke();
             }
-            ctx.clip();
-            ctx.fillRect(x, y, w, h);
             ctx.restore();
         }
     }
@@ -1074,7 +1385,7 @@ function hexToRgbAUncached(hex, alpha = 1) {
 /**
  * Returns a lighter shade of a color (supports HEX and RGB/RGBA) (cached version).
  */
-function lightenColor(colorStr, percent) {
+export function lightenColor(colorStr, percent) {
     const key = `${colorStr}_${percent}`;
     let cached = colorCache.get(key);
     if (!cached) {
@@ -1127,6 +1438,6 @@ function lightenColorUncached(colorStr, percent) {
 /**
  * Returns a darker shade of a color (supports HEX and RGB/RGBA).
  */
-function darkenColor(hex, percent) {
+export function darkenColor(hex, percent) {
     return lightenColor(hex, percent);
 }

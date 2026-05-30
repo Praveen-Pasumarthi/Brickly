@@ -8,7 +8,7 @@ import { Board } from './engine.js';
 import { Spawner, SHAPES } from './spawner.js';
 import { StorageManager } from './storage.js';
 import { ModeManager, AdventureLevels } from './modes.js';
-import { THEMES, drawThemeBlock, texturePatterns } from './themes.js';
+import { THEMES, drawThemeBlock, texturePatterns, lightenColor, darkenColor } from './themes.js';
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
 import { Auth, DB } from './firebase.js';
@@ -165,7 +165,23 @@ const TEXTURE_MAP = {
     brickWall:      { file: 'Brick/Brick_15-128x128',       alpha: 0.90 }, // texture IS the block fill
     industrialMetal:{ file: 'Metal/Metal_05-128x128',       alpha: 0.45 }, // strong metal overlay on neon
     slate:          { file: 'Stone/Stone_11-128x128',       alpha: 0.90 }, // texture IS the block fill
-    volcanic:       { file: 'Elements/Elements_05-128x128', alpha: 0.12 },
+    volcanic:       { file: 'Elements/Elements_05-128x128', alpha: 0.25 }, // volcanic color overlay
+    brickClassic:   { file: 'Brick/Brick_02-128x128',       alpha: 0.90 },
+    muddyDirt:      { file: 'Dirt/Dirt_14-128x128',         alpha: 0.90 },
+    heavyMetal:     { file: 'Metal/Metal_15-128x128',       alpha: 0.90 },
+    cobbleStone:    { file: 'Stone/Stone_18-128x128',       alpha: 0.90 },
+    mahoganyWood:   { file: 'Wood/Wood_15-128x128',         alpha: 0.90 },
+    driftWood:      { file: 'Wood/Wood_13-128x128',         alpha: 0.90 },
+    tile01:         { file: 'Tile/Tile_01-128x128',         alpha: 0.90 },
+    tile03:         { file: 'Tile/Tile_03-128x128',         alpha: 0.90 },
+    tile05:         { file: 'Tile/Tile_05-128x128',         alpha: 0.90 },
+    tile07:         { file: 'Tile/Tile_07-128x128',         alpha: 0.90 },
+    tile09:         { file: 'Tile/Tile_09-128x128',         alpha: 0.90 },
+    tile11:         { file: 'Tile/Tile_11-128x128',         alpha: 0.90 },
+    tile13:         { file: 'Tile/Tile_13-128x128',         alpha: 0.90 },
+    tile15:         { file: 'Tile/Tile_15-128x128',         alpha: 0.90 },
+    tile17:         { file: 'Tile/Tile_17-128x128',         alpha: 0.90 },
+    tile19:         { file: 'Tile/Tile_19-128x128',         alpha: 0.90 },
 };
 
 function loadTextures() {
@@ -1355,7 +1371,10 @@ function drawDraggedShapeOverlay() {
     }
 
     // Second pass: draw the actual blocks
-    dragCtx.globalAlpha = 0.96;
+    // Textured themes use alpha inheritance — lower to 0.75 so the drag piece is
+    // visibly semi-transparent over placed blocks (prevents "lines through blocks" effect)
+    const isTexturedStyle = theme.blockStyle === 'textured';
+    dragCtx.globalAlpha = isTexturedStyle ? 0.75 : 0.96;
     for (let r = 0; r < shapeRows; r++) {
         for (let c = 0; c < shapeCols; c++) {
             if (shapeMatrix[r][c] > 0) {
@@ -2581,7 +2600,7 @@ function updateComboWidget() {
 
 
 function triggerThemeChange(isGameplay = false) {
-    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese', 'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy', 'brickWall', 'industrialMetal', 'slate', 'volcanic'];
+    const themeKeys = ['indigo', 'classic', 'neon', 'wood', 'gems', 'pastel', 'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese', 'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy', 'brickWall', 'industrialMetal', 'slate', 'volcanic', 'brickClassic', 'muddyDirt', 'heavyMetal', 'cobbleStone', 'mahoganyWood', 'driftWood', 'tile01', 'tile03', 'tile05', 'tile07', 'tile09', 'tile11', 'tile13', 'tile15', 'tile17', 'tile19'];
     let nextIndex = (themeKeys.indexOf(activeTheme) + 1) % themeKeys.length;
     const nextTheme = themeKeys[nextIndex];
     
@@ -2609,7 +2628,10 @@ function buildSkinPickerGrid() {
         'indigo', 'classic', 'neon', 'wood', 'gems', 'pastel',
         'blush', 'snow', 'ocean', 'aurora', 'watermelon', 'cheese',
         'crochet', 'tropical', 'marble', 'lava', 'sakura', 'candy',
-        'brickWall', 'industrialMetal', 'slate', 'volcanic'
+        'brickWall', 'industrialMetal', 'slate', 'volcanic',
+        'brickClassic', 'muddyDirt', 'heavyMetal', 'cobbleStone',
+        'mahoganyWood', 'driftWood', 'tile01', 'tile03', 'tile05',
+        'tile07', 'tile09', 'tile11', 'tile13', 'tile15', 'tile17', 'tile19'
     ];
 
     themeKeys.forEach(key => {
@@ -2627,7 +2649,42 @@ function buildSkinPickerGrid() {
         [1, 2, 3, 4].forEach(i => {
             const dot = document.createElement('div');
             dot.className = 'skin-swatch-dot';
-            dot.style.background = theme.colors[i] || '#fff';
+            
+            const color = theme.colors[i] || '#fff';
+            dot.style.backgroundColor = color;
+            
+            // Apply style-specific rendering effects to the swatch dots
+            if (theme.blockStyle === 'neon') {
+                dot.style.boxShadow = `inset 0 0 4px #fff, 0 0 6px ${color}`;
+                dot.style.borderColor = color;
+            } else if (theme.blockStyle === 'cushion') {
+                dot.style.background = `linear-gradient(135deg, ${color}, ${darkenColor(color, -18)})`;
+                dot.style.border = `1px solid ${darkenColor(color, -25)}`;
+            } else if (theme.blockStyle === 'gemstone') {
+                dot.style.background = `linear-gradient(135deg, ${lightenColor(color, 20)}, ${color}, ${darkenColor(color, -25)})`;
+                dot.style.border = `1px solid ${darkenColor(color, -40)}`;
+            } else if (theme.blockStyle === 'wood') {
+                dot.style.background = `linear-gradient(135deg, ${color}, ${darkenColor(color, -20)})`;
+                dot.style.border = `1px solid ${darkenColor(color, -40)}`;
+            } else if (theme.blockStyle === 'volcanic') {
+                dot.style.background = `linear-gradient(135deg, ${color}, ${darkenColor(color, -25)})`;
+                dot.style.border = `1.5px solid ${lightenColor(color, 25)}`;
+            } else {
+                // Default / Pastel / Textured base border
+                dot.style.border = `1px solid rgba(255,255,255,0.15)`;
+            }
+
+            // Apply texture overlay if the theme has a texture configured
+            if (theme.texture) {
+                dot.style.backgroundImage = `url('assets/images/textures/${theme.texture}.png')`;
+                dot.style.backgroundSize = 'cover';
+                dot.style.backgroundPosition = 'center';
+                if (theme.blockStyle !== 'textured') {
+                    // Blend style colors and texture overlay (creates beautiful mahogany/wood/volcanic overlays)
+                    dot.style.backgroundBlendMode = 'multiply';
+                }
+            }
+
             dotsEl.appendChild(dot);
         });
 

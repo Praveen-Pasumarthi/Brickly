@@ -181,7 +181,10 @@ export class ParticleSystem {
             'unravel': 'yarn',
             'dustcrack': 'crack_line',
             'ember_rise': 'ember',
-            'sprinkle_burst': 'sprinkle'
+            'sprinkle_burst': 'sprinkle',
+            'tile_break': 'shard',
+            'metal_snap': 'glitch',
+            'dust_puff': 'dust_cloud'
         };
 
         effectTheme.particleStyle = styleToParticle[style] || theme.particleStyle;

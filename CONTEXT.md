@@ -141,7 +141,8 @@ The `addFloatingText()` method displays reward messages on the canvas:
 1. After placing a block shape, `board.checkFullLines()` is called
 2. Combo streak increments if lines cleared
 3. Score calculated: `baseLineScore * comboStreak + streakBonus`
-   - `streakBonus = (comboStreak > 1) ? (comboStreak - 1) * 100 + 50 : 0`
+   - `streakBonus`: flat tier system — `tier = floor((streak-1)/10)+1`, `streakBonus = tier * 250`
+     - Combo x2–x10 → +250, x11–x20 → +500, x21–x30 → +750, +250 per 10 more levels
 4. Particle effects spawned along cleared rows/columns
 5. `audio.playClear(comboStreak)` plays arpeggio sound
 6. Voice announcement triggered based on achievement tier
@@ -406,10 +407,24 @@ Organized in 8 category subfolders, 20 textures each (160 total):
 - Applied at low opacity (0.08–0.15) after base fill in `drawThemeBlock()`.
 - During theme transitions, texture opacity crossfades over 350ms.
 - Textures loaded once at startup using standard, highly-compatible `onload` / `onerror` callbacks, populating a `Map<string, Image>` cache.
+- **Texture alpha values in `TEXTURE_MAP` (game.js):**
+  - `wood`, `marble`, `lava` — low overlay alpha (0.08–0.12) applied over opaque color fill
+  - `brickWall`, `slate` — **alpha: 0.90** — texture IS the primary block fill (textured blockStyle)
+  - `industrialMetal` — **alpha: 0.90** — texture IS the primary block fill
+  - `volcanic` — **alpha: 0.90** — texture IS the primary block fill
 - Color transformations (`lightenColor`, `darkenColor`, `hexToRgbA`) cache pre-computed shades locally (`colorCache`, `rgbaCache`) to completely eliminate regex parsing overhead on every frame.
 - Static empty cells are drawn directly at `(cx + 1.5, cy + 1.5)` without context translation/scaling steps when the spring prefill animation is inactive, saving up to 100 canvas saves/restores per frame.
 - Canvas clearing and gameplay rendering (including board, slots, and drag overlays) are completely bypassed when the main menu is active (`body.menu-active`), bringing menu CPU overhead down to near 0%.
 - Native canvas `shadowBlur` and `shadowColor` properties are completely avoided for regular draw loops (including dragging overlays, snap indicators, neon block styling, bomb timers, and floating texts). Instead, hardware-accelerated **flat offset shadows** and **dual-stroke glowing borders** are used to prevent CPU thread contention and maintain a stable 60 FPS.
+
+### `'textured'` BlockStyle (`js/themes.js`)
+Used by `brickWall`, `industrialMetal`, `slate`, and `volcanic`. The texture image IS the block — no flat color fill.
+- In the blockStyle section: draws nothing (block shape established for later)
+- In the texture overlay section:
+  - Clips canvas to the rounded-rect block shape
+  - `ctx.fillRect()` fills the clip area with the texture pattern at **1.0 globalAlpha**
+  - After `ctx.restore()`: draws a dark border (`rgba(0,0,0,0.85)`, 2.5px) on top of the texture for cell separation
+  - Target (colorId 13) and Bomb (colorId 14) markers drawn on top of the texture
 
 ### Texture Suitability
 **USEFUL:** Brick (12/20), Metal (12/20), Stone (9/20), Wood (16/20), Elements (10/20), Tile (15/20) — 74 textures
@@ -441,16 +456,22 @@ All visual feedback enhancements, material-specific clear effects, theme-specifi
    - Wired skin cycling support in `themeKeys` list.
    - Declared body variables in `style.css` matching accent and UI colors.
 
-6. **Block Camouflage Implementation (`js/themes.js` & `js/game.js`)**
-   - Changed approach for `industrialMetal` and `slate` themes: instead of brightening hex colors, use actual texture images as primary block fill at 90% opacity
-   - Implemented `textured` blockStyle in themes.js with `ctx.clip()` for precise texture rendering
-   - Provides authentic material appearance rather than color overlays
+6. **Textured Block Rendering (`js/themes.js` & `js/game.js`)**
+   - All four texture themes (`brickWall`, `industrialMetal`, `slate`, `volcanic`) use `blockStyle: 'textured'`
+   - Texture images fill blocks at **full (1.0) opacity** via `ctx.clip()` + `ctx.fillRect()` — the texture image IS the block
+   - Dark border drawn on top of texture for cell separation; Target/Bomb markers drawn last
+   - `TEXTURE_MAP` alpha set to 0.90 for all four textured themes in `game.js`
 
 7. **Theme Picker Grid (`js/game.js`, `style.css`, `index.html`)**
-   - Added bottom-sheet modal accessible from Settings → Menu Theme button
-   - Displays all 22 themes in a grid with visual previews
-   - Includes ✓ badge for current theme and auto-close on selection
-   - Features smooth animations and responsive touch handling
+   - Replaced the sequential "Change Skin" cycle button with a **bottom-sheet modal** (`#skin-picker-overlay`)
+   - Opened via Settings → **Change Skin** button (`btn-settings-theme`)
+   - Displays all 22 themes in a **3-column scrollable grid** of color swatches
+   - Each swatch: theme background color + 2×2 block color dots + theme name label
+   - Active theme shows a ✓ badge and white border glow
+   - Tap a swatch → theme applies instantly → picker auto-closes after **380ms**
+   - Tap outside modal or × button to close without changing
+   - Auto-scrolls to current active theme swatch on open
+   - `buildSkinPickerGrid()` rebuilds the grid fresh on every open (always reflects current active theme)
 
 8. **Skin Picker Modal Enhancements**
    - Added skin picker modal to `index.html` with premium glass-morphism UI
