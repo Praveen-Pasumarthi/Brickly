@@ -116,12 +116,15 @@ Each mode has its own LocalStorage key:
 | Blast | `brickly_hs_blast` |
 
 ### Display Rules
-- **In-game HUD** (crown icon + "BEST SCORE" label): Shows best score for the **current mode only**
-- **Main menu "High Score"**: Shows **highest across all modes** via `StorageManager.getOverallHighScore()`
+- **Crown icon 👑** (top-left in-game HUD): Always shows the **highest score across all modes** via `getOverallHighScore()`
+- **"BEST SCORE" label** (stats panel): Shows best score for the **current mode only**
+- **Missions mode**: Both crown icon and "BEST SCORE" label are **hidden** (level-based, not score-based)
+- **Main menu "High Score"**: Shows highest across all modes
 - **Game Over modal**: Shows best score for the mode just played
 
 ### Migration
-- One-time `migrateOldHighScores()` copies old shared keys (`brickly_high_score`) into per-mode keys
+- One-time `migrateOldHighScores()` v2: copies old shared Classic score to `brickly_hs_classic` only, old Classic XL to `brickly_hs_classic_10` only, clears stale Blast/Endless keys
+- High score saved during gameplay only for score-based modes (Classic, Classic XL, Endless, Blast) — excluded from Missions
 - Firebase Firestore sync at `users/{uid}/highScores/{mode}` when signed in
 
 ---
@@ -245,6 +248,11 @@ Levels 11-500 rotate through 10 templates:
 - Moves limit: `max(12, 27 - floor(level × 0.045))`
 - Shape difficulty tiers scale with level number
 - Level Select UI: glass-morphism overlay with locked/completed/current states
+
+### Score Display
+- Crown icon and "BEST SCORE" label are **hidden** in Missions mode (level-based, not score-based)
+- Mode label shows "Missions Lvl X" instead
+- High scores are not tracked for Missions mode
 
 ---
 

@@ -229,11 +229,14 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 ### Per-Mode High Score System (`js/storage.js`, `js/game.js`)
 - Each game mode (Classic, Classic XL, Endless, Blast) has its own LocalStorage key:
   - `brickly_hs_classic`, `brickly_hs_classic_10`, `brickly_hs_endless`, `brickly_hs_blast`
-- **In-game HUD** (crown icon + "BEST SCORE" label): Shows the best score for the **current mode only**.
-- **Main menu** + **game modes screen**: Shows the highest score across all modes via `getOverallHighScore()`.
+- **In-game HUD — Crown icon 👑** (top-left): Always shows the **highest score across all modes** via `getOverallHighScore()`.
+- **In-game HUD — "BEST SCORE" label** (stats panel): Shows the best score for the **current mode only**.
+- **Missions mode**: Both crown icon and "BEST SCORE" label are **hidden** (level-based, not score-based).
+- **Main menu "High Score"**: Shows the highest score across all modes via `getOverallHighScore()`.
 - **Game Over modal**: Shows the best score for the mode just played.
 - `saveHighScore()` writes to the per-mode key and optionally syncs to Firestore.
-- One-time migration (`migrateOldHighScores()`) copies old shared keys (`brickly_high_score`) into the new per-mode keys on first run.
+- High score saved during gameplay only for score-based modes (Classic, Classic XL, Endless, Blast) — excluded from Missions.
+- One-time migration (`migrateOldHighScores()` v2): copies old shared Classic score to `brickly_hs_classic` only, old Classic XL to `brickly_hs_classic_10` only, clears stale Blast/Endless keys so each mode starts fresh.
 
 ## Theme System
 

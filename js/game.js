@@ -297,7 +297,7 @@ function initGame() {
 
     // 6. Write high score to header crown
     const topScoreEl = $('best-score-top-val');
-    if (topScoreEl) topScoreEl.innerText = highScore;
+    if (topScoreEl) topScoreEl.innerText = StorageManager.getOverallHighScore();
     updateMenuHighScore();
 
     // 7. Start Render Animation Loop
@@ -1621,6 +1621,7 @@ export function selectMode(modeName, forceNewGame = false) {
 
 function startNewGame() {
     score = 0;
+    highScore = StorageManager.getHighScore(activeMode);
     comboStreak = 0;
     comboTimerMs = 0;
     comboTimerActive = false;
@@ -1751,6 +1752,9 @@ function updateHUD() {
     const scoreEl = $('score-val');
     const bestEl = $('best-score-val');
     const topEl = $('best-score-top-val');
+    const crownWrap = document.querySelector('.hud-high-score');
+    const bestScoreWrap = bestEl ? bestEl.closest('.hud-item') : null;
+
     if (scoreEl) {
         scoreEl.innerText = score;
         if (score.toString().length >= 6) {
@@ -1759,8 +1763,17 @@ function updateHUD() {
             scoreEl.style.fontSize = '';
         }
     }
-    if (bestEl) bestEl.innerText = highScore;
-    if (topEl) topEl.innerText = highScore;
+
+    // Hide score displays in Missions mode (level-based, not score-based)
+    if (activeMode === 'missions') {
+        if (crownWrap) crownWrap.style.visibility = 'hidden';
+        if (bestScoreWrap) bestScoreWrap.style.display = 'none';
+    } else {
+        if (crownWrap) crownWrap.style.visibility = '';
+        if (bestScoreWrap) bestScoreWrap.style.display = '';
+        if (bestEl) bestEl.innerText = highScore;
+        if (topEl) topEl.innerText = StorageManager.getOverallHighScore();
+    }
 
     // Display appropriate level names based on the active mode
     const modeNames = {

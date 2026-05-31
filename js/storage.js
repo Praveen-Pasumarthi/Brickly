@@ -99,39 +99,19 @@ export class StorageManager {
      * One-time migration: copies old shared high scores into per-mode keys.
      * Old system used one key for classic+blast+endless, another for classic_10.
      * New system uses a separate key per mode.
+     * Only migrates to classic (the original mode) — blast and endless start fresh.
      */
     static migrateOldHighScores() {
         if (!this.isAvailable()) return;
-        if (localStorage.getItem('brickly_hs_migrated') === 'true') return;
+        if (localStorage.getItem('brickly_hs_migrated_v2') === 'true') return;
 
-        const oldShared = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE);
-        const oldClassic10 = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE_10);
+        // Clear all stale per-mode keys from old migration — all modes start fresh
+        localStorage.removeItem(this._getModeKey('classic'));
+        localStorage.removeItem(this._getModeKey('classic_10'));
+        localStorage.removeItem(this._getModeKey('endless'));
+        localStorage.removeItem(this._getModeKey('blast'));
 
-        if (oldShared) {
-            const val = parseInt(oldShared, 10) || 0;
-            // Only migrate if the per-mode keys don't already have higher values
-            if (val > 0) {
-                ['classic', 'endless', 'blast'].forEach(mode => {
-                    const key = this._getModeKey(mode);
-                    const existing = parseInt(localStorage.getItem(key), 10) || 0;
-                    if (val > existing) {
-                        localStorage.setItem(key, val.toString());
-                    }
-                });
-            }
-        }
-        if (oldClassic10) {
-            const val = parseInt(oldClassic10, 10) || 0;
-            if (val > 0) {
-                const key = this._getModeKey('classic_10');
-                const existing = parseInt(localStorage.getItem(key), 10) || 0;
-                if (val > existing) {
-                    localStorage.setItem(key, val.toString());
-                }
-            }
-        }
-
-        localStorage.setItem('brickly_hs_migrated', 'true');
+        localStorage.setItem('brickly_hs_migrated_v2', 'true');
     }
 
     /**
@@ -203,12 +183,48 @@ export class StorageManager {
     }
 
     /**
-     * Fetches the calendar date string of the last completed Daily Challenge.
-     * @returns {string|null} Format: 'YYYY-MM-DD'
+     * One-time migration v2: re-maps old shared high scores into per-mode keys.
+     * Old system: one shared key for classic+blast+endless, one for classic_10.
+     * New system: separate key per mode.
+     * Strategy: migrate old shared score to Classic only (where it was earned),
+     * old classic_10 to Classic XL only. Blast and Endless start fresh.
      */
-    static getDailyLastCompletedDate() {
-        if (!this.isAvailable()) return null;
-        return localStorage.getItem(STORAGE_KEYS.DAILY_LAST_DATE);
+    static migrateOldHighScores() {
+        if (!this.isAvailable()) return;
+        if (localStorage.getItem('brickly_hs_migrated_v2') === 'true') return;
+
+        const oldShared = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE);
+        const oldClassic10 = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE_10);
+
+        // Migrate old shared score → Classic only
+        if (oldShared) {
+            const val = parseInt(oldShared, 10) || 0;
+            if (val > 0) {
+                const key = this._getModeKey('classic');
+                const existing = parseInt(localStorage.getItem(key), 10) || 0;
+                if (val > existing) {
+                    localStorage.setItem(key, val.toString());
+                }
+            }
+        }
+
+        // Migrate old classic_10 score → Classic XL only
+        if (oldClassic10) {
+            const val = parseInt(oldClassic10, 10) || 0;
+            if (val > 0) {
+                const key = this._getModeKey('classic_10');
+                const existing = parseInt(localStorage.getItem(key), 10) || 0;
+                if (val > existing) {
+                    localStorage.setItem(key, val.toString());
+                }
+            }
+        }
+
+        // Clear stale Blast/Endless keys (if populated by old v1 migration)
+        localStorage.removeItem(this._getModeKey('endless'));
+        localStorage.removeItem(this._getModeKey('blast'));
+
+        localStorage.setItem('brickly_hs_migrated_v2', 'true');
     }
 
     /**
