@@ -4,6 +4,9 @@
  * Falls back to clean browser-simulated prompts in desktop development mode.
  */
 
+// ── MASTER SWITCH ── Set to true before publishing. Keeps ads fully disabled during dev/testing.
+const ADS_ENABLED = false;
+
 // ── PRODUCTION IDs (uncomment for release) ──
 // const ANDROID_INTERSTITIAL = 'ca-app-pub-1104715539013161/4805122197';
 // const ANDROID_REWARDED     = 'ca-app-pub-1104715539013161/7162702540';
@@ -38,6 +41,7 @@ class AdManagerService {
      */
     async initialize() {
         if (this.initialized) return;
+        if (!ADS_ENABLED) { this.initialized = true; console.log('[Brickly Ads] Ads disabled.'); return; }
 
         // Resolve Capacitor and plugins dynamically at runtime instead of module evaluation time
         this.isCapacitor = !!(window.Capacitor && window.Capacitor.Plugins);
@@ -115,7 +119,7 @@ class AdManagerService {
      * Preloads an interstitial ad in the background.
      */
     async loadInterstitial() {
-        if (!this.admobPlugin || !this.initialized) return;
+        if (!ADS_ENABLED || !this.admobPlugin || !this.initialized) return;
 
         try {
             console.log('[Brickly Ads] Preloading interstitial...');
@@ -135,6 +139,7 @@ class AdManagerService {
      * Shows the preloaded interstitial ad.
      */
     async showInterstitial() {
+        if (!ADS_ENABLED) return;
         console.log('[Brickly Ads] Attempting to show interstitial...');
 
         if (this.admobPlugin) {
@@ -161,7 +166,7 @@ class AdManagerService {
      * Preloads a rewarded ad in the background.
      */
     async loadRewarded() {
-        if (!this.admobPlugin || !this.initialized) return;
+        if (!ADS_ENABLED || !this.admobPlugin || !this.initialized) return;
 
         try {
             console.log('[Brickly Ads] Preloading rewarded video...');
@@ -184,6 +189,7 @@ class AdManagerService {
      * @param {Function} onFailure - Callback executed if the ad fails to load/show.
      */
     async showRewarded(onReward, onClose, onFailure) {
+        if (!ADS_ENABLED) { if (onFailure) onFailure(new Error('Ads disabled.')); return; }
         console.log('[Brickly Ads] Attempting to show rewarded video...');
         this.rewardSuccessCallback = onReward;
         this.rewardCloseCallback = onClose;

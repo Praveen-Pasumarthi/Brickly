@@ -149,10 +149,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function updateMenuHighScore() {
     const menuHighScoreEl = document.getElementById('menu-high-score');
     if (menuHighScoreEl) {
-        const classic = StorageManager.getHighScore('classic') || 0;
-        const classic10 = StorageManager.getHighScore('classic_10') || 0;
-        const blast = StorageManager.getHighScore('blast') || 0;
-        menuHighScoreEl.innerText = Math.max(classic, classic10, blast);
+        menuHighScoreEl.innerText = StorageManager.getOverallHighScore();
     }
 }
 
@@ -218,6 +215,9 @@ function initGame() {
 
     // 2b. Load texture images (async, non-blocking)
     loadTextures();
+
+    // One-time migration: copy old shared high scores into per-mode keys
+    StorageManager.migrateOldHighScores();
 
     // One-time score migration: cut old high scores to 50% of their original values
     if (localStorage.getItem('brickly_score_migrated_v3') !== 'true') {
@@ -835,8 +835,8 @@ function attemptBlockPlacement() {
         // 5. Refill tray slots if all three are empty
         const refilled = spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
 
-        // 6. High Score check (Classic & Classic 10x10 mode)
-        if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'endless') {
+        // 6. High Score check (all score-based modes)
+        if (activeMode === 'classic' || activeMode === 'classic_10' || activeMode === 'endless' || activeMode === 'blast') {
             if (score > highScore) {
                 highScore = score;
                 StorageManager.saveHighScore(highScore, activeMode);

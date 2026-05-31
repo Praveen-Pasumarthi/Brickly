@@ -7,6 +7,10 @@
 const STORAGE_KEYS = {
     HIGH_SCORE: 'brickly_high_score',
     HIGH_SCORE_10: 'brickly_high_score_10',
+    HIGH_SCORE_CLASSIC: 'brickly_hs_classic',
+    HIGH_SCORE_CLASSIC_10: 'brickly_hs_classic_10',
+    HIGH_SCORE_ENDLESS: 'brickly_hs_endless',
+    HIGH_SCORE_BLAST: 'brickly_hs_blast',
     CURRENT_STATE: 'brickly_save_state',
     DAILY_STREAK: 'brickly_daily_streak',
     DAILY_LAST_DATE: 'brickly_daily_last_date',
@@ -33,6 +37,19 @@ export class StorageManager {
     }
 
     /**
+     * Returns the LocalStorage key for a given game mode.
+     */
+    static _getModeKey(mode) {
+        switch (mode) {
+            case 'classic':   return STORAGE_KEYS.HIGH_SCORE_CLASSIC;
+            case 'classic_10': return STORAGE_KEYS.HIGH_SCORE_CLASSIC_10;
+            case 'endless':   return STORAGE_KEYS.HIGH_SCORE_ENDLESS;
+            case 'blast':     return STORAGE_KEYS.HIGH_SCORE_BLAST;
+            default:          return STORAGE_KEYS.HIGH_SCORE;
+        }
+    }
+
+    /**
      * Updates and saves the high score if the new score is higher.
      * @param {number} score - Current score.
      * @param {string} mode - Active game mode.
@@ -40,7 +57,7 @@ export class StorageManager {
      */
     static saveHighScore(score, mode = 'classic') {
         if (!this.isAvailable()) return score;
-        const key = mode === 'classic_10' ? STORAGE_KEYS.HIGH_SCORE_10 : STORAGE_KEYS.HIGH_SCORE;
+        const key = this._getModeKey(mode);
         const currentHigh = this.getHighScore(mode);
         if (score > currentHigh) {
             localStorage.setItem(key, score.toString());
@@ -53,15 +70,68 @@ export class StorageManager {
     }
 
     /**
-     * Fetches the current high score.
+     * Fetches the current high score for a specific mode.
      * @param {string} mode - Active game mode.
      * @returns {number}
      */
     static getHighScore(mode = 'classic') {
         if (!this.isAvailable()) return 0;
-        const key = mode === 'classic_10' ? STORAGE_KEYS.HIGH_SCORE_10 : STORAGE_KEYS.HIGH_SCORE;
+        const key = this._getModeKey(mode);
         const scoreStr = localStorage.getItem(key);
         return scoreStr ? parseInt(scoreStr, 10) : 0;
+    }
+
+    /**
+     * Returns the highest score across all game modes.
+     * @returns {number}
+     */
+    static getOverallHighScore() {
+        if (!this.isAvailable()) return 0;
+        return Math.max(
+            this.getHighScore('classic'),
+            this.getHighScore('classic_10'),
+            this.getHighScore('endless'),
+            this.getHighScore('blast')
+        );
+    }
+
+    /**
+     * One-time migration: copies old shared high scores into per-mode keys.
+     * Old system used one key for classic+blast+endless, another for classic_10.
+     * New system uses a separate key per mode.
+     */
+    static migrateOldHighScores() {
+        if (!this.isAvailable()) return;
+        if (localStorage.getItem('brickly_hs_migrated') === 'true') return;
+
+        const oldShared = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE);
+        const oldClassic10 = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE_10);
+
+        if (oldShared) {
+            const val = parseInt(oldShared, 10) || 0;
+            // Only migrate if the per-mode keys don't already have higher values
+            if (val > 0) {
+                ['classic', 'endless', 'blast'].forEach(mode => {
+                    const key = this._getModeKey(mode);
+                    const existing = parseInt(localStorage.getItem(key), 10) || 0;
+                    if (val > existing) {
+                        localStorage.setItem(key, val.toString());
+                    }
+                });
+            }
+        }
+        if (oldClassic10) {
+            const val = parseInt(oldClassic10, 10) || 0;
+            if (val > 0) {
+                const key = this._getModeKey('classic_10');
+                const existing = parseInt(localStorage.getItem(key), 10) || 0;
+                if (val > existing) {
+                    localStorage.setItem(key, val.toString());
+                }
+            }
+        }
+
+        localStorage.setItem('brickly_hs_migrated', 'true');
     }
 
     /**

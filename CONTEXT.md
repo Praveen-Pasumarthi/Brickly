@@ -224,6 +224,16 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 ### Main Menu High Score
 - Displayed underneath the game mode buttons inside the `.arcade-layout` container for perfect centering.
 - Styled using `var(--btn1-from)` CSS custom property for theme-matching color with `font-weight: 800`.
+- Shows the **highest score across all modes** via `StorageManager.getOverallHighScore()`.
+
+### Per-Mode High Score System (`js/storage.js`, `js/game.js`)
+- Each game mode (Classic, Classic XL, Endless, Blast) has its own LocalStorage key:
+  - `brickly_hs_classic`, `brickly_hs_classic_10`, `brickly_hs_endless`, `brickly_hs_blast`
+- **In-game HUD** (crown icon + "BEST SCORE" label): Shows the best score for the **current mode only**.
+- **Main menu** + **game modes screen**: Shows the highest score across all modes via `getOverallHighScore()`.
+- **Game Over modal**: Shows the best score for the mode just played.
+- `saveHighScore()` writes to the per-mode key and optionally syncs to Firestore.
+- One-time migration (`migrateOldHighScores()`) copies old shared keys (`brickly_high_score`) into the new per-mode keys on first run.
 
 ## Theme System
 
@@ -533,6 +543,7 @@ We integrated the `@capacitor-community/admob` plugin to orchestrate Google AdMo
 - **Loading State & Error Resilience**:
   - The "Watch Ad to Revive" button displays a disabled **"🎥 Loading Ad..."** status.
   - If the ad fails to load (due to network issues, VPN, or Private DNS blockers like AdGuard), a friendly popup alert is displayed and the revive modal stays open so the user doesn't lose their session, rather than forcing an abrupt Game Over.
+- **`ADS_ENABLED` master switch**: Set to `false` during development/testing to completely disable all ads (no native plugin calls, no simulated browser dialogs). Set to `true` before publishing. Currently **disabled** for safe testing.
 
 ### Platform Configurations
 - **Android ([AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml))**: Test app ID active (`ca-app-pub-3940256099942544~3347511713`). Production ID commented nearby (`ca-app-pub-1104715539013161~4290494176`).
@@ -548,6 +559,22 @@ All production IDs are ready for release. To go live, uncomment in `js/ads.js` a
 - **iOS Interstitial**: `ca-app-pub-1104715539013161/9577112893`
 - **iOS Rewarded**: `ca-app-pub-1104715539013161/4501869865`
 
+### Production Deployment Checklist (3-Step Process)
+When ready to publish, perform **all 3 steps** together:
+
+**Step 1 — `js/ads.js`:**
+1. Set `ADS_ENABLED = true`
+2. Comment out the 4 test ID constants
+3. Uncomment the 4 production ID constants
+4. Set `initializeForTesting: false` (line ~57)
+5. Set `isTesting: false` in both `prepareInterstitial` and `prepareRewardVideoAd` calls
+
+**Step 2 — `android/app/src/main/AndroidManifest.xml`:**
+- Swap `android:value` from test ID `ca-app-pub-3940256099942544~3347511713` to production ID `ca-app-pub-1104715539013161~4290494176`
+
+**Step 3 — `ios/App/App/Info.plist`:**
+- Swap `<string>` under `GADApplicationIdentifier` from test ID `ca-app-pub-3940256099942544~1458002511` to production ID `ca-app-pub-1104715539013161~1807423767`
+
 ---
 
 ### Pending TODOs
@@ -555,20 +582,3 @@ All production IDs are ready for release. To go live, uncomment in `js/ads.js` a
 #### TODO: Replace placeholder App Store ID (NOT STARTED — blocked until published)
 * **Files:** `android/app/build.gradle` or `capacitor.config.json`
 * **Action:** When the app is published, replace placeholder ID with the real App Store ID.
-
-#### TODO: Replace iOS AdMob Test IDs with Production IDs (NOT STARTED — before iOS publishing)
-* **Files:** [Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist), [js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js)
-* **Action:** Before iOS publishing, replace iOS test IDs and enable production mode:
-  1. **iOS App ID**: Replace the test ID `ca-app-pub-3940256099942544~1458002511` in the `<key>GADApplicationIdentifier</key>` tag in `Info.plist` with your real iOS AdMob App ID.
-  2. **iOS Ad Unit IDs**: In `js/ads.js`, replace the following iOS test ID constants with your production ad unit IDs:
-     - `IOS_INTERSTITIAL` (currently `ca-app-pub-3940256099942544/4411468910`)
-     - `IOS_REWARDED` (currently `ca-app-pub-3940256099942544/1712485313`)
-
-#### Completed: Replace Android AdMob Test IDs with Production IDs (DONE)
-* **Files:** [AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml), [js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js)
-* **Action:** Configured Android production IDs and disabled test flags:
-  1. **Android App ID**: Configured production ID `ca-app-pub-1104715539013161~4290494176` in `AndroidManifest.xml`.
-  2. **Android Ad Unit IDs**: Configured production constants in `js/ads.js`:
-     - `ANDROID_INTERSTITIAL` set to `ca-app-pub-1104715539013161/4805122197`
-     - `ANDROID_REWARDED` set to `ca-app-pub-1104715539013161/7162702540`
-  3. **Disabled Android Test Flags**: Configured `initializeForTesting: false` and `isTesting: false` for Android preloads in `js/ads.js`.
