@@ -472,6 +472,25 @@
         </div>
     </div>
 
+    <!-- SECOND CHANCE / REVIVE MODAL -->
+    <div id="revive-overlay" class="modal-overlay hidden">
+        <div class="modal-card revive-card glass-panel">
+            <div class="modal-icon" style="filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.4));">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                    <path fill="#ffd700" d="M12,21.35L10.55,20.03C5.4,15.36 2,12.27 2,8.5C2,5.41 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.08C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.41 22,8.5C22,12.27 18.6,15.36 13.45,20.03L12,21.35Z"/>
+                </svg>
+            </div>
+            <h2 class="title-success">Second Chance</h2>
+            <p style="margin-top: 10px; font-size: 15px; color: rgba(255, 255, 255, 0.85); text-align: center; line-height: 1.4;">
+                Watch a short video to clear some space and save your high score!
+            </p>
+            <div class="modal-actions" style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: center;">
+                <button id="btn-watch-revive" class="primary-btn pulse-glow">🎥 Watch Ad to Revive</button>
+                <button id="btn-skip-revive" class="secondary-btn" style="width: 220px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.65);">No Thanks</button>
+            </div>
+        </div>
+    </div>
+
     <!-- LEVEL SELECT OVERLAY (Missions) -->
     <div id="level-select-overlay" class="modal-overlay hidden">
         <div class="level-select-card">

@@ -511,6 +511,34 @@ All visual feedback enhancements, material-specific clear effects, theme-specifi
     - Deleted `ic_launcher_foreground.png` and the `mipmap-anydpi-v26` folder to disable default adaptive XML overrides, forcing fallback to custom legacy design icons.
     - Overwrote native iOS asset catalog (`AppIcon.appiconset`) with custom design configurations from `assets/app_icons/Assets.xcassets/AppIcon.appiconset/`.
 
+## Google AdMob Integration (No Banners)
+
+### Core Setup & Plugin Access
+We integrated the `@capacitor-community/admob` plugin to orchestrate Google AdMob ads. In accordance with Capacitor module loading rules, the plugin is resolved dynamically at runtime inside `AdManager.initialize()` via `window.Capacitor.Plugins.AdMob` rather than at script compilation/import time, avoiding initialization race conditions.
+
+### Ads Orchestration ([js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js))
+- **No Banner Ads**: Banners are explicitly excluded.
+- **Interstitial Ads**: Pre-loaded in the background and shown at game-over transitions.
+- **Rewarded Video Ads ("Second Chance")**: Pre-loaded in the background. Triggered when the user runs out of moves or a bomb explodes. Grants a game revive:
+  - Clears 3 random rows/columns.
+  - Generates clear particles.
+  - Refuels the block tray.
+  - Clears any active bomb alerts.
+- **Simulated Browser Fallback**: When running in a desktop browser or local web environment, falls back to a custom `confirm()` dialog to simulate ad viewing and rewards.
+- **Event Listeners**:
+  - Rewarded completion: `"onRewardedVideoAdReward"`
+  - Rewarded dismissal: `"onRewardedVideoAdDismissed"`
+  - Interstitial dismissal: `"interstitialAdDismissed"`
+  - Failure to load handlers are configured to prevent crashes on network drops.
+- **Loading State & Error Resilience**:
+  - The "Watch Ad to Revive" button displays a disabled **"🎥 Loading Ad..."** status.
+  - If the ad fails to load (due to network issues, VPN, or Private DNS blockers like AdGuard), a friendly popup alert is displayed and the revive modal stays open so the user doesn't lose their session, rather than forcing an abrupt Game Over.
+
+### Platform Configurations
+- **Android ([AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml))**: Registered the Google AdMob test application ID (`ca-app-pub-3940256099942544~3347511713`).
+- **iOS ([Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist))**: Registered the iOS test application ID (`ca-app-pub-3940256099942544~1458002511`) and defined `NSUserTrackingUsageDescription`.
+- **Test Unit IDs**: Test unit IDs are loaded by default in `js/ads.js`. Make sure to replace them with production unit IDs and set `isTesting: false` before publishing.
+
 ---
 
 ### Pending TODOs
@@ -518,3 +546,7 @@ All visual feedback enhancements, material-specific clear effects, theme-specifi
 #### TODO: Replace placeholder App Store ID (NOT STARTED — blocked until published)
 * **Files:** `android/app/build.gradle` or `capacitor.config.json`
 * **Action:** When the app is published, replace placeholder ID with the real App Store ID.
+
+#### TODO: Replace AdMob Test IDs with Production IDs (NOT STARTED — before publishing)
+* **Files:** [AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml), [Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist), [js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js)
+* **Action:** Replace Google's test application IDs and ad unit IDs with production values, and disable test mode.

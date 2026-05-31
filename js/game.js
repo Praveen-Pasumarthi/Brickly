@@ -12,6 +12,7 @@ import { THEMES, drawThemeBlock, texturePatterns, lightenColor, darkenColor } fr
 import { AudioManager } from './audio.js';
 import { ParticleSystem } from './particles.js';
 import { Auth, DB } from './firebase.js';
+import { AdManager } from './ads.js';
 
 // --- Null-safe DOM helper ---
 function $(id) { return document.getElementById(id); }
@@ -318,6 +319,9 @@ function initGame() {
     document.addEventListener('touchstart', unlockBgmOnFirstTouch, { once: true });
     document.addEventListener('click', unlockBgmOnFirstTouch, { once: true });
     document.addEventListener('pointerdown', unlockBgmOnFirstTouch, { once: true });
+
+    // 9. Initialize AdMob Ads
+    AdManager.initialize();
 }
 
 // --- Layout Handling ---
@@ -792,7 +796,7 @@ function attemptBlockPlacement() {
             updateDangerBanner();
 
             if (exploded) {
-                triggerGameOver("A bomb detonated!");
+                checkForReviveOrGameOver("A bomb detonated!");
                 cleanupDragState();
                 return;
             }
@@ -822,7 +826,7 @@ function attemptBlockPlacement() {
 
             // Check moves depletion gameover
             if (movesLimit <= 0) {
-                triggerGameOver("Out of moves!");
+                checkForReviveOrGameOver("Out of moves!");
                 cleanupDragState();
                 return;
             }
@@ -847,7 +851,7 @@ function attemptBlockPlacement() {
 
         // 8. Game Over check (Are there moves left?)
         if (spawner.checkGameOver(board)) {
-            triggerGameOver("No valid placement moves left!");
+            checkForReviveOrGameOver("No valid placement moves left!");
             cleanupDragState();
             return;
         }
@@ -1553,6 +1557,7 @@ export function selectMode(modeName, forceNewGame = false) {
             highScore = StorageManager.getHighScore(activeMode);
             comboStreak = savedState.comboStreak || 0;
             placementCount = savedState.placementCount || 0;
+            revivedThisGame = savedState.revivedThisGame || false;
             
             board.reset(savedState.grid);
             spawner.slots = savedState.slots || [null, null, null];
@@ -1620,6 +1625,7 @@ function startNewGame() {
     comboTimerMs = 0;
     comboTimerActive = false;
     placementCount = 0;
+    revivedThisGame = false;
     maxComboStreak = 0;
     totalPlacements = 0;
     maxLinesOneTurn = 0;
@@ -1706,7 +1712,8 @@ function saveCurrentGameState() {
         missionLevel,
         movesLimit,
         linesClearedCount,
-        spawnCount: spawner.spawnCount
+        spawnCount: spawner.spawnCount,
+        revivedThisGame
     });
 }
 
@@ -1840,10 +1847,65 @@ function updateDangerBanner() {
     }
 }
 
+let revivedThisGame = false;
+let pendingGameOverReason = "";
+
+function checkForReviveOrGameOver(reason) {
+    if (!revivedThisGame && activeMode !== 'missions') {
+        pendingGameOverReason = reason;
+        const overlay = $('revive-overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            gamePaused = true;
+        }
+    } else {
+        triggerGameOver(reason);
+    }
+}
+
+function performReviveBoardClear() {
+    const totalLines = 3;
+    const clearedRows = [];
+    const clearedCols = [];
+    
+    // Pick 3 random lines (rows or columns)
+    for (let i = 0; i < totalLines; i++) {
+        const isRow = Math.random() < 0.5;
+        const maxLimit = isRow ? board.rows : board.cols;
+        const index = Math.floor(Math.random() * maxLimit);
+        
+        if (isRow) {
+            if (!clearedRows.includes(index)) clearedRows.push(index);
+        } else {
+            if (!clearedCols.includes(index)) clearedCols.push(index);
+        }
+    }
+    
+    // Clear these rows in board grid
+    clearedRows.forEach(r => {
+        for (let c = 0; c < board.cols; c++) {
+            board.grid[r][c] = 0;
+        }
+    });
+    
+    // Clear these columns in board grid
+    clearedCols.forEach(c => {
+        for (let r = 0; r < board.rows; r++) {
+            board.grid[r][c] = 0;
+        }
+    });
+    
+    // Spawn gorgeous clear particles!
+    particles.spawnLineClearEffect(clearedRows, clearedCols, boardLayout, getActiveThemeConfig());
+}
+
 function triggerGameOver(reason) {
     audio.playGameOver();
     triggerHaptic('heavy');
     StorageManager.clearGameState();
+
+    // Show preloaded interstitial ad
+    AdManager.showInterstitial();
 
     const reasonEl = $('gameover-reason');
     const finalScoreEl = $('final-score-val');
@@ -2118,6 +2180,92 @@ function setupUIBindings() {
             const overlay = $('gameover-overlay');
             if (overlay) overlay.classList.add('hidden');
             startNewGame();
+        });
+    }
+
+    // Watch Ad to Revive Button
+    const btnWatchRevive = $('btn-watch-revive');
+    if (btnWatchRevive) {
+        btnWatchRevive.addEventListener('click', () => {
+            triggerHaptic('light');
+            audio.playTap();
+            
+            // Show loading state
+            btnWatchRevive.disabled = true;
+            const originalText = btnWatchRevive.innerText;
+            btnWatchRevive.innerText = "🎥 Loading Ad...";
+            
+            // Watch rewarded video
+            AdManager.showRewarded(
+                () => {
+                    // Reset button state
+                    btnWatchRevive.disabled = false;
+                    btnWatchRevive.innerText = originalText;
+
+                    // Reward Granted!
+                    const overlay = $('revive-overlay');
+                    if (overlay) overlay.classList.add('hidden');
+                    
+                    // Clear 3 random rows/columns
+                    performReviveBoardClear();
+                    
+                    // Refill tray slots
+                    spawner.slots = [null, null, null];
+                    spawner.refillTray(board, score, activeMode, missionLevel, activeBombs);
+                    
+                    // Reset bomb alerts if they were active
+                    activeBombs = [];
+                    const dangerBar = $('danger-bar');
+                    if (dangerBar) dangerBar.classList.add('hidden');
+                    
+                    // Reset flags
+                    revivedThisGame = true;
+                    gamePaused = false;
+                    
+                    // Play win audio arpeggio for victory feel
+                    audio.playLevelWin();
+                    particles.addFloatingText('REVIVED!', boardLayout.x + boardLayout.width / 2, boardLayout.y + boardLayout.height / 2, { color: '#ffd700', isPraise: true });
+                    
+                    // Save the active revive state
+                    saveCurrentGameState();
+                },
+                () => {
+                    // Reset button state
+                    btnWatchRevive.disabled = false;
+                    btnWatchRevive.innerText = originalText;
+
+                    // Ad Closed
+                    const overlay = $('revive-overlay');
+                    if (overlay) overlay.classList.add('hidden');
+                    
+                    gamePaused = false;
+                    triggerGameOver(pendingGameOverReason);
+                },
+                (err) => {
+                    // Reset button state
+                    btnWatchRevive.disabled = false;
+                    btnWatchRevive.innerText = originalText;
+
+                    // Ad Failed to load/show - inform user and let them retry instead of forcing game over
+                    console.warn('[Brickly] Rewarded ad failed to load:', err);
+                    alert("Unable to load the ad. Please check your internet connection, VPN, or ad-blocker settings and try again.");
+                }
+            );
+        });
+    }
+
+    // Skip Revive / No Thanks Button
+    const btnSkipRevive = $('btn-skip-revive');
+    if (btnSkipRevive) {
+        btnSkipRevive.addEventListener('click', () => {
+            triggerHaptic('light');
+            audio.playTap();
+            
+            const overlay = $('revive-overlay');
+            if (overlay) overlay.classList.add('hidden');
+            
+            gamePaused = false;
+            triggerGameOver(pendingGameOverReason);
         });
     }
 

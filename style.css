@@ -2615,3 +2615,20 @@ body.theme-pastel .objective-desc {
     word-break: break-word;
     margin-top: 4px;
 }
+
+/* ==========================================================================
+   Second Chance (Revive) Modal Styling
+   ========================================================================== */
+.revive-card .primary-btn {
+    background: linear-gradient(135deg, #ffd700 0%, #ffae00 100%) !important;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4) !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+    transition: transform 0.1s ease, filter 0.1s ease;
+}
+.revive-card .primary-btn:hover {
+    filter: brightness(1.1);
+}
+.revive-card .primary-btn:active {
+    transform: translateY(2px) scale(0.98);
+}
