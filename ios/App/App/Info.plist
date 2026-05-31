@@ -46,6 +46,8 @@
 	<string>UIStatusBarStyleLightContent</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- PRODUCTION: uncomment below and comment above for release -->
+	<!-- <string>ca-app-pub-1104715539013161~1807423767</string> -->
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This identifier will be used to deliver personalized ads to you.</string>
 </dict>

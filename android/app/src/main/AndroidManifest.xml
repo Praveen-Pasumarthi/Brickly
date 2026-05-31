@@ -11,10 +11,12 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!-- Google AdMob Application ID (Test ID) -->
+        <!-- Google AdMob Application ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
+        <!-- PRODUCTION: swap value above with the line below for release -->
+        <!-- android:value="ca-app-pub-1104715539013161~4290494176" -->
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"

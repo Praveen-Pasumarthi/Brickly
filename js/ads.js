@@ -4,10 +4,15 @@
  * Falls back to clean browser-simulated prompts in desktop development mode.
  */
 
-// Official AdMob Test Unit IDs
-const ANDROID_INTERSTITIAL = 'ca-app-pub-3940256099942544/1033173712';
-const ANDROID_REWARDED     = 'ca-app-pub-3940256099942544/5224354917';
+// ── PRODUCTION IDs (uncomment for release) ──
+// const ANDROID_INTERSTITIAL = 'ca-app-pub-1104715539013161/4805122197';
+// const ANDROID_REWARDED     = 'ca-app-pub-1104715539013161/7162702540';
+// const IOS_INTERSTITIAL     = 'ca-app-pub-1104715539013161/9577112893';
+// const IOS_REWARDED         = 'ca-app-pub-1104715539013161/4501869865';
 
+// ── TEST IDs (active during development — safe to click) ──
+const ANDROID_INTERSTITIAL = 'ca-app-pub-3940256099942544/1044939714';
+const ANDROID_REWARDED     = 'ca-app-pub-3940256099942544/5224354917';
 const IOS_INTERSTITIAL     = 'ca-app-pub-3940256099942544/4411468910';
 const IOS_REWARDED         = 'ca-app-pub-3940256099942544/1712485313';
 
@@ -17,9 +22,9 @@ class AdManagerService {
         this.isCapacitor = false;
         this.admobPlugin = null;
         this.platform = 'web';
-        
+
         this.interstitialId = ANDROID_INTERSTITIAL;
-        this.rewardedId     = ANDROID_REWARDED;
+        this.rewardedId = ANDROID_REWARDED;
 
         this.interstitialLoaded = false;
         this.rewardedLoaded = false;
@@ -38,9 +43,9 @@ class AdManagerService {
         this.isCapacitor = !!(window.Capacitor && window.Capacitor.Plugins);
         this.admobPlugin = this.isCapacitor ? (window.Capacitor.Plugins.AdMob || null) : null;
         this.platform = this.isCapacitor ? window.Capacitor.getPlatform() : 'web';
-        
+
         this.interstitialId = this.platform === 'ios' ? IOS_INTERSTITIAL : ANDROID_INTERSTITIAL;
-        this.rewardedId     = this.platform === 'ios' ? IOS_REWARDED : ANDROID_REWARDED;
+        this.rewardedId = this.platform === 'ios' ? IOS_REWARDED : ANDROID_REWARDED;
 
         console.log(`[Brickly Ads] Initializing AdManager (Platform: ${this.platform})...`);
 
@@ -111,7 +116,7 @@ class AdManagerService {
      */
     async loadInterstitial() {
         if (!this.admobPlugin || !this.initialized) return;
-        
+
         try {
             console.log('[Brickly Ads] Preloading interstitial...');
             await this.admobPlugin.prepareInterstitial({
@@ -131,7 +136,7 @@ class AdManagerService {
      */
     async showInterstitial() {
         console.log('[Brickly Ads] Attempting to show interstitial...');
-        
+
         if (this.admobPlugin) {
             if (!this.interstitialLoaded) {
                 // Try to load it quickly first
@@ -188,7 +193,7 @@ class AdManagerService {
                 console.log('[Brickly Ads] Rewarded video not preloaded. Attempting immediate load...');
                 await this.loadRewarded();
             }
-            
+
             if (this.rewardedLoaded) {
                 try {
                     await this.admobPlugin.showRewardVideoAd();

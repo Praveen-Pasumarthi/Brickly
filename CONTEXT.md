@@ -547,6 +547,19 @@ We integrated the `@capacitor-community/admob` plugin to orchestrate Google AdMo
 * **Files:** `android/app/build.gradle` or `capacitor.config.json`
 * **Action:** When the app is published, replace placeholder ID with the real App Store ID.
 
-#### TODO: Replace AdMob Test IDs with Production IDs (NOT STARTED — before publishing)
-* **Files:** [AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml), [Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist), [js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js)
-* **Action:** Replace Google's test application IDs and ad unit IDs with production values, and disable test mode.
+#### TODO: Replace iOS AdMob Test IDs with Production IDs (NOT STARTED — before iOS publishing)
+* **Files:** [Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist), [js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js)
+* **Action:** Before iOS publishing, replace iOS test IDs and enable production mode:
+  1. **iOS App ID**: Replace the test ID `ca-app-pub-3940256099942544~1458002511` in the `<key>GADApplicationIdentifier</key>` tag in `Info.plist` with your real iOS AdMob App ID.
+  2. **iOS Ad Unit IDs**: In `js/ads.js`, replace the following iOS test ID constants with your production ad unit IDs:
+     - `IOS_INTERSTITIAL` (currently `ca-app-pub-3940256099942544/4411468910`)
+     - `IOS_REWARDED` (currently `ca-app-pub-3940256099942544/1712485313`)
+
+#### Completed: Replace Android AdMob Test IDs with Production IDs (DONE)
+* **Files:** [AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml), [js/ads.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/ads.js)
+* **Action:** Configured Android production IDs and disabled test flags:
+  1. **Android App ID**: Configured production ID `ca-app-pub-1104715539013161~4290494176` in `AndroidManifest.xml`.
+  2. **Android Ad Unit IDs**: Configured production constants in `js/ads.js`:
+     - `ANDROID_INTERSTITIAL` set to `ca-app-pub-1104715539013161/4805122197`
+     - `ANDROID_REWARDED` set to `ca-app-pub-1104715539013161/7162702540`
+  3. **Disabled Android Test Flags**: Configured `initializeForTesting: false` and `isTesting: false` for Android preloads in `js/ads.js`.
