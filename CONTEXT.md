@@ -501,6 +501,16 @@ All visual feedback enhancements, material-specific clear effects, theme-specifi
    - Added the shapes to `STARTER_POOL_2` and all difficulty tier pools in `SHAPE_TIERS`.
    - Added the shape keys to `starterCandidates` inside `prefillGrid()` to allow the engine to use them during grid pre-filling.
 
+10. **Android ActionBar White Strip Fix (`android/app/src/main/res/values/styles.xml`, `android/.../MainActivity.java`)**
+    - Configured `<item name="postSplashScreenTheme">@style/AppTheme</item>` in `AppTheme.NoActionBarLaunch` to enable correct post-splash theme transition.
+    - Imported and invoked `SplashScreen.installSplashScreen(this)` in `MainActivity.java`'s `onCreate()` to execute the theme transition.
+    - Added programmatic fail-safe: `getSupportActionBar().hide()` inside `MainActivity.java` to prevent ActionBars from drawing under custom ROM configurations (such as Xiaomi/Poco devices).
+
+11. **Applied Launcher App Icons (`android/app/src/main/res/`, `ios/App/App/Assets.xcassets/AppIcon.appiconset/`)**
+    - Overwrote standard (`ic_launcher.png`) and round (`ic_launcher_round.png`) Android icons with custom design resources from `assets/app_icons/android/`.
+    - Deleted `ic_launcher_foreground.png` and the `mipmap-anydpi-v26` folder to disable default adaptive XML overrides, forcing fallback to custom legacy design icons.
+    - Overwrote native iOS asset catalog (`AppIcon.appiconset`) with custom design configurations from `assets/app_icons/Assets.xcassets/AppIcon.appiconset/`.
+
 ---
 
 ### Pending TODOs
