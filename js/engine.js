@@ -211,7 +211,8 @@ export class Board {
         const starterCandidates = [
             'H_LINE_3', 'V_LINE_3', 'V_L_3', 'V_L_3_R1', 'V_L_3_R2', 'V_L_3_R3',
             'SQUARE_2', 'T_4', 'T_4_R1', 'T_4_R2', 'T_4_R3',
-            'H_LINE_4', 'V_LINE_4', 'RECT_3X2', 'RECT_2X3', 'Z_4', 'S_4'
+            'H_LINE_4', 'V_LINE_4', 'RECT_3X2', 'RECT_2X3', 'Z_4', 'S_4',
+            'L_4', 'L_4_R1', 'L_4_R2', 'L_4_R3', 'J_4', 'J_4_R1', 'J_4_R2', 'J_4_R3'
         ];
 
         // We will try to generate a clean prefill.

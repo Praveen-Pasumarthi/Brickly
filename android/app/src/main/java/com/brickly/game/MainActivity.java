@@ -12,10 +12,14 @@ import com.getcapacitor.BridgeActivity;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.splashscreen.SplashScreen;
 
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Install splash screen to handle postSplashScreenTheme transition
+        SplashScreen.installSplashScreen(this);
+
         // Must be set BEFORE super.onCreate so Capacitor's WebView respects it
         Window window = getWindow();
 
@@ -35,6 +39,11 @@ public class MainActivity extends BridgeActivity {
         }
 
         super.onCreate(savedInstanceState);
+
+        // Fail-safe: programmatically hide Action Bar/Title Bar if present
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().hide();
+        }
 
         // Hide system bars fully after Capacitor initialises
         configureSystemBars();

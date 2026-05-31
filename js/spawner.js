@@ -194,6 +194,78 @@ export const SHAPES = {
         name: 's_4_r1'
     },
 
+    // L-4 (4-block L-shape from image) and its rotations
+    L_4: {
+        matrix: [
+            [0, 0, 1],
+            [1, 1, 1]
+        ],
+        colorId: 6,
+        name: 'l_4'
+    },
+    L_4_R1: {
+        matrix: [
+            [1, 0],
+            [1, 0],
+            [1, 1]
+        ],
+        colorId: 6,
+        name: 'l_4_r1'
+    },
+    L_4_R2: {
+        matrix: [
+            [1, 1, 1],
+            [1, 0, 0]
+        ],
+        colorId: 6,
+        name: 'l_4_r2'
+    },
+    L_4_R3: {
+        matrix: [
+            [1, 1],
+            [0, 1],
+            [0, 1]
+        ],
+        colorId: 6,
+        name: 'l_4_r3'
+    },
+
+    // J-4 (Mirror of 4-block L-shape) and its rotations
+    J_4: {
+        matrix: [
+            [1, 0, 0],
+            [1, 1, 1]
+        ],
+        colorId: 6,
+        name: 'j_4'
+    },
+    J_4_R1: {
+        matrix: [
+            [1, 1],
+            [1, 0],
+            [1, 0]
+        ],
+        colorId: 6,
+        name: 'j_4_r1'
+    },
+    J_4_R2: {
+        matrix: [
+            [1, 1, 1],
+            [0, 0, 1]
+        ],
+        colorId: 6,
+        name: 'j_4_r2'
+    },
+    J_4_R3: {
+        matrix: [
+            [0, 1],
+            [0, 1],
+            [1, 1]
+        ],
+        colorId: 6,
+        name: 'j_4_r3'
+    },
+
     // --- 5-cell shapes (Large advanced shapes) ---
     H_LINE_5: {
         matrix: [[1, 1, 1, 1, 1]],
@@ -434,6 +506,14 @@ const STARTER_POOL_2 = [
     { key: 'T_4_R3',    weight: 6  },
     { key: 'Z_4',       weight: 5  },
     { key: 'S_4',       weight: 5  },
+    { key: 'L_4',       weight: 5  },
+    { key: 'L_4_R1',    weight: 5  },
+    { key: 'L_4_R2',    weight: 5  },
+    { key: 'L_4_R3',    weight: 5  },
+    { key: 'J_4',       weight: 5  },
+    { key: 'J_4_R1',    weight: 5  },
+    { key: 'J_4_R2',    weight: 5  },
+    { key: 'J_4_R3',    weight: 5  },
 ];
 
 // Spawn weights for different score intervals (difficulty scaling)
@@ -469,6 +549,14 @@ export const SHAPE_TIERS = [
             { key: 'Z_4_R1', weight: 3 },
             { key: 'S_4', weight: 3 },
             { key: 'S_4_R1', weight: 3 },
+            { key: 'L_4', weight: 4 },
+            { key: 'L_4_R1', weight: 4 },
+            { key: 'L_4_R2', weight: 4 },
+            { key: 'L_4_R3', weight: 4 },
+            { key: 'J_4', weight: 4 },
+            { key: 'J_4_R1', weight: 4 },
+            { key: 'J_4_R2', weight: 4 },
+            { key: 'J_4_R3', weight: 4 },
 
             // 5-block lines, large corners, 3x3 square, rectangles — rare at this tier
             { key: 'H_LINE_5', weight: 5 },
@@ -523,6 +611,14 @@ export const SHAPE_TIERS = [
             { key: 'Z_4_R1', weight: 5 },
             { key: 'S_4', weight: 5 },
             { key: 'S_4_R1', weight: 5 },
+            { key: 'L_4', weight: 5 },
+            { key: 'L_4_R1', weight: 5 },
+            { key: 'L_4_R2', weight: 5 },
+            { key: 'L_4_R3', weight: 5 },
+            { key: 'J_4', weight: 5 },
+            { key: 'J_4_R1', weight: 5 },
+            { key: 'J_4_R2', weight: 5 },
+            { key: 'J_4_R3', weight: 5 },
 
             // Large shapes — boosted variety
             { key: 'H_LINE_5', weight: 8 },
@@ -573,6 +669,14 @@ export const SHAPE_TIERS = [
             { key: 'Z_4_R1', weight: 5 },
             { key: 'S_4', weight: 5 },
             { key: 'S_4_R1', weight: 5 },
+            { key: 'L_4', weight: 5 },
+            { key: 'L_4_R1', weight: 5 },
+            { key: 'L_4_R2', weight: 5 },
+            { key: 'L_4_R3', weight: 5 },
+            { key: 'J_4', weight: 5 },
+            { key: 'J_4_R1', weight: 5 },
+            { key: 'J_4_R2', weight: 5 },
+            { key: 'J_4_R3', weight: 5 },
 
             // Large shapes — high variety at high scores
             { key: 'H_LINE_5', weight: 10 },
@@ -623,6 +727,14 @@ export const SHAPE_TIERS = [
             { key: 'Z_4_R1', weight: 5 },
             { key: 'S_4', weight: 5 },
             { key: 'S_4_R1', weight: 5 },
+            { key: 'L_4', weight: 5 },
+            { key: 'L_4_R1', weight: 5 },
+            { key: 'L_4_R2', weight: 5 },
+            { key: 'L_4_R3', weight: 5 },
+            { key: 'J_4', weight: 5 },
+            { key: 'J_4_R1', weight: 5 },
+            { key: 'J_4_R2', weight: 5 },
+            { key: 'J_4_R3', weight: 5 },
 
             // Large board-filling shapes — most common at high scores
             { key: 'H_LINE_5', weight: 12 },

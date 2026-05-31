@@ -496,6 +496,11 @@ All visual feedback enhancements, material-specific clear effects, theme-specifi
    - Auto-scrolls to current theme when opened
    - Persists theme selection via LocalStorage
 
+9. **Added L-4 & J-4 Shapes (`js/spawner.js`, `js/engine.js`)**
+   - Defined the 4-block L-shape (`L_4`, `L_4_R1`, `L_4_R2`, `L_4_R3`) and mirror J-shape (`J_4`, `J_4_R1`, `J_4_R2`, `J_4_R3`) in `SHAPES` with `colorId: 6`.
+   - Added the shapes to `STARTER_POOL_2` and all difficulty tier pools in `SHAPE_TIERS`.
+   - Added the shape keys to `starterCandidates` inside `prefillGrid()` to allow the engine to use them during grid pre-filling.
+
 ---
 
 ### Pending TODOs
