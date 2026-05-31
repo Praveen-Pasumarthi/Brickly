@@ -535,9 +535,18 @@ We integrated the `@capacitor-community/admob` plugin to orchestrate Google AdMo
   - If the ad fails to load (due to network issues, VPN, or Private DNS blockers like AdGuard), a friendly popup alert is displayed and the revive modal stays open so the user doesn't lose their session, rather than forcing an abrupt Game Over.
 
 ### Platform Configurations
-- **Android ([AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml))**: Registered the Google AdMob test application ID (`ca-app-pub-3940256099942544~3347511713`).
-- **iOS ([Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist))**: Registered the iOS test application ID (`ca-app-pub-3940256099942544~1458002511`) and defined `NSUserTrackingUsageDescription`.
-- **Test Unit IDs**: Test unit IDs are loaded by default in `js/ads.js`. Make sure to replace them with production unit IDs and set `isTesting: false` before publishing.
+- **Android ([AndroidManifest.xml](file:///c:/Users/user/Documents/GitHub/Brickly/android/app/src/main/AndroidManifest.xml))**: Test app ID active (`ca-app-pub-3940256099942544~3347511713`). Production ID commented nearby (`ca-app-pub-1104715539013161~4290494176`).
+- **iOS ([Info.plist](file:///c:/Users/user/Documents/GitHub/Brickly/ios/App/App/Info.plist))**: Test app ID active (`ca-app-pub-3940256099942544~1458002511`). Production ID commented nearby (`ca-app-pub-1104715539013161~1807423767`). Defined `NSUserTrackingUsageDescription`.
+- **Test Mode Active**: `initializeForTesting: true` and `isTesting: true` on both Android and iOS preloads in `js/ads.js`. Production IDs are commented out in both `ads.js` and manifest files for safe development testing.
+
+### Production Ad Unit IDs (Commented Out)
+All production IDs are ready for release. To go live, uncomment in `js/ads.js` and swap app IDs in manifests, then set `isTesting: false`:
+- **Android App ID**: `ca-app-pub-1104715539013161~4290494176`
+- **Android Interstitial**: `ca-app-pub-1104715539013161/4805122197`
+- **Android Rewarded**: `ca-app-pub-1104715539013161/7162702540`
+- **iOS App ID**: `ca-app-pub-1104715539013161~1807423767`
+- **iOS Interstitial**: `ca-app-pub-1104715539013161/9577112893`
+- **iOS Rewarded**: `ca-app-pub-1104715539013161/4501869865`
 
 ---
 
