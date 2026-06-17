@@ -390,9 +390,12 @@ All modes with a pre-filled board (Classic, Classic XL, Blast) use a spring-reve
 
 ### Setup
 - Firebase project: `brickly-007`
-- Android app: `com.brickly.game` with SHA-1 fingerprint configured
-- Google Sign-In enabled (OAuth client IDs configured)
-- `google-services.json` in `android/app/`
+- Android app: `com.brickly.game`
+- **Google Sign-In SHA-1 Fingerprints registered in Firebase**:
+  - **Local Debug**: `AD:85:89:83:36:13:B6:BB:B6:A2:01:B3:88:E4:52:DD:1A:B2:FD:4F` (used for local debugging)
+  - **Local Release/Upload Key**: `F4:46:A3:20:79:69:CB:9C:09:F1:61:FB:82:E0:EF:54:90:54:19:F9` (used for signing local release builds)
+  - **Google Play App Signing Key**: `E4:28:99:86:99:88:4C:8B:C5:E3:C8:D4:9E:DF:A2:8A:2B:69:01:86` (applied automatically by Play Console for Play Store installs)
+- `google-services.json` in `android/app/` contains OAuth client ID mappings for all three signatures.
 
 ### Services (`js/firebase.js`)
 - **FirebaseAuthService** — Google Sign-In, sign out, auth state listener

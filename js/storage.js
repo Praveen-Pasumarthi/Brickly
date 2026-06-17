@@ -95,24 +95,7 @@ export class StorageManager {
         );
     }
 
-    /**
-     * One-time migration: copies old shared high scores into per-mode keys.
-     * Old system used one key for classic+blast+endless, another for classic_10.
-     * New system uses a separate key per mode.
-     * Only migrates to classic (the original mode) — blast and endless start fresh.
-     */
-    static migrateOldHighScores() {
-        if (!this.isAvailable()) return;
-        if (localStorage.getItem('brickly_hs_migrated_v2') === 'true') return;
 
-        // Clear all stale per-mode keys from old migration — all modes start fresh
-        localStorage.removeItem(this._getModeKey('classic'));
-        localStorage.removeItem(this._getModeKey('classic_10'));
-        localStorage.removeItem(this._getModeKey('endless'));
-        localStorage.removeItem(this._getModeKey('blast'));
-
-        localStorage.setItem('brickly_hs_migrated_v2', 'true');
-    }
 
     /**
      * Serializes and saves the active game board, tray slots, and scores for mid-game recovery.
@@ -287,6 +270,52 @@ export class StorageManager {
             return settingsStr ? { ...defaultSettings, ...JSON.parse(settingsStr) } : defaultSettings;
         } catch (e) {
             return defaultSettings;
+        }
+    }
+
+    /**
+     * Restores all data from the cloud to local storage (merging if local is higher).
+     * @param {string} uid - User ID.
+     */
+    static async restoreFromCloud(uid) {
+        if (!this.isAvailable()) return;
+        try {
+            // 1. Restore high scores
+            const cloudScores = await DB.getHighScores(uid);
+            if (cloudScores) {
+                for (const mode in cloudScores) {
+                    const localHigh = this.getHighScore(mode);
+                    const cloudHigh = cloudScores[mode] || 0;
+                    if (cloudHigh > localHigh) {
+                        localStorage.setItem(this._getModeKey(mode), cloudHigh.toString());
+                    } else if (localHigh > cloudHigh) {
+                        // Sync local high score to cloud since local is higher
+                        DB.saveHighScore(uid, mode, localHigh);
+                    }
+                }
+            }
+
+            // 2. Restore adventure progress
+            const cloudProgress = await DB.getProgress(uid);
+            if (cloudProgress) {
+                const localProgress = this.getAdventureProgress();
+                if (cloudProgress > localProgress) {
+                    localStorage.setItem(STORAGE_KEYS.ADVENTURE_PROGRESS, cloudProgress.toString());
+                } else if (localProgress > cloudProgress) {
+                    DB.saveProgress(uid, localProgress);
+                }
+            }
+
+            // 3. Restore settings
+            const cloudSettings = await DB.getSettings(uid);
+            if (cloudSettings) {
+                const localSettings = this.getSettings();
+                // Merge cloud settings with local settings (preferring cloud settings)
+                const mergedSettings = { ...localSettings, ...cloudSettings };
+                localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(mergedSettings));
+            }
+        } catch (e) {
+            console.error("Failed to restore data from cloud:", e);
         }
     }
 }

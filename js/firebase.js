@@ -46,7 +46,9 @@ class FirebaseAuthService {
             throw new Error("Auth plugin missing");
         }
         try {
-            const result = await AuthPlugin.signInWithGoogle();
+            const result = await AuthPlugin.signInWithGoogle({
+                useCredentialManager: false
+            });
             return result.user;
         } catch (error) {
             console.error("Google Sign-In Error:", error);

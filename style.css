@@ -2632,3 +2632,39 @@ body.theme-pastel .objective-desc {
 .revive-card .primary-btn:active {
     transform: translateY(2px) scale(0.98);
 }
+
+/* Toast Notification Styling */
+.toast-notification {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: rgba(15, 17, 23, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 40px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 9999;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+.toast-notification.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+.toast-icon {
+    font-size: 16px;
+}
+.toast-message {
+    color: #ffffff;
+    font-family: var(--font-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+}

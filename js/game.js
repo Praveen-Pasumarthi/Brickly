@@ -1961,6 +1961,61 @@ function triggerVictory() {
     if (successOverlay) successOverlay.classList.remove('hidden');
 }
 
+function showToast(message) {
+    const toast = document.getElementById('toast-notification');
+    const toastMsg = document.getElementById('toast-message');
+    if (toast && toastMsg) {
+        toastMsg.textContent = message;
+        toast.classList.remove('hidden');
+        // Force reflow
+        toast.offsetHeight;
+        toast.classList.add('show');
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 300);
+        }, 3000);
+    }
+}
+
+function applyRestoredSettings() {
+    const settings = StorageManager.getSettings();
+    
+    activeTheme = settings.theme || 'classic';
+    if (!THEMES[activeTheme]) activeTheme = 'classic';
+    
+    activeMenuTheme = settings.menuTheme || 'royal';
+    if (!MENU_THEMES.includes(activeMenuTheme)) activeMenuTheme = 'royal';
+    
+    audio.setSfxEnabled(settings.sfx !== false);
+    audio.setBgmEnabled(settings.bgm !== false);
+    vibrationEnabled = settings.vibration !== false;
+    
+    if (settings.sfxVolume !== undefined) {
+        audio.setSfxVolume(settings.sfxVolume / 100);
+    } else {
+        audio.setSfxVolume(settings.sfx !== false ? 0.8 : 0);
+    }
+    if (settings.bgmVolume !== undefined) {
+        audio.setBgmVolume(settings.bgmVolume / 100);
+    } else {
+        audio.setBgmVolume(settings.bgm !== false ? 0.5 : 0);
+    }
+    
+    highScore = StorageManager.getHighScore(activeMode);
+    
+    applyTheme(activeTheme);
+    applyMenuTheme(activeMenuTheme);
+    updateSoundIcons();
+    
+    const topScoreEl = $('best-score-top-val');
+    if (topScoreEl) topScoreEl.innerText = StorageManager.getOverallHighScore();
+    updateMenuHighScore();
+    updateHUD();
+}
+
 // --- Menu UI Event Bindings ---
 function setupUIBindings() {
     // --- Onboarding Logic ---
@@ -1981,6 +2036,7 @@ function setupUIBindings() {
                 }
             } catch (err) {
                 console.error("Onboard Google Login Failed:", err);
+                alert("Login failed: " + (err.message || err));
             }
         });
     }
@@ -2009,6 +2065,7 @@ function setupUIBindings() {
                 closeSettings();
             } catch (e) {
                 console.error("Login failed", e);
+                alert("Login failed: " + (e.message || e));
             }
         });
     }
@@ -2073,7 +2130,8 @@ function setupUIBindings() {
     }
 
     const accountUserInfo = $('account-user-info');
-    Auth.onAuthStateChanged((user) => {
+    let lastUser = undefined;
+    Auth.onAuthStateChanged(async (user) => {
         if (user) {
             if (btnLogin) btnLogin.style.display = 'none';
             if (btnGuest) btnGuest.style.display = 'none';
@@ -2081,6 +2139,16 @@ function setupUIBindings() {
             if (accountUserInfo) {
                 accountUserInfo.style.display = 'block';
                 accountUserInfo.textContent = user.displayName || user.email || 'Signed in';
+            }
+            if (lastUser === null) {
+                showToast(`Signed in as ${user.displayName || user.email || 'User'}`);
+            }
+            
+            try {
+                await StorageManager.restoreFromCloud(user.uid);
+                applyRestoredSettings();
+            } catch (e) {
+                console.error("Failed to restore cloud settings/scores:", e);
             }
         } else {
             if (btnLogin) btnLogin.style.display = 'flex';
@@ -2090,7 +2158,11 @@ function setupUIBindings() {
                 accountUserInfo.style.display = 'none';
                 accountUserInfo.textContent = '';
             }
+            if (lastUser) {
+                showToast("Signed out successfully");
+            }
         }
+        lastUser = user;
     });
     // Play buttons in the Main Menu overlay
     const btnMissions = $('btn-play-missions');
