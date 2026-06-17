@@ -5,17 +5,19 @@
  */
 
 // ── MASTER SWITCH ── Set to true before publishing. Keeps ads fully disabled during dev/testing.
-const ADS_ENABLED = false;
+const ADS_ENABLED = true;
+const PRODUCTION_MODE = true; // Set to true for production Google Play release, false for local testing
 
-// ── PRODUCTION IDs (uncomment for release) ──
-// const ANDROID_INTERSTITIAL = 'ca-app-pub-1104715539013161/4805122197';
-// const ANDROID_REWARDED     = 'ca-app-pub-1104715539013161/7162702540';
-// const IOS_INTERSTITIAL     = 'ca-app-pub-1104715539013161/9577112893';
-// const IOS_REWARDED         = 'ca-app-pub-1104715539013161/4501869865';
+// ── PRODUCTION IDs ──
+const ANDROID_INTERSTITIAL = 'ca-app-pub-1104715539013161/4805122197';
+const ANDROID_REWARDED     = 'ca-app-pub-1104715539013161/7162702540';
+// Future iOS production release IDs:
+// const IOS_PRODUCTION_INTERSTITIAL = 'ca-app-pub-1104715539013161/9577112893';
+// const IOS_PRODUCTION_REWARDED     = 'ca-app-pub-1104715539013161/4501869865';
 
-// ── TEST IDs (active during development — safe to click) ──
-const ANDROID_INTERSTITIAL = 'ca-app-pub-3940256099942544/1044939714';
-const ANDROID_REWARDED     = 'ca-app-pub-3940256099942544/5224354917';
+// ── TEST IDs (active during development or when PRODUCTION_MODE is false) ──
+const TEST_ANDROID_INTERSTITIAL = 'ca-app-pub-3940256099942544/1044939714';
+const TEST_ANDROID_REWARDED     = 'ca-app-pub-3940256099942544/5224354917';
 const IOS_INTERSTITIAL     = 'ca-app-pub-3940256099942544/4411468910';
 const IOS_REWARDED         = 'ca-app-pub-3940256099942544/1712485313';
 
@@ -48,8 +50,8 @@ class AdManagerService {
         this.admobPlugin = this.isCapacitor ? (window.Capacitor.Plugins.AdMob || null) : null;
         this.platform = this.isCapacitor ? window.Capacitor.getPlatform() : 'web';
 
-        this.interstitialId = this.platform === 'ios' ? IOS_INTERSTITIAL : ANDROID_INTERSTITIAL;
-        this.rewardedId = this.platform === 'ios' ? IOS_REWARDED : ANDROID_REWARDED;
+        this.interstitialId = this.platform === 'ios' ? IOS_INTERSTITIAL : (PRODUCTION_MODE ? ANDROID_INTERSTITIAL : TEST_ANDROID_INTERSTITIAL);
+        this.rewardedId = this.platform === 'ios' ? IOS_REWARDED : (PRODUCTION_MODE ? ANDROID_REWARDED : TEST_ANDROID_REWARDED);
 
         console.log(`[Brickly Ads] Initializing AdManager (Platform: ${this.platform})...`);
 
@@ -58,7 +60,7 @@ class AdManagerService {
                 // Initialize AdMob library
                 await this.admobPlugin.initialize({
                     requestTrackingAuthorization: true,
-                    initializeForTesting: true,
+                    initializeForTesting: !PRODUCTION_MODE,
                 });
                 this.initialized = true;
                 console.log('[Brickly Ads] AdMob plugin initialized successfully.');
@@ -125,7 +127,7 @@ class AdManagerService {
             console.log('[Brickly Ads] Preloading interstitial...');
             await this.admobPlugin.prepareInterstitial({
                 adId: this.interstitialId,
-                isTesting: true
+                isTesting: !PRODUCTION_MODE
             });
             this.interstitialLoaded = true;
             console.log('[Brickly Ads] Interstitial preloaded successfully.');
@@ -172,7 +174,7 @@ class AdManagerService {
             console.log('[Brickly Ads] Preloading rewarded video...');
             await this.admobPlugin.prepareRewardVideoAd({
                 adId: this.rewardedId,
-                isTesting: true
+                isTesting: !PRODUCTION_MODE
             });
             this.rewardedLoaded = true;
             console.log('[Brickly Ads] Rewarded video preloaded successfully.');
