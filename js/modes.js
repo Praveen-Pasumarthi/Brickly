@@ -239,16 +239,16 @@ function generateLevels() {
         let grid = g;
 
         if (cycle === 0) {
-            const lines = Math.min(4 + Math.floor(i * 0.05), 20);
+            const lines = Math.min(4 + Math.floor(i * 0.03), 15);
             linesTarget = lines;
             desc = `Clear ${lines} lines in ${moves} moves.`;
         } else if (cycle === 1) {
-            const pts = 150 + Math.floor(i * 9);
+            const pts = 150 + Math.floor(i * 5);
             const scaledPts = Math.round(pts / 2);
             scoreTarget = scaledPts;
             desc = `Reach ${scaledPts} points in ${moves} moves.`;
         } else if (cycle === 2) {
-            const gold = Math.min(2 + Math.floor(i * 0.08), 28);
+            const gold = Math.min(2 + Math.floor(i * 0.04), 16);
             preFilledTarget = gold;
             const bits = Math.min(gold, 32);
             const pat = [];
@@ -262,27 +262,43 @@ function generateLevels() {
             grid = symGrid(pat);
             desc = `Clear ${gold} gold blocks in ${moves} moves.`;
         } else if (cycle === 3) {
-            const combo = Math.min(2 + Math.floor(i * 0.04), 15);
+            const combo = Math.min(2 + Math.floor(i * 0.02), moves - 4);
             comboTarget = combo;
             desc = `Reach ${combo}x combo streak in ${moves} moves.`;
         } else if (cycle === 4) {
-            const place = Math.min(8 + Math.floor(i * 0.12), 40);
+            const place = Math.min(6 + Math.floor(i * 0.04), moves - 2);
             placementsTarget = place;
             desc = `Place ${place} blocks in ${moves} moves.`;
         } else if (cycle === 5) {
-            const lines = Math.min(3 + Math.floor(i * 0.04), 14);
-            linesOneTurnTarget = lines;
-            desc = `Clear ${lines} lines at once in ${moves} moves.`;
+            // Replaced the impossible linesOneTurnTarget with score + gold blocks clear
+            const gold = Math.min(2 + Math.floor(i * 0.03), 12);
+            const pts = 100 + Math.floor(i * 4);
+            const scaledPts = Math.round(pts / 2);
+            preFilledTarget = gold;
+            scoreTarget = scaledPts;
+            
+            const bits = Math.min(gold, 32);
+            const pat = [];
+            let placed = 0;
+            for (let b = 0; b < 16 && placed < bits; b++) {
+                const put = Math.min(4, bits - placed);
+                pat.push(put >= 1);
+                placed += Math.min(4, put);
+            }
+            while (pat.length < 16) pat.push(false);
+            grid = symGrid(pat);
+            
+            desc = `Clear ${gold} gold blocks & score ${scaledPts} pts in ${moves} moves.`;
         } else if (cycle === 6) {
-            const lines = Math.min(3 + Math.floor(i * 0.04), 12);
-            const pts = 100 + Math.floor(i * 7);
+            const lines = Math.min(2 + Math.floor(i * 0.02), 8);
+            const pts = 100 + Math.floor(i * 4);
             const scaledPts = Math.round(pts / 2);
             linesTarget = lines;
             scoreTarget = scaledPts;
             desc = `Clear ${lines} lines & score ${scaledPts} pts in ${moves} moves.`;
         } else if (cycle === 7) {
-            const gold = Math.min(2 + Math.floor(i * 0.06), 20);
-            const combo = Math.min(2 + Math.floor(i * 0.03), 10);
+            const gold = Math.min(2 + Math.floor(i * 0.03), 12);
+            const combo = Math.min(2 + Math.floor(i * 0.015), 6);
             preFilledTarget = gold;
             comboTarget = combo;
             const bits = Math.min(gold, 32);
@@ -297,14 +313,14 @@ function generateLevels() {
             grid = symGrid(pat);
             desc = `Clear ${gold} gold blocks with ${combo}x combo in ${moves} moves.`;
         } else if (cycle === 8) {
-            const lines = Math.min(3 + Math.floor(i * 0.03), 10);
-            const combo = Math.min(2 + Math.floor(i * 0.04), 12);
+            const lines = Math.min(2 + Math.floor(i * 0.02), 8);
+            const combo = Math.min(2 + Math.floor(i * 0.015), 6);
             linesTarget = lines;
             comboTarget = combo;
             desc = `Clear ${lines} lines with ${combo}x combo in ${moves} moves.`;
         } else if (cycle === 9) {
-            const lines = Math.min(2 + Math.floor(i * 0.03), 8);
-            const place = Math.min(6 + Math.floor(i * 0.10), 30);
+            const lines = Math.min(2 + Math.floor(i * 0.015), 6);
+            const place = Math.min(6 + Math.floor(i * 0.02), moves - 2);
             linesTarget = lines;
             placementsTarget = place;
             desc = `Clear ${lines} lines, place ${place} blocks in ${moves} moves.`;
