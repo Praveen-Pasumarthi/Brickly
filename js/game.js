@@ -1691,11 +1691,13 @@ function loadMissionLevel(levelNum) {
 }
 
 function saveCurrentGameState() {
-    // If the gameover or success modals are displayed, do not overwrite the cleared state
+    // If the gameover, success, or revive modals are displayed, do not overwrite the cleared state
     const gameoverOverlay = $('gameover-overlay');
     const successOverlay = $('success-overlay');
+    const reviveOverlay = $('revive-overlay');
     if ((gameoverOverlay && !gameoverOverlay.classList.contains('hidden')) || 
-        (successOverlay && !successOverlay.classList.contains('hidden'))) {
+        (successOverlay && !successOverlay.classList.contains('hidden')) ||
+        (reviveOverlay && !reviveOverlay.classList.contains('hidden'))) {
         return;
     }
 
