@@ -20,6 +20,7 @@ Brickly/
 │   └── audio/
 │       ├── bgm/                  # Background music
 │       │   ├── gaming_music.mp3  # Active BGM (from Pixabay, CC0 license)
+│       │   ├── block1.mp3        # Block placement SFX (preloaded via Web Audio API)
 │       │   ├── bgm.wav           # Original BGM (unused)
 │       │   ├── original_synth.wav
 │       │   └── Glass_Garden_Paths.mp3
@@ -109,8 +110,16 @@ Uses `Haptics.vibrate({ duration })` instead of `Haptics.impact()` — the impac
 - **Volume cap:** BGM volume capped at 40% max (`Math.min(0.4, vol)` in `setBgmVolume()`)
 - **SFX volume:** Controlled via `masterGain.gain.value` range 0-2.5 (`vol * 2.5` in `setSfxVolume()`)
 - **Volume restored on startup** from `settings.sfxVolume` / `settings.bgmVolume` (0-100 slider values)
-- **Gameplay volume:** slider value × 0.3 (min 0.05) for better SFX audibility
-- **Menu return:** restores exact saved slider volume from settings
+- **Menu volume:** Full saved slider volume (0-100)
+- **Gameplay volume:** slider value × 0.10 — BGM plays quietly during gameplay so SFX stand out
+- **Game over / Victory volume:** Restores full saved slider volume
+- **Menu return:** Restores exact saved slider volume from settings
+
+### Audio Context Management (`js/audio.js`)
+- `unlock()` no longer auto-starts BGM — it only initializes AudioContext and resumes it
+- `startBgm()` must be called explicitly wherever BGM should play
+- `bgmManualStop` flag: Set by `stopBgm()`, prevents `visibilitychange` handler from auto-resuming BGM when app returns from background during gameplay
+- `unlock()` is replaced by `init()` + `resume()` in all gameplay code paths (tray slot pointerdown, settings sliders) to avoid accidental BGM restarts
 
 ### Voice System (`js/audio.js`)
 The `speak()` method plays pre-recorded MP3 clips for line-clear praise announcements.
@@ -164,9 +173,9 @@ The `addFloatingText()` method displays reward messages on the canvas:
 | Board clear | 2500 |
 
 ### SFX (Synthesized Sounds)
-- `playDragStart()` - High-frequency tick on drag start
-- `playPlace()` - Mechanical grid placement thud
-- `playClear(comboCount)` - Sparkling arpeggio scaling with combo
+- `playDragStart()` - High-frequency tick on drag start (no longer called — tray pickup is silent)
+- `playPlace()` - Preloaded MP3 (`block1.mp3`) decoded into Web Audio API buffer, played through `masterGain` for consistent volume control
+- `playClear(comboCount)` - Sparkling arpeggio scaling with combo (pentatonic scale, one octave higher for less bass)
 - `playGameOver()` - Descending minor arpeggio
 - `playLevelWin()` - Uplifting sweeping major arpeggio
 - `playTap()` - Menu/settings button clicks (mutes with Sound volume slider)

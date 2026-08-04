@@ -13,6 +13,12 @@ export class AudioManager {
         // Master gain node — all SFX route through this so volume is consistent
         this.masterGain = null;
 
+        // Track whether BGM was manually stopped (e.g. during gameplay)
+        this.bgmManualStop = false;
+
+        // Preload block placement sound
+        this.placeBuffer = null;
+
         // Cache SpeechSynthesis voices (loaded asynchronously on most browsers)
         this.voices = [];
         if ('speechSynthesis' in window) {
@@ -39,7 +45,7 @@ export class AudioManager {
                 if (this.ctx && this.ctx.state === 'suspended') {
                     this.ctx.resume();
                 }
-                if (this.bgmEnabled) {
+                if (this.bgmEnabled && !this.bgmManualStop) {
                     this.bgmAudio.play().catch(e => console.warn("BGM resume blocked:", e));
                 }
             }
@@ -59,6 +65,15 @@ export class AudioManager {
             this.masterGain = this.ctx.createGain();
             this.masterGain.gain.value = 2.5; // Boosted for phone speaker audibility
             this.masterGain.connect(this.ctx.destination);
+
+            // Preload block placement sound
+            if (!this.placeBuffer) {
+                fetch('assets/audio/bgm/block1.mp3')
+                    .then(r => r.arrayBuffer())
+                    .then(buf => this.ctx.decodeAudioData(buf))
+                    .then(decoded => { this.placeBuffer = decoded; })
+                    .catch(e => console.warn("block.mp3 load failed:", e));
+            }
         } catch (e) {
             console.warn("Web Audio API is not supported on this platform:", e);
         }
@@ -76,7 +91,6 @@ export class AudioManager {
     unlock() {
         this.init();
         this.resume();
-        this.startBgm();
         
         // Unlock Web Speech API — must speak audible text during user gesture
         if (!this.speechUnlocked && 'speechSynthesis' in window) {
@@ -116,6 +130,7 @@ export class AudioManager {
 
     startBgm() {
         if (!this.bgmEnabled) return;
+        this.bgmManualStop = false;
         this.init();
         this.resume();
         
@@ -123,6 +138,7 @@ export class AudioManager {
     }
 
     stopBgm() {
+        this.bgmManualStop = true;
         this.bgmAudio.pause();
         this.bgmAudio.currentTime = 0;
     }
@@ -195,45 +211,13 @@ export class AudioManager {
         this.resume();
         if (!this.ctx) return;
 
-        const now = this.ctx.currentTime;
-
-        // Main placement thud (raised from 0.08 → 0.45)
-        const thudOsc = this.ctx.createOscillator();
-        const thudGain = this.ctx.createGain();
-
-        thudOsc.type = 'triangle';
-        thudOsc.frequency.setValueAtTime(280, now);
-        thudOsc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
-
-        thudGain.gain.setValueAtTime(0, now);
-        thudGain.gain.linearRampToValueAtTime(0.35, now + 0.01);
-        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-        thudOsc.connect(thudGain);
-        thudGain.connect(this.masterGain);
-
-        thudOsc.start(now);
-        thudOsc.stop(now + 0.15);
-        thudOsc.onended = () => { thudOsc.disconnect(); thudGain.disconnect(); };
-
-        // Clicky snap highlight
-        const clickOsc = this.ctx.createOscillator();
-        const clickGain = this.ctx.createGain();
-
-        clickOsc.type = 'sine';
-        clickOsc.frequency.setValueAtTime(900, now);
-        clickOsc.frequency.exponentialRampToValueAtTime(500, now + 0.04);
-
-        clickGain.gain.setValueAtTime(0, now);
-        clickGain.gain.linearRampToValueAtTime(0.15, now + 0.01);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-
-        clickOsc.connect(clickGain);
-        clickGain.connect(this.masterGain);
-
-        clickOsc.start(now);
-        clickOsc.stop(now + 0.1);
-        clickOsc.onended = () => { clickOsc.disconnect(); clickGain.disconnect(); };
+        // Play decoded MP3 buffer through Web Audio API
+        if (this.placeBuffer) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.placeBuffer;
+            source.connect(this.masterGain);
+            source.start(0);
+        }
     }
 
     /**
@@ -248,8 +232,8 @@ export class AudioManager {
 
         const now = this.ctx.currentTime;
 
-        // C Major Pentatonic — dropped two octaves for a soft, deep tone
-        const pentatonicScale = [130.81, 146.83, 164.81, 196.00, 220.00, 261.63, 293.66, 329.63];
+        // Pentatonic — one octave higher for less bass
+        const pentatonicScale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
         const baseIndex = Math.min(comboCount - 1, 3, pentatonicScale.length - 1);
         const rootFreq = pentatonicScale[baseIndex];
 

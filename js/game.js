@@ -310,6 +310,7 @@ function initGame() {
         if (settings.bgm !== false && savedVol > 0) {
             audio.unlock();
             audio.setBgmVolume(savedVol / 100);
+            audio.startBgm();
         }
         // Remove all listeners after first trigger — only need one unlock
         document.removeEventListener('touchstart', unlockBgmOnFirstTouch);
@@ -414,7 +415,8 @@ function setupDragEvents() {
             if (!shape) return;
 
             // Unlock audio on first gesture if suspended
-            audio.unlock();
+            audio.init();
+            audio.resume();
 
             // Capture pointer so pointermove/up/cancel always fire on this element
             // even if the finger drifts outside — prevents OS scroll stealing the gesture
@@ -431,7 +433,6 @@ function setupDragEvents() {
 
             // Add dragging visual class
             slot.classList.add('dragging');
-            audio.playDragStart();
             triggerHaptic('light'); // light tick on pickup
         });
     });
@@ -1519,23 +1520,23 @@ function drawBombOverlay(x, y, w, countdown) {
 
 // --- Game Logic Controllers ---
 export function selectMode(modeName, forceNewGame = false) {
+    // Lower BGM volume for gameplay
+    const settings = StorageManager.getSettings();
+    const savedBgmVol = settings.bgmVolume !== undefined ? settings.bgmVolume : 50;
+    if (settings.bgm !== false && savedBgmVol > 0) {
+        audio.setBgmVolume((savedBgmVol / 100) * 0.10);
+        audio.startBgm();
+    } else {
+        audio.stopBgm();
+    }
+
     try {
-        audio.unlock();
-        const settings = StorageManager.getSettings();
-        const savedVol = settings.bgmVolume !== undefined ? settings.bgmVolume : 50;
-        if (settings.bgm !== false && savedVol > 0) {
-            audio.setBgmEnabled(true);
-        } else {
-            audio.setBgmEnabled(false);
-        }
+        audio.init();
+        audio.resume();
+        audio.bgmEnabled = (settings.bgm !== false && savedBgmVol > 0);
     } catch (err) {
         console.warn('[Brickly] audio unlock failed:', err);
     }
-    
-    // Lower BGM volume during gameplay to make SFX more audible
-    const savedBgmVol = StorageManager.getSettings().bgmVolume;
-    const menuBgmVol = savedBgmVol !== undefined ? savedBgmVol / 100 : 0.5;
-    audio.setBgmVolume(Math.max(0.05, menuBgmVol * 0.3));
     
     activeMode = modeName;
     
@@ -1915,6 +1916,13 @@ function performReviveBoardClear() {
 }
 
 function triggerGameOver(reason) {
+    // Restore BGM on game over screen
+    const goSettings = StorageManager.getSettings();
+    const goBgmVol = goSettings.bgmVolume !== undefined ? goSettings.bgmVolume : 50;
+    if (goSettings.bgm !== false && goBgmVol > 0) {
+        audio.setBgmVolume(goBgmVol / 100);
+        audio.startBgm();
+    }
     audio.playGameOver();
     triggerHaptic('heavy');
     StorageManager.clearGameState();
@@ -1934,6 +1942,13 @@ function triggerGameOver(reason) {
 }
 
 function triggerVictory() {
+    // Restore BGM on victory screen
+    const vicSettings = StorageManager.getSettings();
+    const vicBgmVol = vicSettings.bgmVolume !== undefined ? vicSettings.bgmVolume : 50;
+    if (vicSettings.bgm !== false && vicBgmVol > 0) {
+        audio.setBgmVolume(vicBgmVol / 100);
+        audio.startBgm();
+    }
     audio.playLevelWin();
     triggerHaptic('double');
     StorageManager.clearGameState();
@@ -2251,7 +2266,8 @@ function setupUIBindings() {
         btnHome.addEventListener('click', () => {
             triggerHaptic('light');
             saveCurrentGameState();
-            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5);
+            audio.startBgm();
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -2282,6 +2298,9 @@ function setupUIBindings() {
             const originalText = btnWatchRevive.innerText;
             btnWatchRevive.innerText = "🎥 Loading Ad...";
             
+            // Stop BGM before showing ad
+            audio.stopBgm();
+
             // Watch rewarded video
             AdManager.showRewarded(
                 () => {
@@ -2385,7 +2404,8 @@ function setupUIBindings() {
             triggerHaptic('light');
             const overlay = $('success-overlay');
             if (overlay) overlay.classList.add('hidden');
-            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5);
+            audio.startBgm();
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');
@@ -2482,8 +2502,8 @@ function setupUIBindings() {
             bgmMuted = vol === 0;
             if (vol > 0) {
                 audio.bgmEnabled = true;
-                audio.unlock();
-                audio.startBgm();
+                audio.init();
+                audio.resume();
             }
             if (valMusic) valMusic.textContent = vol + '%';
             if (iconMusic) iconMusic.classList.toggle('muted', vol === 0);
@@ -2499,8 +2519,11 @@ function setupUIBindings() {
                 if (sliderMusic) sliderMusic.value = restore;
                 audio.setBgmVolume(restore / 100);
                 audio.bgmEnabled = true;
-                audio.unlock();
-                audio.startBgm();
+                audio.init();
+                audio.resume();
+                if (document.body.classList.contains('menu-active')) {
+                    audio.startBgm();
+                }
                 bgmMuted = false;
                 if (valMusic) valMusic.textContent = restore + '%';
                 if (iconMusic) iconMusic.classList.remove('muted');
@@ -2583,7 +2606,8 @@ function setupUIBindings() {
             audio.playTap();
             closeSettings();
             saveCurrentGameState();
-            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5); // Restore BGM volume for Main Menu
+            audio.setBgmVolume(StorageManager.getSettings().bgmVolume !== undefined ? StorageManager.getSettings().bgmVolume / 100 : 0.5);
+            audio.startBgm();
             document.body.classList.add('menu-active');
             const menuOverlay = $('main-menu-overlay');
             if (menuOverlay) menuOverlay.classList.remove('hidden');

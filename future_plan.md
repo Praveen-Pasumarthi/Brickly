@@ -62,9 +62,8 @@ Tracks and displays lifetime metrics:
 ### Achievements System
 15+ unlockable achievements granting unique badges and bonus coins:
 *   *Combustion*: Clear 4 lines at once in Blast mode.
-*   *Grand Master*: Score 5,000+ points in Classic mode.
-*   *Combo Legend*: Reach a 15x combo streak.
-*   *Skin Collector*: Unlock 10 different themes.
+*   *Grand Master*: Score 1,000,000+ points in Classic mode.
+*   *Combo Legend*: Reach a 20x combo streak.
 *   *Streak Keeper*: Maintain a 7-day daily challenge streak.
 
 ### Technical Implementation Files
@@ -75,28 +74,7 @@ Tracks and displays lifetime metrics:
 
 ---
 
-## 4. Theme Collection & Unlock System
-Transforms the visual skins into collectible items to give players a progression loop.
-
-### Mechanics
-*   **Base Skins**: 6 themes unlocked by default (e.g., Classic Pink, Neon Cyberpunk, Minimalist Pastel).
-*   **Locked Skins**: The remaining 32 themes are locked behind achievements or coin costs.
-*   **Unlock Requirements Examples**:
-    *   *Volcanic Theme*: Pay 400 Brick Coins.
-    *   *Sakura Theme*: Reach level 50 in Missions mode.
-    *   *Lava Theme*: Clear 1,000 lines overall.
-*   **Redesigned Skin Picker**:
-    *   Displays locked themes as faded out with a lock icon.
-    *   Tapping shows a tooltip with unlock requirements and a "Buy" button if coins are sufficient.
-
-### Technical Implementation Files
-*   [js/themes.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/themes.js): Store metadata (cost, achievement key) for each theme configuration.
-*   [js/game.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/game.js): Render locked overlay on grid items, handle purchase transaction validation.
-*   [js/storage.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/storage.js): Save the player's collection of unlocked themes.
-
----
-
-## 5. Interactive Tutorial Overlay
+## 4. Interactive Tutorial Overlay
 Polishes the first-user onboarding experience to improve player retention.
 
 ### Tour Stages
@@ -110,3 +88,49 @@ Polishes the first-user onboarding experience to improve player retention.
 *   [index.html](file:///c:/Users/user/Documents/GitHub/Brickly/index.html): Spotlight overlay structure and tooltip card.
 *   [style.css](file:///c:/Users/user/Documents/GitHub/Brickly/style.css): Dimming background masking, active item highlights, and bounce pointers.
 *   [js/game.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/game.js): Controls step progression, prevents normal board drag operations outside tutorial instructions.
+
+---
+
+## 5. Daily Challenge Mode
+One predefined board per day — every player gets the same layout, creating fair global competition.
+
+### Mechanics
+*   **Daily Seed**: A seeded RNG generates the same pre-filled board and tray sequence for all players each day (UTC midnight reset).
+*   **Scoring**: Standard scoring rules apply. Score is final once the game ends (no revives).
+*   **Leaderboard**: A dedicated "Today" tab on the Global Leaderboard shows top 50 scores for the current day. Resets daily.
+*   **Streak Badge**: Consecutive daily plays earn a streak counter displayed on the main menu.
+
+### Technical Implementation Files
+*   [js/game.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/game.js): Daily seed RNG, mode entry, score submission.
+*   [js/engine.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/engine.js): Seeded grid prefill using deterministic random.
+*   [js/firebase.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/firebase.js): Daily leaderboard read/write in Firestore.
+*   [index.html](file:///c:/Users/user/Documents/GitHub/Brickly/index.html): "Daily" button on main menu, daily leaderboard tab.
+
+---
+
+## 6. Combo Milestone Visuals
+Bigger, more satisfying visual celebrations at key combo thresholds to reinforce the reward loop.
+
+### Milestones
+*   **Combo x10**: Screen-wide radial pulse + "x10!" floating text with glow effect.
+*   **Combo x20**: Radial pulse + particle burst ring expanding outward from the board center.
+*   **Combo x50**: Full board flash + confetti particle shower + "COMBO x50!" mega text.
+
+### Technical Implementation Files
+*   [js/particles.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/particles.js): New milestone-specific particle emitters (pulse ring, confetti burst).
+*   [js/game.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/game.js): Detect combo milestones and trigger visual effects.
+*   [style.css](file:///c:/Users/user/Documents/GitHub/Brickly/style.css): CSS animations for screen pulse and mega text.
+
+---
+
+## 7. Screen Transitions
+Smooth visual transitions between menu and gameplay to feel more polished.
+
+### Transitions
+*   **Menu → Gameplay**: Board and tray fade+scale in from center over 300ms.
+*   **Gameplay → Menu**: Reverse — game elements fade+scale out while menu overlay fades in.
+*   **Game Over / Victory**: Overlay slides up from bottom with spring easing.
+
+### Technical Implementation Files
+*   [style.css](file:///c:/Users/user/Documents/GitHub/Brickly/style.css): CSS transition classes for fade/scale/slide animations.
+*   [js/game.js](file:///c:/Users/user/Documents/GitHub/Brickly/js/game.js): Apply transition classes on mode switches and overlay shows/hides.
