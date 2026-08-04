@@ -214,7 +214,7 @@ Accessible from main menu (gear icon) and in-game (gear icon). Shows/hides butto
   - Piece dragging is blocked (`pointerdown` handler checks `gamePaused`)
 
 ### About Modal
-- Brickly logo, version (v0.1.0), description
+- Brickly logo, version (v1.9.0), description
 - Developer: Pasumarthi Venkata Praveen
 - Music: "Gaming Game Video Game Music" by ViacheslavStarostin from Pixabay (Pixabay Content License)
 - Privacy Policy link (opens in legal modal)
@@ -226,7 +226,7 @@ Privacy Policy and Terms of Service open as **in-app modal overlays** with an if
 - Files are copied to `dist/legal/` during build
 
 ### Main Menu Footer
-- Version number (`v0.1.0`)
+- Version number (`v1.9.0`)
 - About button → opens About modal
 - Privacy button → opens Privacy Policy in legal modal
 
